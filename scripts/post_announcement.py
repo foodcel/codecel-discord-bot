@@ -1,5 +1,5 @@
 """Posts the bug bot launch announcement.
-Usage: python scripts/post_announcement.py --channel=<id> [--kind=bot|testers] [--ping | --role=<roleId>] --yes
+Usage: python scripts/post_announcement.py --channel=<id> [--kind=bot|testers|board] [--ping | --role=<roleId>] --yes
 --kind=testers posts the /bug announcement for testers. --role pings only that role.
 ONLY run this after the user approved the text AND the channel. It refuses to run without --yes and --channel.
 --ping adds an @everyone ping (only members who can see that channel are notified)."""
@@ -10,7 +10,7 @@ import discord
 
 from _boot import boot, finish
 
-from bot.botnews import bot_news_embeds, tester_news_embeds
+from bot.botnews import board_news_embeds, bot_news_embeds, tester_news_embeds
 
 
 def arg(name):
@@ -31,7 +31,7 @@ async def main():
     ch = await client.fetch_channel(int(channel_id))
     ping = '--ping' in sys.argv
     role = arg('role')
-    embeds = tester_news_embeds() if arg('kind') == 'testers' else bot_news_embeds()
+    embeds = {'testers': tester_news_embeds, 'board': board_news_embeds}.get(arg('kind'), bot_news_embeds)()
     msg = await ch.send(
         content=f'<@&{role}>' if role else '@everyone' if ping else None, embeds=embeds,
         allowed_mentions=discord.AllowedMentions(everyone=ping, roles=[discord.Object(id=int(role))] if role else False, users=False))

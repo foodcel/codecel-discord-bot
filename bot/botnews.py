@@ -61,3 +61,30 @@ def tester_news_embeds():
     section(e, head(E['lock'], 'Found an exploit?'),
             'If a bug lets players cheat or crash servers, do not post the details. Message a developer directly.')
     return [e]
+
+
+def board_news_embeds():
+    """The announcement for the bounty board that now runs from this bot. One embed."""
+    owner_id = os.environ.get('OWNER_ID') or ''
+    board = f'<#{cfg.bounty_id}>'
+    e = flat()
+    e.title = head(E['update'], 'New · the bounty board')
+    e.set_footer(text='Claims, progress and releases update the board by themselves.')
+    describe(e, f'The bounty board in {board} now runs from this bot, with a new look. Every claim moved over, nothing was lost.')
+    section(e, head('🏆', 'Top suggestions'),
+            'The 25 best-voted games nobody has claimed yet, ranked by votes in the suggestions forum. It updates as votes come in.')
+    section(e, head('🛠️', 'Unreleased games'),
+            'Every claimed game under its dev, with how far it is and whether the dev is working on it right now.')
+    section(e, head('✅', 'Released games'),
+            'Games that are out, with a link to play them.')
+    columns(e, [
+        {'name': head('⌨️', 'Commands'), 'lines': [
+            '`/claim` · take a game, add its Steam page with `link:`', '`/unclaim` · drop a game you claimed',
+            '`/progress` · how far it is, and if you are on it', '`/release` · the game is out, add its Roblox link',
+            '`/unrelease` · move a game back', '`/gamelink` · change a game\'s link']},
+        {'name': head(E['user'], 'Who can do what'), 'lines': [
+            '**Devs** · only their own games', '**Admins** · everything, plus `/assign`, `/exclude` and `/include`']},
+    ], '─' * 28)
+    if owner_id:
+        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    return [e]
