@@ -12,7 +12,7 @@ from .bounty import get_claims
 from .ctx import ctx, fetch_channel
 from .db import all_, kv_del, kv_get, kv_set, now, one, run
 from .devboard import on_boards_refreshed
-from .perms import can_manage, level
+from .perms import level, owns
 from .ui import E, EM, ZW, columns, cut, describe, flat, head, lkey, RULE, spacer
 
 FOOT_UNRELEASED = '\n'.join([
@@ -330,7 +330,7 @@ async def command_release(i, opts, undo=False):
     if not g:
         return await reply('That game is not in the released list.' if undo
                            else 'That game is not in the unreleased list. Claim it on the bounty-board first.', ephemeral=True)
-    if not can_manage(i.user, owner_ids(g)):
+    if not owns(i.user, owner_ids(g)):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
     if undo:
         run("UPDATE game_status SET status='unreleased', released_at=NULL WHERE key=?", k)
@@ -369,7 +369,7 @@ async def command_gamelink(i, opts):
     g = dev or rel
     if not g:
         return await reply('I do not know that game. Claim it on the bounty-board first.', ephemeral=True)
-    if not can_manage(i.user, owner_ids(g)):
+    if not owns(i.user, owner_ids(g)):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
     link = (opts.get('link') or '').strip()
     if not http(link):
@@ -391,7 +391,7 @@ async def command_progress(i, opts):
     k, _, g = _find(name)
     if not g:
         return await reply('That game is not in the unreleased list. Claim it on the bounty-board first.', ephemeral=True)
-    if not can_manage(i.user, owner_ids(g)):
+    if not owns(i.user, owner_ids(g)):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
     percent, working = opts.get('percent'), opts.get('working')
     if percent is None and working is None:

@@ -61,11 +61,10 @@ async def main():
             ok = ('UNRELEASED' in r and not lists['released'] and len(lists['unreleased']) == len(claims))
             if not ok:
                 problems.append(f'{who}: unrelease as {label} failed: {r}')
-        if not c['owners']:  # nobody owns it: any dev may release it, then an admin moves it back
+        if not c['owners']:  # nobody owns it: only an admin may change it
             r = await call(stranger, False, c['name'])
-            if 'RELEASED' not in r:
-                problems.append(f'{who}: unclaimed game could not be released by a dev: {r}')
-            await call(admin, True, c['name'])
+            if 'Only the dev' not in r:
+                problems.append(f'{who}: a dev could release a game nobody owns: {r}')
     # /gamelink: the link shows on the unreleased game, survives release / unrelease, and a stranger cannot set it
     c = claims[0]
     out = []
