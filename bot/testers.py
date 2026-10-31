@@ -13,7 +13,7 @@ from .ctx import ctx, fetch_channel
 from .db import all_, kv_get, kv_set, one, run
 from .env import cfg
 from .perms import level
-from .ui import E, ZW, describe, flat, gap, head, section
+from .ui import E, FILLER, ZW, describe, flat, gap, head, section
 
 MARK = {'active': '🟢', 'pending': '🟡', 'private': '🔒', 'inactive': '💤'}
 FIELDS = ('devices', 'recording', 'availability', 'best_for')
@@ -43,7 +43,7 @@ def report_counts():
 
 
 # ---- the two embeds ----
-def _wrap(text, width=56):
+def _wrap(text, width=78):
     """Short lines: a long paragraph would stretch the embed to its full width."""
     return '\n'.join(textwrap.wrap(text, width))
 
@@ -76,7 +76,7 @@ COMMANDS_FOOTER = '\n'.join([
     '/tester profile · fill in or update your own details',
     '/tester find · devs: find testers open for a device',
 ])
-WIDTH = chr(0x3164) * 24  # the width line: narrower than the other embeds, so it fits a phone
+WIDTH = FILLER  # both embeds use the widest width, so they are always exactly as wide as each other
 
 
 def _name(uid):
