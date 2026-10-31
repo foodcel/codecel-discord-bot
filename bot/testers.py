@@ -12,7 +12,7 @@ from .ctx import ctx, fetch_channel
 from .db import all_, kv_get, kv_set, one, run
 from .env import cfg
 from .perms import level
-from .ui import E, EM, ZW, describe, flat, gap, head, section
+from .ui import E, ZW, cut, describe, flat, gap, head, section
 
 MARK = {'active': '🟢', 'pending': '🟡', 'private': '🔒', 'inactive': '💤'}
 FIELDS = ('devices', 'recording', 'availability', 'best_for')
@@ -66,41 +66,48 @@ def guide_embed():
 
 
 LABEL = {'active': 'Active', 'private': 'Private', 'pending': 'Waiting for a reply', 'inactive': 'On a break'}
+COMMANDS_FOOTER = '\n'.join([
+    '/tester profile · fill in or update your own details',
+    '/tester find · devs: find testers open for a device',
+    '/tester add · admins: add a tester',
+    '/tester remove · admins: take a tester off the roster',
+    '/tester status · admins: open to every dev, private (one dev only), waiting or on a break',
+    '/tester edit · admins: change a tester\'s details',
+    '/tester post · admins: post this roster in a channel',
+])
 
 
-def _lines(r, reports):
-    """The lines under one tester in the tree."""
-    n = reports.get(r['user_id'], 0)
-    count = f'  ·  📝 {n} report{"" if n == 1 else "s"}' if n else ''
-    if r['status'] == 'pending' and not r['devices']:
-        return [f"<@{r['user_id']}>", '⏳ No response yet']
-    if r['status'] == 'inactive':
-        return [f"<@{r['user_id']}>", 'On a break: not available for testing']
-    out = [f"<@{r['user_id']}>{count}", f"🎮 {r['devices'] or '?'}  ·  🎥 {r['recording'] or '?'}", f"🕐 {r['availability'] or '?'}"]
-    if r['best_for']:
-        out.append(f"⭐ {r['best_for']}")
-    if r['status'] == 'private':
-        out.append(f"🔒 Only tests <@{r['only_for']}>'s games. Not offered to other devs." if r['only_for'] else '🔒 Private tester. Not offered to other devs.')
-    return out
+def _name(uid):
+    m = ctx.guild.get_member(int(uid)) if ctx.guild else None
+    return m.display_name if m else 'a dev'
 
 
-def _tree(rows, reports):
-    """A group of testers as a tree: each tester branches off, its details hang under it. Split into pieces that fit a field."""
-    pieces, cur = [], []
-    for k, r in enumerate(rows):
-        last = k == len(rows) - 1
-        lines = _lines(r, reports)
-        block = [f"{'└─' if last else '├─'} {lines[0]}"] + [f"{EM * 2 if last else '│' + EM}{EM}{ln}" for ln in lines[1:]]
-        if cur and sum(len(x) + 1 for x in cur) + sum(len(x) + 1 for x in block) > 950:
-            pieces.append(cur)
-            cur = []
-        cur += block
-    if cur:
-        pieces.append(cur)
-    return ['\n'.join(p) for p in pieces]
+def _rows(rows, reports):
+    """The roster as table rows: the tester (like a dev), then its details branching under it. [left, right] each."""
+    from .games import GAP_ROW
+    out = []
+    for r in rows:
+        n = reports.get(r['user_id'], 0)
+        title = f"<@{r['user_id']}>" + (f' · 📝 {n} report{"" if n == 1 else "s"}' if n else '')
+        out.append([title, ZW])
+        if r['status'] == 'pending' and not r['devices']:
+            kids = [('⏳ Status', 'No response yet')]
+        elif r['status'] == 'inactive':
+            kids = [('💤 Status', 'On a break')]
+        else:
+            kids = [('🎮 Devices', r['devices'] or '?'), ('🎥 Recording', r['recording'] or '?'), ('🕐 Free', r['availability'] or '?')]
+            if r['best_for']:
+                kids.append(('⭐ Best for', r['best_for']))
+            if r['status'] == 'private':
+                kids.append(('🔒 Private', f"Only tests {_name(r['only_for'])}'s games" if r['only_for'] else 'Only one dev'))
+        for k, (label, value) in enumerate(kids):
+            out.append([f"{'└─' if k == len(kids) - 1 else '├─'} **{label}**", cut(value, 34)])
+        out.append(GAP_ROW)
+    return out[:-1] if out else out
 
 
 def roster_embed():
+    from .games import GAP_ROW, table
     rows = everyone()
     reports = report_counts()
     count = {st: sum(1 for r in rows if r['status'] == st) for st in MARK}
@@ -108,12 +115,19 @@ def roster_embed():
     e.title = head('👥', 'Tester roster')
     parts = [f"{MARK[st]} **{n}** {label}" for st, label in (('active', 'active'), ('private', 'private'), ('pending', 'waiting for a reply'), ('inactive', 'on a break')) if (n := count[st])]
     describe(e, '  ·  '.join(parts) or 'Nobody on the roster yet.')
+    body = []
     for st in ('active', 'private', 'pending', 'inactive'):
         group = [r for r in rows if r['status'] == st][:30]
-        for k, piece in enumerate(_tree(group, reports)):
-            e.add_field(name=head(MARK[st], f'{LABEL[st]} · {count[st]}') if k == 0 else ZW, value=piece, inline=False)
+        if group:
+            if body:
+                body.append(GAP_ROW)
+            body.append([f'**{MARK[st]} {LABEL[st].upper()} · {count[st]}**', ZW])
+            body.append(GAP_ROW)
+            body += _rows(group, reports)
+    if body:
+        table(e, [head('👤', 'Testers'), head('ℹ️', 'Details')], body)
     gap(e)
-    e.set_footer(text='🟢 open to every dev · 🔒 private tester · 🟡 waiting for a reply · 💤 on a break · /tester profile to update yours')
+    e.set_footer(text=COMMANDS_FOOTER)
     return e
 
 
