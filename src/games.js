@@ -11,6 +11,7 @@ import { E, columns, cut, describe, flat, head } from './ui.js';
 // A dev marks a game released with /release (stored here, so it stays after the bounty-board drops it).
 // Names typed on the bounty-board ("YOU SHOULD MAKE DELTARUNE PLEASE") are turned into proper titles by Claude once and cached.
 const EPH = MessageFlags.Ephemeral;
+const NONE = '__none__'; // value of the "nothing here" autocomplete entry
 const key = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 const http = (u) => /^https?:\/\//i.test(u || '');
 const shortDate = (ts) => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -78,7 +79,7 @@ async function rowsByDev(entries) {
   }
   const devs = await Promise.all([...per].map(async ([id, list]) => ({ id, name: id === 'none' ? 'No dev' : await devName(id), list })));
   devs.sort((a, b) => b.list.length - a.list.length || a.name.localeCompare(b.name));
-  return devs.flatMap((d) => d.list.sort((a, b) => a.name.localeCompare(b.name)).map((g) => ({ dev: d.id === 'none' ? '—' : `<@${d.id}>`, ...g })));
+  return devs.flatMap((d) => d.list.sort((a, b) => a.name.localeCompare(b.name)).map((g) => ({ dev: d.id === 'none' ? '—' : cut(d.name, 14), ...g })));
 }
 
 // Three columns. Game names are cut to 19 characters so no column grows past its third of the embed: that is what keeps the
@@ -108,7 +109,7 @@ export async function gameEmbeds(lists = gameLists()) {
   describe(e1, `${E.fixed} **${nGames(rel)}** released`);
   if (rel.length) {
     table(e1, [head(E.user, 'Dev'), head(E.game, 'Game'), head(E.date, 'Released')],
-      rel.map((r) => [r.dev, http(r.link) ? `[**${cut(r.name, 19)}**](${r.link})` : `**${cut(r.name, 19)}**`, `<t:${Math.floor(r.at / 1000)}:d>`]));
+      rel.map((r) => [r.dev, http(r.link) ? `[**${cut(r.name, 19)}**](${r.link})` : `**${cut(r.name, 19)}**`, new Date(r.at).toISOString().slice(0, 10)]));
   } else e1.addFields({ name: '​', value: 'None yet.' });
 
   const e2 = flat().setTitle(head('🛠️', 'Unreleased games'))
@@ -116,7 +117,7 @@ export async function gameEmbeds(lists = gameLists()) {
   describe(e2, `🛠️ **${nGames(dev)}** in development`);
   if (dev.length) {
     table(e2, [head(E.user, 'Dev'), head(E.game, 'Game'), head(E.date, 'Since')],
-      dev.map((r) => [r.dev, `**${cut(r.name, 19)}**`, Number.isNaN(Date.parse(r.since)) ? '—' : `<t:${Math.floor(Date.parse(r.since) / 1000)}:d>`]));
+      dev.map((r) => [r.dev, `**${cut(r.name, 19)}**`, Number.isNaN(Date.parse(r.since)) ? '—' : r.since]));
   } else e2.addFields({ name: '​', value: 'None yet.' });
   return [e1, e2];
 }
@@ -132,7 +133,8 @@ export async function refreshGameBoard() {
   await ensureNames();
   await msg.edit({ embeds: await gameEmbeds() }).catch((e) => console.error('game board', e.message));
 }
-onBoardsRefreshed(refreshGameBoard);
+// Proper names are made as soon as the bounty-board is read (startup, or when a game is claimed), so the /release list is clean too.
+onBoardsRefreshed(async () => { await ensureNames(); await refreshGameBoard(); });
 
 // ---- commands ----
 export const gameCommandDefs = [
@@ -155,6 +157,11 @@ export async function autocompleteGames(i) {
   const all = i.commandName === 'release' ? unreleased : i.commandName === 'unrelease' ? released : [...unreleased, ...released];
   const out = all.map((g) => ({ name: cleanName(g.name).slice(0, 100), value: g.name.slice(0, 100) }))
     .filter((c) => c.name.toLowerCase().includes(q) || c.value.toLowerCase().includes(q));
+  // Discord shows "No options match" for an empty list, which looks broken. Say what is going on instead.
+  if (!out.length && !q) {
+    const none = i.commandName === 'unrelease' ? 'No games are released yet' : 'No games are waiting to be released';
+    return i.respond([{ name: none, value: NONE }]);
+  }
   await i.respond(out.slice(0, 25));
 }
 
@@ -166,6 +173,7 @@ const find = (name) => {
 
 export async function commandRelease(i, undo = false) {
   const name = i.options.getString('game');
+  if (name === NONE) return i.reply({ content: undo ? 'No games are released yet, so there is nothing to move back. Use `/release` first.' : 'No games are waiting to be released.', flags: EPH });
   const { k, rel, dev } = find(name);
   const g = undo ? rel : dev;
   if (!g) return i.reply({ content: undo ? 'That game is not in the released list.' : 'That game is not in the unreleased list. Claim it on the bounty-board first.', flags: EPH });
