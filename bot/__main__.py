@@ -167,6 +167,8 @@ async def on_guild_channel_update(before, after):
 
 @client.event
 async def on_interaction(i):
+    if i.type == discord.InteractionType.application_command:
+        print(f"/{i.data.get('name')} by {i.user}")
     try:
         await handle_interaction(i)
     except Exception:

@@ -261,6 +261,9 @@ async def game_embeds(lists=None):
 
 # ---- the live board message (posted once with /games post, then kept up to date) ----
 async def refresh_game_board():
+    from . import board
+    if board.is_live():  # the bounty board shows the same lists: a progress, link or release change must reach it
+        await board.refresh_board()
     ref = kv_get('gameboard')
     if not ref:
         return
@@ -284,9 +287,6 @@ async def _refresh_names_and_board():
     # Proper names are made as soon as the bounty-board is read (startup, or when a game is claimed), so the /release list is clean too.
     await ensure_names()
     await refresh_game_board()
-    from . import board
-    if board.is_live():
-        await board.refresh_board()
 
 
 on_boards_refreshed(_refresh_names_and_board)
@@ -313,10 +313,16 @@ async def autocomplete_games(i, command, focused):
 
 
 def _find(name):
+    """(key, released game, unreleased game). Matches the typed name, or the proper name shown in the list."""
     k = key(name)
     lists = game_lists()
-    return (k, next((g for g in lists['released'] if g['key'] == k), None),
-            next((g for g in lists['unreleased'] if g['key'] == k), None))
+
+    def pick(lst):
+        return next((g for g in lst if g['key'] == k), None) or next((g for g in lst if key(clean_name(g['name'])) == k), None)
+
+    rel, dev = pick(lists['released']), pick(lists['unreleased'])
+    found = dev or rel
+    return (found['key'] if found else k), rel, dev
 
 
 async def command_release(i, opts, undo=False):
