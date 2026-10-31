@@ -3,7 +3,7 @@ the bot does with a post, so its automatic replies never come as a surprise."""
 import discord
 
 from .env import cfg
-from .ui import WIDE_RULE, ZW, describe, head
+from .ui import WIDE_RULE, describe, head
 
 RED = 0xED4245
 NEW_GAMES = '1562961976387174452'  # where whole new game ideas go
