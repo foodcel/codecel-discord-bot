@@ -16,7 +16,8 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 
 echo "==> Syntax check"
-PYBIN="$(command -v python3 || command -v python)"
+PYBIN=python3
+"$PYBIN" --version >/dev/null 2>&1 || PYBIN=python  # Windows has no working python3
 "$PYBIN" -m compileall -q bot scripts
 
 echo "==> Pushing to GitHub"
