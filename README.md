@@ -20,6 +20,8 @@ Built with Python (discord.py), SQLite and the Anthropic API (Claude Haiku by de
 - **Fix log**: a pinned post with fixed / open counts per game and every fix with its transcript.
 - **Update announcements**: after 3 fixes the bot drafts an update. Devs press Post, Edit or Later, or use `/update`. What a dev types is rewritten by Claude into clean patch notes.
 
+**Suggestions** (optional, `SUGGESTIONS_CHANNEL_ID` and `DEV_SUGGESTIONS_FORUM_ID`): the same idea for a forum where players suggest improvements. Claude checks each post, tags the game, asks for what is missing, spots duplicates and sends it to the dev who owns the game, on a suggestion board in its own dev-only forum (with the 🙏 votes). Devs type `12 added` or `7 declined`, or use the buttons; the player is pinged and the post is deleted after 24 hours. Added suggestions go into the update announcements next to the bug fixes. A bug posted there becomes a normal bug and the player is told. The bot creates the Added / Declined / Duplicate / Needs Info tags in that forum itself.
+
 **Testers**: `/bug` opens a form (up to 10 screenshots and 5 videos) in the tester channel, creates a thread there and sends the bug to the owning dev's board.
 
 **Offline-safe**: when the bot starts it catches up on everything it missed (new posts, replies, timers, deletes).

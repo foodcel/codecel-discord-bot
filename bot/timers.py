@@ -11,7 +11,7 @@ from .ui import E, EM
 async def _exec(t):
     if t['kind'] == 'delete_thread':
         bug = bug_by_thread(t['target'])
-        if bug and bug['status'] not in ('fixed', 'duplicate'):
+        if bug and bug['status'] not in ('fixed', 'duplicate', 'declined'):
             return  # reopened meanwhile
         thread = await fetch_channel(t['target'])
         if thread:

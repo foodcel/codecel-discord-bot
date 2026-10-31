@@ -6,7 +6,7 @@ import time
 import aiohttp
 import discord
 
-from .ai import draft_bug_fixes, polish_updates
+from .ai import draft_bug_fixes, draft_new_features, polish_updates
 from .bounty import owners_for
 from .components import NO_MENTIONS, allowed, button, make_view
 from .ctx import fetch_channel
@@ -136,7 +136,8 @@ def _no_channel_warning():
 
 def offer_text(game, p):
     owners = ' '.join(f'<@{o}>' for o in p['owners']) + ' ' if p['owners'] else ''
-    return (f"{owners}{E['update']} **{len(p['bugIds'])} FIXES READY**{EM}·{EM}{game['name']}"
+    n = len(p['bugIds']) + len(p.get('newIds', []))
+    return (f"{owners}{E['update']} **{n} {'CHANGES' if p.get('newIds') else 'FIXES'} READY**{EM}·{EM}{game['name']}"
             + ('' if (game.get('announce_channel_id') or cfg.updates_id) else _no_channel_warning()))
 
 
@@ -147,28 +148,40 @@ async def draft_payload(pending_id):
     warn = '' if (game.get('announce_channel_id') or cfg.updates_id) else _no_channel_warning()
     return {
         'content': offer_text(game, p) if p.get('offer') else f"{E['update']} **DRAFT**{EM}·{EM}{game['name']}{warn}",
-        'embeds': await build_embeds(game, p['bugfixes'], p['updates'], p.get('version') or ''),
+        'embeds': await build_embeds(game, p['bugfixes'], all_updates(p), p.get('version') or ''),
         'view': draft_view(pending_id),
         'allowed_mentions': NO_MENTIONS,
     }
 
 
-async def polish_fixes(tag_id, game):
-    """Polishes the pending bug fixes with Claude (falls back to raw titles). Returns (fixes, lines)."""
-    fixes = unannounced(tag_id)
-    lines = [f['title'] for f in fixes]
+def split_kinds(fixes):
+    return [f for f in fixes if f['kind'] == 'bug'], [f for f in fixes if f['kind'] == 'suggestion']
+
+
+async def _lines(game_name, items, suggestion):
+    """Patch-note lines for fixed bugs, or for added suggestions (falls back to the raw titles)."""
+    lines = [f['title'] for f in items]
+    if not items:
+        return lines
     try:
-        out = await draft_bug_fixes(game['name'], fixes)
-        if len(out) == len(fixes):
+        out = await (draft_new_features if suggestion else draft_bug_fixes)(game_name, items)
+        if len(out) == len(items):
             lines = out
     except Exception as e:
-        print('draftBugFixes', e)
-    return fixes, lines
+        print('draft lines', e)
+    return lines
+
+
+async def polish_fixes(tag_id, game):
+    """Polishes the pending changes with Claude (falls back to raw titles).
+    Returns (fixed bugs, their lines, added suggestions, their lines)."""
+    bugs, sugs = split_kinds(unannounced(tag_id))
+    return bugs, await _lines(game['name'], bugs, False), sugs, await _lines(game['name'], sugs, True)
 
 
 async def maybe_offer(tag_id):
-    """Starts an offer once the game has enough fixes (default 3). While the draft is open it keeps growing
-    as more bugs are fixed (3 -> 4 -> 5 ...), and edits itself in place."""
+    """Starts an offer once the game has enough changes (default 3: fixed bugs and added suggestions). While the draft is open it
+    keeps growing as more are done (3 -> 4 -> 5 ...), and edits itself in place."""
     if not tag_id:
         return
     game = upsert_game(tag_id, tag_name(tag_id) or tag_id)
@@ -183,9 +196,10 @@ async def maybe_offer(tag_id):
         kv_del(f'offer:{tag_id}')
     if len(fixes) < max(game['threshold'], game['next_offer_at']):
         return
-    _, lines = await polish_fixes(tag_id, game)
+    bugs, lines, sugs, sug_lines = await polish_fixes(tag_id, game)
     owners = owners_for(tag_id, game['name'])
-    pid = create_pending({'tagId': tag_id, 'bugIds': [f['id'] for f in fixes], 'bugfixes': lines, 'updates': [],
+    pid = create_pending({'tagId': tag_id, 'bugIds': [f['id'] for f in bugs], 'bugfixes': lines,
+                          'newIds': [f['id'] for f in sugs], 'newLines': sug_lines, 'updates': [],
                           'version': '', 'owners': owners, 'offer': True})
     t = await dev_thread(owners[0] if owners else 'unclaimed', True)
     if not t:
@@ -199,32 +213,32 @@ async def maybe_offer(tag_id):
     kv_set(f'offer:{tag_id}', pid)
 
 
-async def refresh_draft(pid, p, game, fixes):
-    have = set(p['bugIds'])
-    fresh = [f for f in fixes if f['id'] not in have]
-    gone = [i for i in p['bugIds'] if not any(f['id'] == i for f in fixes)]
-    if not fresh and not gone:
-        return
-    bug_ids = list(p['bugIds'])
-    bugfixes = list(p['bugfixes'])
-    if gone and len(bugfixes) == len(bug_ids):  # reopened bugs leave the draft (only when lines still line up)
+async def _merge(ids, lines, current, game, suggestion):
+    """Brings one list of ids and its lines up to date: new ones are added, reopened ones leave. Returns (ids, lines, changed)."""
+    have = set(ids)
+    fresh = [f for f in current if f['id'] not in have]
+    gone = [i for i in ids if not any(f['id'] == i for f in current)]
+    ids, lines = list(ids), list(lines)
+    if gone and len(lines) == len(ids):  # reopened ones leave the draft (only when lines still line up)
         for i in gone:
-            k = bug_ids.index(i)
-            del bug_ids[k]
-            del bugfixes[k]
+            k = ids.index(i)
+            del ids[k]
+            del lines[k]
     else:
-        bug_ids = [i for i in bug_ids if i not in gone]
+        ids = [i for i in ids if i not in gone]
     if fresh:
-        lines = [f['title'] for f in fresh]
-        try:
-            out = await draft_bug_fixes(game['name'], fresh)
-            if len(out) == len(fresh):
-                lines = out
-        except Exception as e:
-            print('draftBugFixes', e)
-        bug_ids.extend(f['id'] for f in fresh)
-        bugfixes.extend(lines)  # manual edits to older lines are kept, new fixes are appended
-    nxt = {**p, 'bugIds': bug_ids, 'bugfixes': bugfixes}
+        lines.extend(await _lines(game['name'], fresh, suggestion))  # manual edits to older lines are kept, new ones are appended
+        ids.extend(f['id'] for f in fresh)
+    return ids, lines, bool(fresh or gone)
+
+
+async def refresh_draft(pid, p, game, fixes):
+    bugs, sugs = split_kinds(fixes)
+    bug_ids, bugfixes, c1 = await _merge(p['bugIds'], p['bugfixes'], bugs, game, False)
+    new_ids, new_lines, c2 = await _merge(p.get('newIds', []), p.get('newLines', []), sugs, game, True)
+    if not (c1 or c2):
+        return
+    nxt = {**p, 'bugIds': bug_ids, 'bugfixes': bugfixes, 'newIds': new_ids, 'newLines': new_lines}
     set_pending(pid, nxt)
     ch = await fetch_channel(p['channelId'])
     try:
@@ -239,6 +253,11 @@ async def refresh_draft(pid, p, game, fixes):
     await msg.edit(content=offer_text(game, nxt), embeds=payload['embeds'], view=payload['view'], allowed_mentions=NO_MENTIONS)
 
 
+def all_updates(p):
+    """What the update lists under "new": the lines a dev typed, then the suggestions that were added."""
+    return list(p['updates']) + list(p.get('newLines', []))
+
+
 async def post_announcement(pending_id):
     """Posts the draft in the game's announcement channel. Returns {'ok', 'url'} or {'ok': False, 'msg'}."""
     p = get_pending(pending_id)
@@ -251,12 +270,13 @@ async def post_announcement(pending_id):
     role = game.get('ping_role_id')
     sent = await ch.send(
         content=f'<@&{role}>' if role else None,
-        embeds=await build_embeds(game, p['bugfixes'], p['updates'], p.get('version') or ''),
+        embeds=await build_embeds(game, p['bugfixes'], all_updates(p), p.get('version') or ''),
         allowed_mentions=allowed(roles=[role] if role else []))
-    for i in p['bugIds']:
+    ids = list(p['bugIds']) + list(p.get('newIds', []))
+    for i in ids:
         update_bug(i, {'announced': 1})
     run('INSERT INTO announcements(tag_id,game_name,posted_at,url,bug_ids) VALUES(?,?,?,?,?)',
-        p['tagId'], game['name'], now(), sent.jump_url, json.dumps(p['bugIds']))
+        p['tagId'], game['name'], now(), sent.jump_url, json.dumps(ids))
     schedule_boards()
     del_pending(pending_id)
     kv_del(f"offer:{p['tagId']}")

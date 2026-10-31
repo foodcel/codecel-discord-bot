@@ -16,7 +16,8 @@ from .fixlog import backfill_snapshots
 from .intake import intake_thread
 from .interactions import handle_interaction
 from .router import handle_message
-from .tags import load_tags
+from . import suggest
+from .tags import ensure_suggest_tags, load_tags
 from .timers import run_timers
 
 intents = discord.Intents.none()
@@ -67,6 +68,7 @@ async def on_ready():
     ctx.guild = client.get_guild(int(cfg.guild_id)) or await client.fetch_guild(int(cfg.guild_id))
     print(f'Logged in as {client.user}')
     await load_tags()
+    await ensure_suggest_tags()
     await register_commands()
     if board.is_live():  # this bot runs the bounty board: read the forum again before anything uses the claims
         try:
@@ -106,6 +108,13 @@ async def on_ready():
 @client.event
 async def on_thread_create(thread):
     board.on_thread_create(thread)
+    if cfg.suggestions_id and str(thread.parent_id) == cfg.suggestions_id and ctx.guild:
+        await sleep(1500)
+        try:
+            await suggest.intake_suggestion(thread)
+        except Exception:
+            traceback.print_exc()
+        return
     if str(thread.parent_id) != cfg.bugs_id or not ctx.guild:
         return
     await sleep(1500)
@@ -134,21 +143,25 @@ async def on_raw_message_edit(payload):
 @client.event
 async def on_raw_reaction_add(p):
     await board.on_vote_change(p.channel_id, p.message_id)
+    await suggest.on_vote_change(p.channel_id, p.message_id)
 
 
 @client.event
 async def on_raw_reaction_remove(p):
     await board.on_vote_change(p.channel_id, p.message_id)
+    await suggest.on_vote_change(p.channel_id, p.message_id)
 
 
 @client.event
 async def on_raw_reaction_clear(p):
     await board.on_vote_change(p.channel_id, p.message_id)
+    await suggest.on_vote_change(p.channel_id, p.message_id)
 
 
 @client.event
 async def on_raw_reaction_clear_emoji(p):
     await board.on_vote_change(p.channel_id, p.message_id)
+    await suggest.on_vote_change(p.channel_id, p.message_id)
 
 
 @client.event
@@ -158,7 +171,7 @@ async def on_raw_thread_delete(p):
 
 @client.event
 async def on_guild_channel_update(before, after):
-    if str(after.id) == cfg.bugs_id:
+    if str(after.id) in (cfg.bugs_id, cfg.suggestions_id):
         try:
             await load_tags()
         except Exception:

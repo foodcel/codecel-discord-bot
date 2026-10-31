@@ -19,6 +19,10 @@ NOTE = {
     'fixing': f"{E['fixing']} **FIXING**{EM}·{EM}A fix is in progress.",
     'not_a_bug': f"{E['notbug']} **NOT A BUG**{EM}·{EM}Reviewed as intended behavior or a feature request. Thanks for reporting! Suggestions go in the suggestions channel.",
     'duplicate': f"{E['duplicate']} **DUPLICATE**{EM}·{EM}This was already reported. Please follow the original report.",
+    'declined': f"❌ **DECLINED**{EM}·{EM}The developers decided not to add this. Thanks for the idea! This post is removed in 24 hours.",
+}
+NOTE_SUGGESTION = {
+    'duplicate': f"{E['duplicate']} **DUPLICATE**{EM}·{EM}This was already suggested. Please add your vote to the original post.",
 }
 
 
@@ -38,13 +42,13 @@ async def mark_fixed(bug, actor_id):
     fire(snapshot_bug(bug_by_id(bug['id'])), 'snapshot')
     thread = None if bug['deleted'] else await fetch_channel(bug['thread_id'])
     if thread:
-        await set_tags(thread, status='fixed')
+        await set_tags(thread, status='fixed', kind=bug['kind'])
         extra = []
         try:
             starter = await thread.fetch_message(thread.id)
         except Exception:
             starter = None
-        eyes = next((r for r in (starter.reactions if starter else []) if str(r.emoji) == '👀'), None)
+        eyes = next((r for r in (starter.reactions if starter else []) if str(r.emoji) == ('🙏' if bug['kind'] == 'suggestion' else '👀')), None)
         if eyes:
             try:
                 users = [u async for u in eyes.users(limit=11)]
@@ -52,11 +56,14 @@ async def mark_fixed(bug, actor_id):
             except Exception:
                 extra = []
         pings = [bug['reporter_id'], *extra]
+        if bug['kind'] == 'suggestion':
+            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **ADDED**{EM}·{EM}{bug['title']} (#{bug['id']}). Thanks for the idea!\n"
+                    'This post closes now and is deleted in 24 hours.')
+        else:
+            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **FIXED**{EM}·{EM}{bug['title']} (#{bug['id']}). Thanks for reporting!\n"
+                    'This post closes now and is deleted in 24 hours. If it is still broken, reply here before then.')
         try:
-            await thread.send(
-                content=f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **FIXED**{EM}·{EM}{bug['title']} (#{bug['id']}). Thanks for reporting!\n"
-                        'This post closes now and is deleted in 24 hours. If it is still broken, reply here before then.',
-                allowed_mentions=allowed(users=pings))
+            await thread.send(content=text, allowed_mentions=allowed(users=pings))
         except Exception as e:
             print('fixed msg', e)
         try:
@@ -75,17 +82,21 @@ async def set_bug_status(bug, status, actor_id):
     update_bug(bug['id'], {'status': status})
     thread = None if bug['deleted'] else await fetch_channel(bug['thread_id'])
     if thread:
-        await set_tags(thread, status=None if status == 'new' else status)
-        if NOTE.get(status):
+        await set_tags(thread, status=None if status == 'new' else status, kind=bug['kind'])
+        note = (NOTE_SUGGESTION if bug['kind'] == 'suggestion' else {}).get(status) or NOTE.get(status)
+        if note:
             try:
-                await thread.send(NOTE[status])
+                await thread.send(note)
             except Exception:
                 pass
-        if status in ('not_a_bug', 'duplicate'):
+        if status in ('not_a_bug', 'duplicate', 'declined'):
             try:
                 await thread.edit(archived=True)
             except Exception:
                 pass
+    if (status == 'declined' or (status == 'duplicate' and bug['kind'] == 'suggestion')) and thread:
+        cancel_timers('delete_thread', bug['thread_id'])
+        add_timer('delete_thread', bug['thread_id'], now() + DAY)
     schedule_boards()
 
 
@@ -104,14 +115,24 @@ async def reopen(bug):
     fire(maybe_offer(bug['game_tag_id']), 'offer')  # drops it from a pending draft
 
 
-async def apply_status(ids, status, member):
-    """ids: bug numbers. Returns (done, skipped) lists of short strings for the dev."""
+async def apply_status(ids, status, member, kind=None):
+    """ids: bug or suggestion numbers. kind: the forum the dev typed in ('bug' or 'suggestion'), or None.
+    Returns (done, skipped) lists of short strings for the dev."""
     done = []
     skipped = []
     for id_ in ids:
         bug = bug_by_id(id_)
         if not bug or bug['status'] in ('removed', 'closed') or bug['status'].startswith('exploit'):
             skipped.append(f'#{id_} not found')
+            continue
+        if kind and bug['kind'] != kind:
+            skipped.append(f"#{id_} is a {bug['kind']}")
+            continue
+        if bug['kind'] == 'suggestion' and status not in ('fixed', 'declined', 'duplicate', 'new'):
+            skipped.append(f'#{id_} is a suggestion: use added, declined or duplicate')
+            continue
+        if bug['kind'] == 'bug' and status == 'declined':
+            skipped.append(f'#{id_} is a bug: use fixed, not a bug or duplicate')
             continue
         owners = owners_for(bug['game_tag_id'], bug['game_name'])
         if not can_manage(member, owners):

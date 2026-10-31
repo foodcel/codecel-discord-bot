@@ -39,15 +39,24 @@ async def bug_embeds(bug):
     quote = f"\n\n> {re.sub(r'\n+', '\n> ', media['text'])[:700]}" if media['text'] else ''
     embed = flat()
     embed.url = url
-    embed.title = head(E['open'], f"#{bug['id']} · {bug['game_name'] or 'Unknown game'}")
-    embed.set_footer(text=f"Bug #{bug['id']} · reported")
+    suggestion = bug.get('kind') == 'suggestion'
+    embed.title = head('💡' if suggestion else E['open'], f"#{bug['id']} · {bug['game_name'] or 'Unknown game'}")
+    embed.set_footer(text=f"{'Suggestion' if suggestion else 'Bug'} #{bug['id']} · {'posted' if suggestion else 'reported'}")
     embed.timestamp = datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc)
     describe(embed, f"### {bug['title']}\n{bug['summary'] or ''}{quote}"[:3900], FILLER_SHORT if media['images'] else FILLER)
-    columns(embed, [
-        {'name': head(E['status'], 'Status'), 'lines': [STATUS.get(bug['status'], bug['status']), ZW]},
-        {'name': head(E['severity'], 'Severity'), 'lines': [SEVERITY.get(bug['severity']) or '?', ZW]},
-        {'name': head(E['device'], 'Device'), 'lines': [', '.join(devices) or 'Not given', ZW]},
-    ], '')  # no rule lines on this page
+    if suggestion:
+        label = {'new': f"{E['new']} New", 'fixed': f"{E['fixed']} Added", 'declined': '❌ Declined'}.get(bug['status']) or STATUS.get(bug['status'], bug['status'])
+        columns(embed, [
+            {'name': head(E['status'], 'Status'), 'lines': [label, ZW]},
+            {'name': head('🙏', 'Votes'), 'lines': [str(bug['votes']), ZW]},
+            {'name': head(E['game'], 'Game'), 'lines': [bug['game_name'] or 'Not given', ZW]},
+        ], '')
+    else:
+        columns(embed, [
+            {'name': head(E['status'], 'Status'), 'lines': [STATUS.get(bug['status'], bug['status']), ZW]},
+            {'name': head(E['severity'], 'Severity'), 'lines': [SEVERITY.get(bug['severity']) or '?', ZW]},
+            {'name': head(E['device'], 'Device'), 'lines': [', '.join(devices) or 'Not given', ZW]},
+        ], '')  # no rule lines on this page
     if reporter:
         embed.set_author(name=reporter.display_name, icon_url=reporter.display_avatar.url)
     if media['videos']:
@@ -67,7 +76,7 @@ async def render_view(member, key, game, bug_id):
     """The private page. Returns {'content', 'embeds', 'view'} for send / edit calls."""
     lst = list_for(key, game)
     if not lst:
-        return {'content': 'No more open bugs here 🎉', 'embeds': [], 'view': None}
+        return {'content': f"No more open {'suggestions' if key.startswith('S') else 'bugs'} here 🎉", 'embeds': [], 'view': None}
     idx = next((i for i, b in enumerate(lst) if b['id'] == bug_id), -1)
     if idx < 0:
         nxt = next((i for i, b in enumerate(lst) if b['id'] > bug_id), -1)
@@ -83,7 +92,13 @@ async def render_view(member, key, game, bug_id):
         button(cid('n'), 'Next ▶', discord.ButtonStyle.secondary, idx == len(lst) - 1),
     ]]
     manage = can_manage(member, owners_for(bug['game_tag_id'], bug['game_name']))
-    if manage:
+    if manage and bug['kind'] == 'suggestion':
+        rows.append([
+            button(cid('st', ':fixed'), '✅ Added', discord.ButtonStyle.success),
+            button(cid('st', ':declined'), '❌ Declined'),
+            button(cid('st', ':duplicate'), f"{E['duplicate']} Duplicate"),
+        ])
+    elif manage:
         rows.append([
             button(cid('st', ':investigating'), '🔎 Investigating'),
             button(cid('st', ':fixing'), '🛠️ Fixing'),
@@ -96,7 +111,7 @@ async def render_view(member, key, game, bug_id):
         tools.append(button(cid('note'), '🎮 Set game / add note'))
     tools.append(link_button('Open post', thread_link(bug['thread_id'])))
     rows.append(tools)
-    return {'content': f'Bug {idx + 1} of {len(lst)}', 'embeds': await bug_embeds(bug), 'view': make_view(rows)}
+    return {'content': f"{'Suggestion' if bug['kind'] == 'suggestion' else 'Bug'} {idx + 1} of {len(lst)}", 'embeds': await bug_embeds(bug), 'view': make_view(rows)}
 
 
 async def open_game(i, key, game):
@@ -108,7 +123,7 @@ async def open_game(i, key, game):
         pass
     lst = list_for(key, game)
     if not lst:
-        return await i.edit_original_response(content='No open bugs for that game.')
+        return await i.edit_original_response(content=f"No open {'suggestions' if key.startswith('S') else 'bugs'} for that game.")
     return await i.edit_original_response(**await render_view(i.user, key, game, lst[0]['id']))
 
 

@@ -168,9 +168,10 @@ def lines_of(s):
 async def modal_update(i, tag_id, fields):
     game = upsert_game(tag_id, tag_name(tag_id))
     await i.response.defer(thinking=True)
-    fixes, fix_lines = await polish_fixes(tag_id, game)
+    fixes, fix_lines, sugs, sug_lines = await polish_fixes(tag_id, game)
     pid = create_pending({
         'tagId': tag_id, 'bugIds': [f['id'] for f in fixes], 'bugfixes': fix_lines,
+        'newIds': [f['id'] for f in sugs], 'newLines': sug_lines,
         'updates': await polish_dev_updates(game['name'], lines_of(fields.get('updates'))),  # Claude rewrites what the dev typed
         'version': (fields.get('version') or '').strip(),
         'owners': owner_of(tag_id),
@@ -187,7 +188,7 @@ async def button_ann(i, action, pid):
     if action == 'edit':
         return await i.response.send_modal(FormModal(f'annedit:{pid}', 'Edit announcement', [
             form_input('bugfixes', 'Bug fixes (one per line)', 'paragraph', '\n'.join(p['bugfixes'])),
-            form_input('updates', 'Updates (one per line)', 'paragraph', '\n'.join(p['updates'])),
+            form_input('updates', 'Updates (one per line)', 'paragraph', '\n'.join(p['updates'] + p.get('newLines', []))),
             form_input('version', 'Version (optional)', 'short', p.get('version')),
         ]))
     if action == 'later':
@@ -211,8 +212,11 @@ async def modal_ann_edit(i, pid, fields):
         await i.response.defer(thinking=True)
     # Only update lines the dev changed get rewritten again; untouched ones keep their wording.
     typed = lines_of(fields.get('updates'))
-    updates = p['updates'] if '\n'.join(typed) == '\n'.join(p['updates']) else await polish_dev_updates(get_game(p['tagId'])['name'], typed)
+    before = p['updates'] + p.get('newLines', [])
+    same = '\n'.join(typed) == '\n'.join(before)
+    updates = p['updates'] if same else await polish_dev_updates(get_game(p['tagId'])['name'], typed)
     set_pending(pid, {**p, 'bugfixes': lines_of(fields.get('bugfixes')), 'updates': updates,
+                      'newLines': p.get('newLines', []) if same else [],
                       'version': (fields.get('version') or '').strip()})
     payload = await draft_payload(pid)
     if from_message:

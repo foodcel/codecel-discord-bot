@@ -66,7 +66,7 @@ def stored_transcript(id_):
 def stats():
     rows = all_("""SELECT game_tag_id tag, MAX(game_name) name,
         SUM(status='fixed') fixed, SUM(status IN ('new','investigating','fixing')) open, MAX(fixed_at) last_fix
-        FROM bugs GROUP BY game_tag_id""")
+        FROM bugs WHERE kind='bug' GROUP BY game_tag_id""")
     ann = {r['tag_id']: r['n'] for r in all_('SELECT tag_id, COUNT(*) n FROM announcements GROUP BY tag_id')}
     out = []
     for r in rows:
@@ -161,7 +161,7 @@ on_boards_refreshed(refresh_log)
 async def render_log(tag, page=0):
     """A game's log page (private): same look, same columns. Returns {'content', 'embeds', 'view'}."""
     where, args = _game_where(tag)
-    fixes = all_(f"SELECT * FROM bugs WHERE status='fixed' AND {where} ORDER BY fixed_at DESC", *args)
+    fixes = all_(f"SELECT * FROM bugs WHERE kind='bug' AND status='fixed' AND {where} ORDER BY fixed_at DESC", *args)
     pages = max(1, -(-len(fixes) // PER_PAGE))
     page = min(max(0, page), pages - 1)
     sl = fixes[page * PER_PAGE: page * PER_PAGE + PER_PAGE]

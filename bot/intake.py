@@ -56,7 +56,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
     games = [t['name'] for t in game_tags()]
     picked = [n for n in (tag_name(i) for i in applied_ids(thread)) if n]
     known = all_("""SELECT id,title,summary,status,game_name FROM bugs
-        WHERE id<>? AND status IN ('new','needs_info','investigating','fixing','fixed') AND deleted IN (0,1)
+        WHERE kind='bug' AND id<>? AND status IN ('new','needs_info','investigating','fixing','fixed') AND deleted IN (0,1)
         ORDER BY id DESC LIMIT 40""", bug['id'])
     try:
         a = await analyze_report(re.sub(r'^#\d+\s+', '', thread.name), report['text'], picked, games,
@@ -112,7 +112,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 
     # 3. Duplicate.
     dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') and a['duplicate_of'] != bug['id'] else None
-    if dup and not silent:
+    if dup and dup['kind'] == 'bug' and not silent:
         update_bug(bug['id'], {'status': 'duplicate', 'dup_of': dup['id']})
         ref = (f"#{dup['id']} \"{dup['title']}\"" if dup['deleted']
                else f"[#{dup['id']} {dup['title']}]({thread_link(dup['thread_id'])})")

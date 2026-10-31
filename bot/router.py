@@ -10,6 +10,7 @@ from .fixes import apply_status
 from .intake import handle_bug_message
 from .parse import parse_command
 from .perms import level
+from .suggest import handle_suggestion_message
 
 
 async def _member_of(msg):
@@ -24,7 +25,7 @@ async def _delete_later(m, seconds):
         pass
 
 
-async def handle_dev(msg):
+async def handle_dev(msg, kind='bug'):
     member = await _member_of(msg)
     lvl = level(member)
     if lvl == 'jr':
@@ -43,7 +44,7 @@ async def handle_dev(msg):
     cmd = parse_command(msg.content)
     if not cmd or not cmd['ids']:
         return
-    done, skipped = await apply_status(cmd['ids'], cmd['status'], member)
+    done, skipped = await apply_status(cmd['ids'], cmd['status'], member, kind)
     try:
         await msg.add_reaction('✅' if done else '❌')
     except Exception:
@@ -77,6 +78,29 @@ async def handle_bug_thread(msg):
     handle_bug_message(msg)
 
 
+async def handle_suggestion_thread(msg):
+    bug = bug_by_thread(msg.channel.id)
+    if not bug:
+        return
+    if bug['kind'] == 'bug':  # a suggestion that turned out to be a bug: it is handled like any bug post
+        return await handle_bug_thread(msg)
+    run('UPDATE bugs SET last_msg_id=? WHERE id=?', str(msg.id), bug['id'])
+    if msg.author.bot:
+        return
+    member = await _member_of(msg)
+    if level(member) in ('admin', 'dev'):
+        cmd = parse_command(msg.content)
+        if cmd:
+            done, _ = await apply_status(cmd['ids'] or [bug['id']], cmd['status'], member, 'suggestion')
+            if done:
+                try:
+                    await msg.add_reaction('✅')
+                except Exception:
+                    pass
+                return
+    handle_suggestion_message(msg)
+
+
 async def handle_message(msg):
     if not msg.guild or not isinstance(msg.channel, discord.Thread):
         return
@@ -87,5 +111,12 @@ async def handle_message(msg):
         if msg.author.bot:
             return
         return await handle_dev(msg)
+    if cfg.dev_suggestions_id and parent == cfg.dev_suggestions_id:
+        kv_set(f'devlast:{ch.id}', msg.id)
+        if msg.author.bot:
+            return
+        return await handle_dev(msg, 'suggestion')
+    if cfg.suggestions_id and parent == cfg.suggestions_id:
+        return await handle_suggestion_thread(msg)
     if parent == cfg.bugs_id or (cfg.testing_id and parent == cfg.testing_id):
         return await handle_bug_thread(msg)

@@ -2,12 +2,13 @@
 import re
 
 _KEYS = [
+    (re.compile(r'\bdeclined?\b|\brejected\b|\bwont\s*add\b'), 'declined'),
     (re.compile(r'\bnot\s+a\s+bug\b|\bintended\b'), 'not_a_bug'),
     (re.compile(r'\bin\s+progress\b|\bfixing\b|\bwip\b'), 'fixing'),
     (re.compile(r'\binvestigating\b|\blooking\b'), 'investigating'),
     (re.compile(r'\bduplicate\b|\bdupe\b'), 'duplicate'),
     (re.compile(r'\breopen(?:ed)?\b'), 'new'),
-    (re.compile(r'\bfixed\b|\bresolved\b|\bdone\b'), 'fixed'),
+    (re.compile(r'\bfixed\b|\bresolved\b|\bdone\b|\badded\b|\bimplemented\b'), 'fixed'),
 ]
 
 
@@ -24,7 +25,7 @@ def parse_command(text):
             break
     if not status:
         return None
-    t = re.sub(r'\bbugs?\b|#|[.!:]', ' ', t)
+    t = re.sub(r'\bbugs?\b|\bsuggestions?\b|#|[.!:]', ' ', t)
     t = re.sub(r'\s*(?:-|–|—|\bto\b|\bthrough\b)\s*', '-', t)
     t = re.sub(r'\band\b|&|,', ' ', t)
     ids = []

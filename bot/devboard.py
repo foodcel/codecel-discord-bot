@@ -25,20 +25,48 @@ async def _serial(key, fn):
             return None
 
 
+def kind_of(key):
+    """Board keys: a user id, or 'unclaimed' for the bug boards; the same with an S in front for the suggestion boards."""
+    return 'suggestion' if key.startswith('S') else 'bug'
+
+
+def base_key(key):
+    return key[1:] if key.startswith('S') else key
+
+
 def open_bugs_for(key):
-    rows = all_("SELECT * FROM bugs WHERE routed=1 AND deleted=0 AND status IN ('new','investigating','fixing') ORDER BY id")
+    kind, base = kind_of(key), base_key(key)
+    statuses = "('new','investigating','fixing')" if kind == 'bug' else "('new')"
+    rows = all_(f"SELECT * FROM bugs WHERE kind=? AND routed=1 AND deleted=0 AND status IN {statuses} ORDER BY id", kind)
     out = []
     for b in rows:
         owners = owners_for(b['game_tag_id'], b['game_name'])
-        if (len(owners) == 0) if key == 'unclaimed' else (key in owners):
+        if (len(owners) == 0) if base == 'unclaimed' else (base in owners):
             out.append(b)
     return out
 
 
 def board_embed(key):
     bugs = open_bugs_for(key)
+    kind, base = kind_of(key), base_key(key)
     e = flat()
-    e.title = head(E['game'] if key == 'unclaimed' else '😊', 'Unclaimed games' if key == 'unclaimed' else 'Your bug board')
+    if kind == 'suggestion':
+        e.title = head(E['game'] if base == 'unclaimed' else '💡', 'Unclaimed games' if base == 'unclaimed' else 'Your suggestion board')
+        e.set_footer(text='Pick a game below to browse its suggestions. You can also type "12 added", "1-5 added", "7 declined" here.')
+        if not bugs:
+            return describe(e, 'No open suggestions 🎉')
+        ordered = sorted(bugs, key=lambda b: (lkey(b['game_name'] or ''), -b['votes'], b['id']))
+        describe(e, f"{E['new']} **{len(bugs)}** open{GAP}🙏 **{sum(b['votes'] for b in bugs)}** votes")
+        lst = ordered[:15]
+        columns(e, [
+            {'name': head('💡', 'Suggestion'), 'lines': [f"**#{b['id']}**{EN}{cut(b['title'], 26)}" for b in lst]},
+            {'name': head(E['game'], 'Game'), 'lines': [cut(b['game_name'] or 'Unknown', 18) for b in lst]},
+            {'name': head('🙏', 'Votes'), 'lines': [str(b['votes']) for b in lst]},
+        ])
+        if len(ordered) > 15:
+            e.add_field(name=ZW, value=f'…and {len(ordered) - 15} more. Pick a game below to see them.', inline=False)
+        return e
+    e.title = head(E['game'] if base == 'unclaimed' else '😊', 'Unclaimed games' if base == 'unclaimed' else 'Your bug board')
     e.set_footer(text='Pick a game below to browse its bugs. You can also type "12 fixed", "1-5 fixed", "7 investigating" here.')
     if not bugs:
         return describe(e, 'No open bugs 🎉')
@@ -73,7 +101,7 @@ def board_components(key):
     options = [{'label': f'All games ({len(bugs)})', 'value': 'all'}] + [
         {'label': f"{e['name']} ({e['n']})"[:100], 'value': k} for k, e in list(by.items())[:24]]
     return make_view([
-        [select(f'bd:{key}', "Open a game's bugs", options)],
+        [select(f'bd:{key}', "Open a game's suggestions" if kind_of(key) == 'suggestion' else "Open a game's bugs", options)],
         [select(f'trpick:{key}', '📋 Transcript by game', options)],
     ])
 
@@ -98,8 +126,12 @@ async def _dev_thread(key, create):
         return t
     if not create:
         return None
-    forum = await fetch_channel(cfg.dev_forum_id)
-    name = 'Unclaimed games' if key == 'unclaimed' else f'{await _display_name(key)} — bugs'
+    kind, base = kind_of(key), base_key(key)
+    forum = await fetch_channel(cfg.dev_suggestions_id if kind == 'suggestion' else cfg.dev_forum_id)
+    if forum is None:
+        return None
+    word = 'suggestions' if kind == 'suggestion' else 'bugs'
+    name = 'Unclaimed games' if base == 'unclaimed' else f'{await _display_name(base)} — {word}'
     made = await forum.create_thread(name=name[:100], embeds=[board_embed(key)], view=board_components(key))
     kv_set('devthread:' + key, made.thread.id)
     try:
@@ -136,7 +168,13 @@ async def refresh_all_boards():
     keys = [r['k'][len('devthread:'):] for r in kv_keys('devthread:')]
     for c in get_claims():
         keys.extend(c['owners'])
+        if cfg.dev_suggestions_id:
+            keys.extend('S' + o for o in c['owners'])
     keys.append('unclaimed')
+    if cfg.dev_suggestions_id:
+        keys.append('Sunclaimed')
+    else:
+        keys = [k for k in keys if kind_of(k) == 'bug']
     for k in dict.fromkeys(keys):
         try:
             await refresh_board(k)
@@ -178,16 +216,22 @@ async def _delete_later(m, seconds):
 async def route_bug(bug, silent=False):
     """New bug: update the boards and ghost-ping the owner (message is deleted right after, the notification stays)."""
     owners = owners_for(bug['game_tag_id'], bug['game_name'])
-    keys = owners if owners else ['unclaimed']
+    suggestion = bug.get('kind') == 'suggestion'
+    if suggestion and not cfg.dev_suggestions_id:
+        update_bug(bug['id'], {'routed': 1})
+        return
+    prefix = 'S' if suggestion else ''
+    keys = [prefix + o for o in owners] if owners else [prefix + 'unclaimed']
     update_bug(bug['id'], {'routed': 1})
     for key in keys:
+        base = base_key(key)
         t = await dev_thread(key, True)
-        if not t or silent or key == 'unclaimed' or not get_prefs(key)['bugs']:
+        if not t or silent or base == 'unclaimed' or not get_prefs(base)['bugs']:
             continue  # devs can turn this ping off with /pings
         try:
             m = await t.send(
-                content=f"<@{key}> {E['new']} **NEW BUG**{EM}·{EM}#{bug['id']}{EM}·{EM}{bug['game_name'] or 'Unknown game'}",
-                allowed_mentions=allowed(users=[key]))
+                content=f"<@{base}> {E['new']} **{'NEW SUGGESTION' if suggestion else 'NEW BUG'}**{EM}·{EM}#{bug['id']}{EM}·{EM}{bug['game_name'] or 'Unknown game'}",
+                allowed_mentions=allowed(users=[base]))
         except Exception as e:
             print('ping', e)
             m = None
