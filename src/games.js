@@ -5,9 +5,9 @@ import { getClaims } from './bounty.js';
 import { canManage, level } from './perms.js';
 import { onBoardsRefreshed } from './devboard.js';
 import { cleanGameNames } from './ai.js';
-import { E, GAP, RULE, cut, describe, flat, head } from './ui.js';
+import { E, columns, cut, describe, flat, head } from './ui.js';
 
-// Released / unreleased games, grouped by dev. The games in development come from the bounty-board claims.
+// Released / unreleased games, rows sorted by dev. The games in development come from the bounty-board claims.
 // A dev marks a game released with /release (stored here, so it stays after the bounty-board drops it).
 // Names typed on the bounty-board ("YOU SHOULD MAKE DELTARUNE PLEASE") are turned into proper titles by Claude once and cached.
 const EPH = MessageFlags.Ephemeral;
@@ -23,6 +23,14 @@ const tidy = (s) => {
 };
 export const cleanName = (raw) => db.prepare('SELECT clean FROM game_names WHERE key=?').get(key(raw))?.clean ?? tidy(raw);
 
+// Keeps a title inside the column: drops a leading "The" and a "Call of Duty:" prefix when it is too long.
+const shorten = (t) => {
+  let s = String(t).trim();
+  if (s.length <= 19) return s;
+  s = s.replace(/^(call of duty|cod):\s*/i, '').replace(/^(the|a)\s+/i, '');
+  return s;
+};
+
 // Asks Claude for the proper title of every name that has none yet. A failed call is retried next time.
 export async function ensureNames() {
   const raws = new Set([...getClaims().map((c) => c.name), ...db.prepare('SELECT name FROM game_status').all().map((r) => r.name)]);
@@ -32,7 +40,7 @@ export async function ensureNames() {
   try { titles = await cleanGameNames(missing); } catch (e) { console.error('cleanGameNames', e.message); }
   if (!titles || titles.length !== missing.length) return;
   const ins = db.prepare('INSERT OR IGNORE INTO game_names(key,raw,clean,manual) VALUES(?,?,?,0)');
-  missing.forEach((raw, i) => ins.run(key(raw), raw, cut(titles[i] || tidy(raw), 40)));
+  missing.forEach((raw, i) => ins.run(key(raw), raw, cut(shorten(titles[i] || tidy(raw)), 40)));
 }
 
 // ---- the lists ----
@@ -54,55 +62,62 @@ export function gameLists() {
   return { released, unreleased };
 }
 
-// ---- grouping by dev ----
+// ---- the table ----
 async function devName(id) {
   const m = await ctx.guild.members.fetch(id).catch(() => null);
   return m?.displayName ?? 'Unknown';
 }
 
-async function byDev(entries) {
-  const map = new Map();
+// Rows are sorted by dev, so all the games of one dev sit right under each other (dev with most games first).
+// A game with two owners shows once under each owner.
+async function rowsByDev(entries) {
+  const per = new Map();
   for (const e of entries) for (const o of (e.owners.length ? e.owners : ['none'])) {
-    if (!map.has(o)) map.set(o, []);
-    map.get(o).push(e);
+    if (!per.has(o)) per.set(o, []);
+    per.get(o).push(e);
   }
-  const devs = await Promise.all([...map].map(async ([id, list]) => ({
-    id, name: id === 'none' ? 'No dev' : await devName(id), list: list.sort((a, b) => a.name.localeCompare(b.name)),
-  })));
-  return devs.sort((a, b) => b.list.length - a.list.length || a.name.localeCompare(b.name));
+  const devs = await Promise.all([...per].map(async ([id, list]) => ({ id, name: id === 'none' ? 'No dev' : await devName(id), list })));
+  devs.sort((a, b) => b.list.length - a.list.length || a.name.localeCompare(b.name));
+  return devs.flatMap((d) => d.list.sort((a, b) => a.name.localeCompare(b.name)).map((g) => ({ dev: d.id === 'none' ? '—' : `<@${d.id}>`, ...g })));
 }
 
-// One inline field per dev, three to a row. The last row is padded with empty fields so every row has three equal columns,
-// which keeps both embeds on the same grid.
-function devFields(e, devs, line) {
-  const shown = devs.slice(0, 24);
-  for (const d of shown) {
-    e.addFields({
-      name: head(E.user, `${cut(d.name, 13)} · ${d.list.length}`),
-      value: `${RULE}\n${d.list.map(line).join('\n')}`.slice(0, 1024),
-      inline: true,
-    });
+// Three columns. Game names are cut to 19 characters so no column grows past its third of the embed: that is what keeps the
+// columns in the same place in both embeds. A long list is split into several rows of columns (a field holds 1024 characters).
+function table(e, headings, rows) {
+  let chunk = [];
+  let len = [0, 0, 0];
+  let first = true;
+  const flush = () => {
+    columns(e, headings.map((name, i) => ({ name: first ? name : '​', lines: chunk.map((r) => r[i]) })), first ? undefined : '');
+    chunk = []; len = [0, 0, 0]; first = false;
+  };
+  for (const r of rows) {
+    if (chunk.length && r.some((cell, i) => len[i] + cell.length + 1 > 960)) flush();
+    chunk.push(r);
+    r.forEach((cell, i) => { len[i] += cell.length + 1; });
   }
-  for (let n = shown.length; n % 3; n++) e.addFields({ name: '​', value: '​', inline: true });
-  if (devs.length > shown.length) e.addFields({ name: '​', value: `…and ${devs.length - shown.length} more devs` });
+  if (chunk.length) flush();
 }
 
 export async function gameEmbeds(lists = gameLists()) {
-  const rel = lists.released.map((r) => ({ name: cleanName(r.name), owners: ownerIds(r), at: r.released_at, link: r.link }));
-  const dev = lists.unreleased.map((g) => ({ name: cleanName(g.name), owners: g.owners }));
-  const relDevs = await byDev(rel);
-  const devDevs = await byDev(dev);
+  const rel = await rowsByDev(lists.released.map((r) => ({ name: cleanName(r.name), owners: ownerIds(r), at: r.released_at, link: r.link })));
+  const dev = await rowsByDev(lists.unreleased.map((g) => ({ name: cleanName(g.name), owners: g.owners, since: g.since })));
+  const nGames = (rows) => new Set(rows.map((r) => r.name)).size;
 
   const e1 = flat().setTitle(head('✅', 'Released games'));
-  describe(e1, `${E.fixed} **${rel.length}** released${GAP}${E.user} **${relDevs.length}** dev${relDevs.length === 1 ? '' : 's'}`);
-  if (rel.length) devFields(e1, relDevs, (g) => `${http(g.link) ? `[**${cut(g.name, 22)}**](${g.link})` : `**${cut(g.name, 22)}**`} · ${shortDate(g.at)}`);
-  else e1.addFields({ name: '​', value: 'None yet.' });
+  describe(e1, `${E.fixed} **${nGames(rel)}** released`);
+  if (rel.length) {
+    table(e1, [head(E.user, 'Dev'), head(E.game, 'Game'), head(E.date, 'Released')],
+      rel.map((r) => [r.dev, http(r.link) ? `[**${cut(r.name, 19)}**](${r.link})` : `**${cut(r.name, 19)}**`, `<t:${Math.floor(r.at / 1000)}:d>`]));
+  } else e1.addFields({ name: '​', value: 'None yet.' });
 
   const e2 = flat().setTitle(head('🛠️', 'Unreleased games'))
     .setFooter({ text: 'Game owners: /release when a game is out, /unrelease to move it back.' });
-  describe(e2, `🛠️ **${dev.length}** in development${GAP}${E.user} **${devDevs.length}** dev${devDevs.length === 1 ? '' : 's'}`);
-  if (dev.length) devFields(e2, devDevs, (g) => `**${cut(g.name, 24)}**`);
-  else e2.addFields({ name: '​', value: 'None yet.' });
+  describe(e2, `🛠️ **${nGames(dev)}** in development`);
+  if (dev.length) {
+    table(e2, [head(E.user, 'Dev'), head(E.game, 'Game'), head(E.date, 'Since')],
+      dev.map((r) => [r.dev, `**${cut(r.name, 19)}**`, Number.isNaN(Date.parse(r.since)) ? '—' : `<t:${Math.floor(Date.parse(r.since) / 1000)}:d>`]));
+  } else e2.addFields({ name: '​', value: 'None yet.' });
   return [e1, e2];
 }
 
