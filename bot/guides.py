@@ -24,7 +24,7 @@ def bugs_guide_embed():
             '• **Title** · the problem in a few words\n• **What happened** · and what you expected\n'
             '• **Steps** · how can we make it happen again?\n• **Device** · PC, mobile, PS5...\n'
             'Clear steps get fixed faster.\n'
-            'Posting by hand? Start the title with the game, like **[PaRappa] Notes stop responding**, and cover the same points.')
+            'Start the title with the game, like **[PaRappa] Notes stop responding**, and cover the same points.')
     section(e, head('🤖', 'After you send it'),
             '• Your post gets a number, like **#12**\n'
             '• Something missing? The bot asks up to 3 short questions. **Reply in your post.**\n'
@@ -48,7 +48,7 @@ def suggestions_guide_embed():
     section(e, head('✍️', 'Posting by hand? · What to write'),
             '• **Title** · your idea in a few words\n• **What should be added or changed?**\n'
             '• **Why** · optional, but it helps us understand\nScreenshots and videos are welcome.\n'
-            'Posting by hand? Start the title with the game, like **[PaRappa] Improve the timing**, and cover the same points.')
+            'Start the title with the game, like **[PaRappa] Improve the timing**, and cover the same points.')
     section(e, head('🤖', 'After you send it'),
             '• Your post gets a number, like **#12**\n'
             '• Too vague? The bot asks up to 3 short questions. **Reply in your post.**\n'
