@@ -12,7 +12,7 @@ from .components import NO_MENTIONS
 from .ctx import ctx, fetch_channel
 from .db import all_, kv_get, kv_set, one, run
 from .perms import level
-from .ui import E, EN, SEP, cut, describe, flat, head, spacer
+from .ui import E, EN, SEP, cut, describe, flat, head, gap
 
 TOP_LIMIT = 25  # posts listed in the top suggestions message
 DESCRIPTION_LIMIT = 3800  # embed descriptions cap at 4096
@@ -141,7 +141,7 @@ def top_embed():
         lines.append(f"**{n}**{EN}[{title}](https://discord.com/channels/{ctx.guild.id}/{p['post_id']}){SEP}🔥 {p['votes']}")
     summary = f"{E['open']} **{len(ranked)}** open suggestions" if ranked else 'No open suggestions.'
     describe(e, summary + ('\n\n' + fit(lines) if lines else ''))
-    spacer(e)
+    gap(e)
     e.set_footer(text=FOOT_TOP)
     return e
 

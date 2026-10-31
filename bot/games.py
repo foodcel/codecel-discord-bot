@@ -13,7 +13,7 @@ from .ctx import ctx, fetch_channel
 from .db import all_, kv_del, kv_get, kv_set, now, one, run
 from .devboard import on_boards_refreshed
 from .perms import level, owns
-from .ui import E, EM, ZW, columns, cut, describe, flat, head, lkey, RULE, spacer
+from .ui import E, EM, ZW, columns, cut, describe, flat, head, lkey, RULE, gap
 
 FOOT_UNRELEASED = '\n'.join([
     '/claim · take a game (add its Steam page with link:)',
@@ -244,7 +244,7 @@ async def game_embeds(lists=None):
             rel, lambda r: datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d')))
     else:
         e1.add_field(name=ZW, value='None yet.', inline=False)
-    spacer(e1)
+    gap(e1)
     e1.set_footer(text=FOOT_RELEASED)
 
     e2 = flat()
@@ -254,7 +254,7 @@ async def game_embeds(lists=None):
         table(e2, [head(E['game'], 'Games'), head('📊', 'Progress')], tree_rows(dev, progress_cell, counts=True))
     else:
         e2.add_field(name=ZW, value='None yet.', inline=False)
-    spacer(e2)
+    gap(e2)
     e2.set_footer(text=FOOT_UNRELEASED)
     return [e1, e2]
 

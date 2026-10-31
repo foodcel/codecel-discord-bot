@@ -2,7 +2,7 @@
 import os
 
 from .env import cfg
-from .ui import E, ZW, columns, describe, flat, head, section, spacer
+from .ui import E, ZW, columns, describe, flat, head, section, gap
 
 
 def bot_news_embeds():
@@ -30,7 +30,7 @@ def bot_news_embeds():
             'After 3 fixes the bot drafts an update with the bug fixes. Post, Edit or Later. `/update` adds your own lines, and the bot rewrites them into clean patch notes.')
     section(e, head(E['warn'], 'Trolls'),
             f"Warning, 1-day mute, kick, 7-day ban, permanent ban. Kicks and bans wait for a dev's Confirm in {modlog}.")
-    spacer(e)  # an empty line between the sections above and the commands
+    gap(e)  # one empty line between the sections above and the commands
     columns(e, [
         {'name': head('⌨️', 'Commands'), 'lines': [
             '`/pings` · choose your pings', '`/update` · post an update', '`/config set` · game link, icon, channel',
@@ -78,7 +78,7 @@ def board_news_embeds():
             'Every claimed game under its dev, with how far it is and whether the dev is working on it right now.')
     section(e, head('✅', 'Released games'),
             'Games that are out, with a link to play them.')
-    spacer(e)  # an empty line between the sections above and the commands
+    gap(e)  # one empty line between the sections above and the commands
     columns(e, [
         {'name': head('⌨️', 'Commands'), 'lines': [
             '`/claim` · take a game, add its Steam page with `link:`', '`/unclaim` · drop a game you claimed',

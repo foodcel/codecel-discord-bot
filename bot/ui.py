@@ -103,3 +103,13 @@ def lkey(s):
     s = unicodedata.normalize('NFKD', '' if s is None else str(s))
     s = ''.join(c for c in s if not unicodedata.combining(c))
     return ([(0 if not c.isalnum() else (1 if c.isdigit() else 2), c.casefold()) for c in s], s.swapcase())
+
+
+def gap(e):
+    """Exactly one empty line after what is already in the embed (a spacer field would be two lines tall)."""
+    if e.fields:
+        f = e.fields[-1]
+        e.set_field_at(len(e.fields) - 1, name=f.name, value=f'{f.value}\n{ZW}', inline=f.inline)
+    else:
+        e.description = f'{e.description or ""}\n{ZW}'
+    return e
