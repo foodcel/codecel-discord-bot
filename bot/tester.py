@@ -1,4 +1,5 @@
-"""/bug for testers: a form, a thread in the tester channel, and the bug goes to the owning dev's board."""
+"""/bug for testers in the testing channel: a form, a thread in the tester channel, and the bug goes to the owning dev's board.
+Everyone else uses the same command through forms.py."""
 import io
 import random
 import re
@@ -51,12 +52,10 @@ def is_tester(m):
 async def command_bug(i, opts):
     """opts: the slash command's options (see interactions.get_options)."""
     reply = i.response.send_message
-    if not cfg.testing_id:
-        return await reply('Tester reports are not set up.', ephemeral=True)
-    if not is_tester(i.user):
-        return await reply('This command is for testers.', ephemeral=True)
-    if str(i.channel_id) != cfg.testing_id:
-        return await reply(f'Please use /bug in <#{cfg.testing_id}>.', ephemeral=True)
+    if not (cfg.testing_id and str(i.channel_id) == cfg.testing_id and is_tester(i.user)):
+        # everyone else (and testers outside the testing channel) send a normal report: it becomes a post in the bug forum
+        from .forms import command_form
+        return await command_form(i, opts, 'bug')
     tag_id = opts.get('game')
     if not tag_name(tag_id):
         return await reply('Pick a game from the list.', ephemeral=True)

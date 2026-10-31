@@ -141,7 +141,7 @@ def describe_interaction(i):
     t = i.type
     if t == discord.InteractionType.application_command:
         name = i.data['name']
-        if name in ('bug', 'update'):  # a tester's report is not a dev action; /update has its own single entry (update_step)
+        if name in ('bug', 'improvement', 'update'):  # a tester's report is not a dev action; /update has its own single entry (update_step)
             return None
         sub, opts, _ = get_options(i)
         details = '\n'.join(f'**{k}** · {_option(k, v)}' for k, v in opts.items() if not isinstance(v, dict))

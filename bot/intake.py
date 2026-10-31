@@ -28,12 +28,29 @@ async def fetch_starter(thread):
     return None
 
 
+def _text(m):
+    """The words of a message: its text, or for a card made by the bot the text of its embed."""
+    if m.content:
+        return m.content
+    junk = chr(0x200b) + chr(0x2500) + ' '  # the invisible spacer and the rule lines of the cards
+    out = []
+    for e in m.embeds:
+        out.append((e.description or '').lstrip('# ').split('\n')[0])
+        for f in e.fields:
+            lines = [ln for ln in f.value.split('\n') if ln.strip(junk) and not re.fullmatch(r'<@!?\d+>', ln.strip())]
+            if lines:
+                out.append(f"{f.name.strip(junk + chr(0x2002))}: {' '.join(lines)}")
+    return '\n'.join(x for x in out if x)
+
+
 async def gather(thread, bug):
     msgs = [m async for m in thread.history(limit=50)]
-    mine = sorted((m for m in msgs if str(m.author.id) == bug['reporter_id']), key=lambda m: m.created_at)
+    # a post made by /bug or /improvement is written by the bot for the player: its first message counts as the player's own
+    mine = sorted((m for m in msgs if str(m.author.id) == bug['reporter_id'] or (bug.get('source') == 'form' and m.id == thread.id)),
+                  key=lambda m: m.created_at)
     atts = [a for m in mine for a in m.attachments]
     return {
-        'text': '\n---\n'.join(m.content for m in mine if m.content),
+        'text': '\n---\n'.join(_text(m) for m in mine if _text(m)),
         'images': [a.url for a in atts if _IMG.search(a.content_type or '')],
         'videos': [a.filename for a in atts if (a.content_type or '').startswith('video/')],
     }

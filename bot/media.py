@@ -29,7 +29,7 @@ async def live_media(thread, bug):
         msgs = []
     mine = sorted(
         (m for m in msgs if str(m.author.id) == bug['reporter_id']
-         or (bug.get('source') == 'tester' and m.author.id == ctx.client.user.id)),
+         or (bug.get('source') in ('tester', 'form') and m.author.id == ctx.client.user.id)),
         key=lambda m: m.created_at)
     images = []
     videos = []
@@ -42,7 +42,7 @@ async def live_media(thread, bug):
                 videos.append({'label': f"{'🎥' if typ.startswith('video/') else '🖼️'} {a.filename}", 'url': jump(thread.id, m.id)})
         for link in VIDEO_LINK.findall(m.content or ''):
             videos.append({'label': f'🎥 {link[:60]}', 'url': link})
-    text = (bug.get('body') or '') if bug.get('source') == 'tester' else (mine[0].content if mine else '')
+    text = (bug.get('body') or '') if bug.get('source') in ('tester', 'form') else (mine[0].content if mine else '')
     v = {'text': text, 'images': images, 'videos': videos}
     _live_cache[bug['id']] = (time.time() * 1000, v)
     return v

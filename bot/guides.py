@@ -1,82 +1,68 @@
-"""The pinned "how to post" guides of the bug forum and the suggestions forum, as embeds with a red accent. They also tell players what
-the bot does with a post, so its automatic replies never come as a surprise."""
-import discord
-
+"""The pinned "how to post" guides of the bug forum and the suggestions forum. Both follow the same layout, so a player who read one knows
+the other: the command first (it is the easiest way), what to write, what the bot does afterwards, and a short list of good habits."""
 from .env import cfg
-from .ui import WIDE_RULE, describe, head
+from .ui import E, describe, flat, gap, head, section
 
-RED = 0xED4245
-NEW_GAMES = '1562961976387174452'  # where whole new game ideas go
+COMMANDS_CHANNEL = '1563090099774816286'  # where players can use commands
 UPDATES = '1562726333828702249'
+NEW_GAMES = '1562961976387174452'  # whole new game ideas go here
 
 
-def _embed(title, intro):
-    e = discord.Embed(color=RED)
-    e.title = title
-    describe(e, intro)
-    return e
-
-
-def _field(e, name, text):
-    e.add_field(name=name, value=f'{WIDE_RULE}\n{text}'[:1024], inline=False)
+def _steps(command):
+    return (f'1. Type `{command}` in <#{COMMANDS_CHANNEL}>\n'
+            '2. Pick the game, and add screenshots or videos if you have them\n'
+            '3. Fill in the short form and send it\n'
+            'Your post appears here, already tagged.')
 
 
 def bugs_guide_embed():
-    e = _embed(head('🐛', 'Bug report guidelines'),
-               'Help us make **PlayStation Experience** better! Clear reports help us find and fix problems faster.\n'
-               'A bot reads every post, tags it and sends it to the developer who owns the game. 🚀')
-    _field(e, head('🔎', 'Before you post'),
-           f'• **Search first.** Already reported? Add your details there instead.\n'
-           f'• **Check support.** Missing features marked **WIP** are still in development.\n'
-           f'• **One bug per post.** Separate issues get separate reports.\n'
-           f'• **Pick your tags.** The affected **game** and your **device**.\n'
-           f'• **An idea, not a bug?** Improvements go in <#{cfg.suggestions_id}>, new games in <#{NEW_GAMES}>.')
-    _field(e, head('📝', 'Writing your report'),
-           'Give it a title that describes the problem:\n**[PaRappa] Notes stop responding after restarting a song**\n'
-           '```\nGame:\nDevice / model:\nWhat happened:\nAccount verified? What age?\nError message, if any:\nScreenshot or video:\n```'
-           '“It’s broken” alone won’t help us. Add enough detail for someone else to reproduce it.')
-    _field(e, head('🤖', 'What the bot does'),
-           '• Reads your post, sets the tags and numbers it, like **#12**.\n'
-           '• Missing something? It asks, up to 3 short questions. **Just reply in your post**, no need to post again.\n'
-           '• Already reported? It points you to the first post.\n'
-           '• Fixed? You and everyone who reacted 👀 get a ping, and the post is deleted after 24 hours. '
-           '**Still broken?** Reply before then and it reopens.')
-    _field(e, head('🛠️', 'Report status'),
-           '🔎 **Investigating** · we are looking into it\n❓ **Needs Info** · we need more from you\n🛠️ **Fix in Progress** · a fix is being made\n'
-           '✅ **Fixed** · it is fixed\n🔁 **Duplicate** · already reported\nℹ️ **Not a Bug** · intended behavior or a feature request')
-    _field(e, head('🤝', 'Keep it helpful'),
-           '• React with **👀** if you have the same issue.\n• Add evidence or useful details, not repeated bumps.\n'
-           '• Be patient and answer questions. **Please do not ping developers.**\n• Hide personal information in screenshots.\n'
-           '• **Found an exploit?** Do not post how to abuse it. The bot removes posts like that and asks you to message staff.')
-    _field(e, head('🧪', 'Testers'),
-           f'Testers send reports with **`/bug`** in <#{cfg.testing_id}>: pick the game, attach screenshots and fill in the form. The bot makes the post for you.')
-    e.set_footer(text='Thank you for helping improve every session. 💙')
+    e = flat()
+    e.title = head('🐛', 'Report a bug')
+    describe(e, f'The easiest way: type **`/bug`** in <#{COMMANDS_CHANNEL}>.\nThe bot makes the post for you and sends it to the right developer.')
+    section(e, head('⌨️', 'How it works'), _steps('/bug'))
+    section(e, head('📝', 'What to write'),
+            '• **Title** · the problem in a few words\n• **What happened** · and what you expected\n'
+            '• **Steps** · how can we make it happen again?\n• **Device** · PC, mobile, PS5...\n'
+            'Clear steps get fixed faster.')
+    section(e, head('🤖', 'After you send it'),
+            '• Your post gets a number, like **#12**\n'
+            '• Something missing? The bot asks up to 3 short questions. **Reply in your post.**\n'
+            '• Fixed? You get a ping and the post is deleted after 24 hours. **Still broken?** Reply before then and it reopens.')
+    section(e, head('💡', 'Good to know'),
+            '• Already reported? React 👀 on that post instead of making a new one\n'
+            '• One bug per report, and please do not ping developers\n'
+            '• Hide personal information in screenshots\n'
+            '• Found an exploit? Use `/bug` as usual. The bot hides it and tells the developers\n'
+            f'• Just an idea? Use `/improvement` and <#{cfg.suggestions_id}>')
+    section(e, head('✍️', 'Posting by hand?'),
+            'Start the title with the game, like **[PaRappa] Notes stop responding**, and answer the same four points.')
+    gap(e)
+    e.set_footer(text='Thank you for helping improve every session.')
     return e
 
 
 def suggestions_guide_embed():
-    e = _embed(head('💡', 'Game improvements & suggestions'),
-               'Welcome to the **PlayStation Experience** improvement forum! 🎮\n'
-               'Got an idea that makes one of our games better? We want to hear it! 💙 A bot reads each post and sends it to the right developer.')
-    _field(e, head('🔎', 'Before you post'),
-           f'• **Search first.** Someone may have suggested it already: add your vote 🙏 there.\n'
-           f'• **Check the updates.** Look in <#{UPDATES}>. It may already be added or in development (WIP).\n'
-           f'• **One improvement per post.**\n• **Pick the game tag.**\n'
-           f'• **A whole new game?** Use <#{NEW_GAMES}> instead.')
-    _field(e, head('✏️', 'How to write it'),
-           'Title: **[Game] Short description of the improvement**\nExample: **[PaRappa] Improve the timing accuracy**\n'
-           '```\nGame:\nCurrent behavior:\nThe improvement you want to see:\nSteps to reproduce (if it applies):\n```'
-           '💡 More detail makes it easier to evaluate. Screenshots and videos are welcome!')
-    _field(e, head('🤖', 'What happens next'),
-           '• The bot tags and numbers your post, like **#12**, and sends it to the game\'s developer.\n'
-           '• Too vague? It asks up to 3 short questions. **Just reply in your post.**\n'
-           '• Same idea twice? It points you to the first post.\n'
-           '• **Votes matter:** react 🙏 on the ideas you want. Developers see the most voted first.\n'
-           '• ✅ **Added** or ❌ **Declined**: you get a ping and the post is deleted after 24 hours.\n'
-           '• Posted a **bug** by mistake? The bot turns it into a bug report for you.\n'
-           '• Submitting an idea does not guarantee it is added.')
-    _field(e, head('❤️', 'Community guidelines'),
-           '✅ Be respectful and constructive\n✅ Explain things clearly\n✅ Stay on topic\n'
-           '❌ No spam or duplicate posts\n❌ No harassing others over differing opinions')
-    e.set_footer(text='Your feedback shapes our future! Thank you for helping us build a better PlayStation Experience. 🚀')
+    e = flat()
+    e.title = head('💡', 'Suggest an improvement')
+    describe(e, f'The easiest way: type **`/improvement`** in <#{COMMANDS_CHANNEL}>.\nThe bot makes the post for you and sends it to the right developer.')
+    section(e, head('⌨️', 'How it works'), _steps('/improvement'))
+    section(e, head('📝', 'What to write'),
+            '• **Title** · your idea in a few words\n• **What should be added or changed?**\n'
+            '• **Why** · optional, but it helps us understand\nScreenshots and videos are welcome.')
+    section(e, head('🤖', 'After you send it'),
+            '• Your post gets a number, like **#12**\n'
+            '• Too vague? The bot asks up to 3 short questions. **Reply in your post.**\n'
+            '• **React 🙏** on the ideas you want. The most voted are seen first.\n'
+            '• Added ✅ or declined ❌? You get a ping and the post is deleted after 24 hours.\n'
+            '• An idea is not a promise that it will be added.')
+    section(e, head('💡', 'Good to know'),
+            '• Someone already suggested it? Add your 🙏 there instead\n'
+            f'• It may already exist: check <#{UPDATES}> first\n'
+            '• One idea per post, and be respectful\n'
+            f'• A whole new game? Use <#{NEW_GAMES}>\n'
+            '• Something is broken? Use `/bug`')
+    section(e, head('✍️', 'Posting by hand?'),
+            'Start the title with the game, like **[PaRappa] Improve the timing**, and answer the same three points.')
+    gap(e)
+    e.set_footer(text='Your feedback shapes what we build next.')
     return e

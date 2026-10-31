@@ -78,6 +78,21 @@ ANALYZE_SCHEMA = {
 }
 
 
+def _tidy(a):
+    """The model sometimes returns a field in the wrong shape: make it safe to use."""
+    t = a.get('troll')
+    if not isinstance(t, dict):
+        a['troll'] = {'is_troll': False, 'confidence': 0, 'reason': ''}
+    else:
+        t.setdefault('is_troll', False)
+        t.setdefault('confidence', 0)
+        t.setdefault('reason', '')
+    if not isinstance(a.get('missing'), list):
+        a['missing'] = []
+    a['missing'] = [str(m) for m in a['missing']]
+    return a
+
+
 async def analyze_report(title, text, tag_names, games, images, videos, known, asks=0):
     known_txt = '\n'.join(
         f"#{k['id']} [{k['status']}] {k.get('game_name') or '?'}: {k['title']} - {k['summary']}" for k in known) or 'none'
@@ -96,7 +111,7 @@ Attempt: {asks + 1} of 3 (the player was asked {asks} time(s) already)
 </report>"""
     content = [{'type': 'text', 'text': body}] + [
         {'type': 'image', 'source': {'type': 'url', 'url': url}} for url in images[:3]]
-    return await _call_tool(ANALYZE_SYSTEM, content, 'triage', ANALYZE_SCHEMA, 900)
+    return _tidy(await _call_tool(ANALYZE_SYSTEM, content, 'triage', ANALYZE_SCHEMA, 900))
 
 
 async def summarize_tester_report(game, title, what, steps, expected, device):
@@ -217,7 +232,7 @@ Attempt: {asks + 1} of 3 (the player was asked {asks} time(s) already)
 </post>"""
     content = [{'type': 'text', 'text': body}] + [
         {'type': 'image', 'source': {'type': 'url', 'url': url}} for url in images[:3]]
-    return await _call_tool(SUGGEST_SYSTEM, content, 'triage', SUGGEST_SCHEMA, 900)
+    return _tidy(await _call_tool(SUGGEST_SYSTEM, content, 'triage', SUGGEST_SCHEMA, 900))
 
 
 async def draft_new_features(game_name, items):

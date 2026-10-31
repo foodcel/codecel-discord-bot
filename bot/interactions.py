@@ -404,6 +404,9 @@ async def handle_command(i):
     sub, opts, _ = get_options(i)
     if name == 'tester':  # testers have no dev role: it checks who may do what itself
         return await testers.command_tester(i, sub, opts)
+    if name == 'improvement':  # for everyone, like /bug
+        from .forms import command_form
+        return await command_form(i, opts, 'suggestion')
     if name == 'bug':
         return await command_bug(i, opts)  # testers have no dev role, so it skips the dev-only gate below
     board_handlers = {'claim': bounty_board.command_claim, 'unclaim': bounty_board.command_unclaim,
@@ -512,6 +515,9 @@ async def handle_modal(i):
     fields = modal_fields(i)
     if kind == 'tb':
         return await modal_bug(i, a, b, fields)
+    if kind == 'fm':  # fm:<bug|suggestion>:<game tag>:<token>
+        from .forms import modal_form
+        return await modal_form(i, a, b, parts[3], fields)
     if kind == 'tp':
         return await testers.modal_profile(i, fields)
     if kind == 'note':
