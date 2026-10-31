@@ -79,17 +79,20 @@ def game_lists():
     released_keys = {r['key'] for r in released}
     unreleased = []
     seen = set()
-    sources = {r['key']: r['source_link'] for r in rows}
+    sources = {r['key']: r for r in rows}
     for c in get_claims():
         k = key(c['name'])
         seen.add(k)
         if k not in released_keys:
-            unreleased.append({'key': k, 'name': c['name'], 'owners': c['owners'], 'since': c['since'], 'source_link': sources.get(k)})
+            unreleased.append({'key': k, 'name': c['name'], 'owners': c['owners'], 'since': c['since'],
+                               'source_link': (sources.get(k) or {}).get('source_link'),
+                               'progress': (sources.get(k) or {}).get('progress'), 'working': (sources.get(k) or {}).get('working')})
     # moved back to unreleased after it had left the bounty-board
     for r in rows:
         if r['status'] == 'unreleased' and r['key'] not in seen:
             unreleased.append({'key': r['key'], 'name': r['name'], 'owners': owner_ids(r), 'since': r['since'],
-                               'source_link': r['source_link']})
+                               'source_link': r['source_link'],
+                               'progress': r['progress'], 'working': r['working']})
     return {'released': released, 'unreleased': unreleased}
 
 
@@ -150,6 +153,45 @@ def table(e, headings, rows):
         flush()
 
 
+def bar(percent):
+    n = round(percent / 10)
+    return f'{chr(0x25B0) * n}{chr(0x25B1) * (10 - n)} {percent}%'
+
+
+def progress_cell(r):
+    """How far a game is, and whether its dev is working on it right now."""
+    p, w = r.get('progress'), r.get('working')
+    if w == 0:
+        return f'⏸ {p}%' if p is not None else '⏸ paused'
+    if p is not None:
+        return bar(p)
+    return '▶ working' if w else '—'
+
+
+def tree_rows(rows):
+    """One block per dev: the dev, then the games branching under it (the ones being worked on first), with a blank line between devs."""
+    groups = []
+    for r in rows:
+        if r['first']:
+            groups.append([])
+        groups[-1].append(r)
+    out = []
+    for n, g in enumerate(groups):
+        g = sorted(g, key=lambda r: 0 if (r.get('working') or (r.get('working') is None and r.get('progress'))) else 1)
+        if n:
+            out.append(GAP_ROW)
+        flagged = [r for r in g if r.get('working') is not None or r.get('progress') is not None]
+        active = [r for r in flagged if r.get('working') != 0]
+        title = f"{g[0]['dev']} · {len(active)}/{len(g)} working" if flagged else g[0]['dev']
+        out.append([title, ZW, ZW])
+        for k, r in enumerate(g):
+            branch = '└─' if k == len(g) - 1 else '├─'
+            since = r['since'] if r.get('since') and _valid_date(r['since']) else '—'
+            name = f"[**{cut(r['name'], 18)}**]({r['link']})" if http(r['link']) else f"**{cut(r['name'], 18)}**"
+            out.append([f'{branch} {name}', progress_cell(r), since])
+    return out
+
+
 def with_gaps(rows, cells):
     """Table rows, with a blank line between the games of one dev and the next."""
     out = []
@@ -175,8 +217,8 @@ async def game_embeds(lists=None):
     lists = lists or game_lists()
     rel = await rows_by_dev([{'name': clean_name(r['name']), 'owners': owner_ids(r), 'at': r['released_at'], 'link': r['link']}
                              for r in lists['released']])
-    dev = await rows_by_dev([{'name': clean_name(g['name']), 'owners': g['owners'], 'since': g['since'], 'link': g.get('source_link')}
-                             for g in lists['unreleased']])
+    dev = await rows_by_dev([{'name': clean_name(g['name']), 'owners': g['owners'], 'since': g['since'], 'link': g.get('source_link'),
+                             'progress': g.get('progress'), 'working': g.get('working')} for g in lists['unreleased']])
 
     def n_games(rows):
         return len({r['name'] for r in rows})
@@ -193,12 +235,10 @@ async def game_embeds(lists=None):
 
     e2 = flat()
     e2.title = head('🛠️', 'Unreleased games')
-    e2.set_footer(text='Game owners: /release when a game is out, /unrelease to move it back.')
+    e2.set_footer(text='Game owners: /progress to update a game, /release when it is out, /unrelease to move it back.')
     describe(e2, f'🛠️ **{n_games(dev)}** in development')
     if dev:
-        table(e2, [head(E['user'], 'Dev'), head(E['game'], 'Game'), head(E['date'], 'Since')], with_gaps(dev, lambda r: [
-            r['dev'], f"[**{cut(r['name'], 19)}**]({r['link']})" if http(r['link']) else f"**{cut(r['name'], 19)}**",
-            r['since'] if r.get('since') and _valid_date(r['since']) else '—']))
+        table(e2, [head(E['game'], 'Games'), head('📊', 'Progress'), head(E['date'], 'Since')], tree_rows(dev))
     else:
         e2.add_field(name=ZW, value='None yet.', inline=False)
     return [e1, e2]
@@ -239,7 +279,7 @@ async def autocomplete_games(i, command, focused):
     """Shows the proper name, answers with the typed name (that is what the lists are keyed on)."""
     q = str(focused or '').lower()
     lists = game_lists()
-    if command in ('release', 'gamelink'):
+    if command in ('release', 'gamelink', 'progress'):
         pool = lists['unreleased']
     elif command == 'unrelease':
         pool = lists['released']
@@ -291,6 +331,12 @@ async def command_release(i, opts, undo=False):
         else f"{E['fixed']} **RELEASED**{EM}·{EM}{shown} is now in the released list.", ephemeral=True)
 
 
+def set_source_link(name, owners, since, link):
+    """Saves the link shown on an unreleased game (a row is made for a game that has none yet)."""
+    run("""INSERT INTO game_status(key,name,owners,since,status,source_link) VALUES(?,?,?,?,'unreleased',?)
+        ON CONFLICT(key) DO UPDATE SET source_link=excluded.source_link""", key(name), name, ','.join(owners), since, link)
+
+
 async def command_gamelink(i, opts):
     """Sets the link shown on an unreleased game (the site it is ported from, e.g. its Steam page)."""
     reply = i.response.send_message
@@ -305,11 +351,40 @@ async def command_gamelink(i, opts):
     link = (opts.get('link') or '').strip()
     if not http(link):
         return await reply('The link must start with http:// or https://', ephemeral=True)
-    run("""INSERT INTO game_status(key,name,owners,since,status,source_link) VALUES(?,?,?,?,'unreleased',?)
-        ON CONFLICT(key) DO UPDATE SET source_link=excluded.source_link""",
-        k, g['name'], ','.join(owner_ids(g)), g.get('since'), link)
+    set_source_link(g['name'], owner_ids(g), g.get('since'), link)
     await refresh_game_board()
     return await reply(f"{E['fixed']} **LINKED**{EM}·{EM}{clean_name(g['name'])} now links to {link}", ephemeral=True)
+
+
+async def command_progress(i, opts):
+    """Says how far an unreleased game is and whether its dev is working on it right now."""
+    reply = i.response.send_message
+    name = opts.get('game')
+    if name == NONE:
+        return await reply('No games are waiting to be released.', ephemeral=True)
+    k, _, g = _find(name)
+    if not g:
+        return await reply('That game is not in the unreleased list. Claim it on the bounty-board first.', ephemeral=True)
+    if not can_manage(i.user, owner_ids(g)):
+        return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
+    percent, working = opts.get('percent'), opts.get('working')
+    if percent is None and working is None:
+        return await reply('Give a percent, or say whether you are working on it.', ephemeral=True)
+    if percent is not None and not 0 <= percent <= 100:
+        return await reply('The percent must be between 0 and 100.', ephemeral=True)
+    if working is None and percent is not None and g.get('working') is None:
+        working = True  # giving a percent means it is being worked on
+    set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
+    await refresh_game_board()
+    now_ = [x for x in game_lists()['unreleased'] if x['key'] == k][0]
+    return await reply(f"{E['fixed']} **PROGRESS**{EM}·{EM}{clean_name(g['name'])} {progress_cell(now_)}", ephemeral=True)
+
+
+def set_progress(name, owners, since, percent, working):
+    """Saves how far an unreleased game is and whether it is being worked on (None leaves a value as it is)."""
+    run("""INSERT INTO game_status(key,name,owners,since,status,progress,working) VALUES(?,?,?,?,'unreleased',?,?)
+        ON CONFLICT(key) DO UPDATE SET progress=COALESCE(excluded.progress, progress), working=COALESCE(excluded.working, working)""",
+        key(name), name, ','.join(owners), since, percent, working)
 
 
 async def command_games(i, sub, opts):

@@ -5,8 +5,10 @@ from discord import app_commands
 
 from .ai import interpret_note
 from .announce import (draft_payload, polish_dev_updates, polish_fixes, post_announcement, snooze, unannounced)
+from . import board as bounty_board
 from .bounty import board_name_for, get_claims, owners_for
 from .bugview import handle_view, open_game
+from . import commands as bounty_board_commands
 from .components import NO_MENTIONS, FormModal, make_view, modal_fields, select
 from .ctx import dm, fetch_channel
 from .db import (bug_by_id, create_pending, get_game, get_pending, get_prefs, set_pending, set_prefs, update_bug, upsert_game)
@@ -14,7 +16,7 @@ from .devboard import board_components, exploit_buttons, exploit_status_line, op
 from .env import cfg
 from .fixes import apply_status
 from .fixlog import log_page, open_log, send_fix_transcript
-from .games import autocomplete_games, command_gamelink, command_games, command_release
+from .games import autocomplete_games, command_gamelink, command_progress, command_games, command_release
 from .perms import can_confirm, can_manage, level
 from .previews import post_previews
 from .strikes import pardon, resolve_strike, rules_embed, strike_info
@@ -63,7 +65,9 @@ async def autocomplete(i):
     name = i.data['name']
     sub, _, focused = get_options(i)
     fname, fvalue = focused or ('', '')
-    if name in ('release', 'unrelease', 'games', 'gamelink'):
+    if name in bounty_board_commands.BOARD_NAMES:
+        return await bounty_board.autocomplete(i, name, fvalue)
+    if name in ('release', 'unrelease', 'games', 'gamelink', 'progress'):
         return await autocomplete_games(i, name, fvalue)
     q = str(fvalue).lower()
     if fname == 'board':
@@ -372,6 +376,12 @@ async def handle_command(i):
     sub, opts, _ = get_options(i)
     if name == 'bug':
         return await command_bug(i, opts)  # testers have no dev role, so it skips the dev-only gate below
+    board_handlers = {'claim': bounty_board.command_claim, 'unclaim': bounty_board.command_unclaim,
+                      'complete': bounty_board.command_complete, 'uncomplete': bounty_board.command_uncomplete,
+                      'assign': bounty_board.command_assign, 'exclude': bounty_board.command_exclude,
+                      'include': bounty_board.command_include, 'bounty-board': bounty_board.command_setup}
+    if name in board_handlers:  # they check the board's own role, so they skip the dev-only gate below
+        return await board_handlers[name](i, opts)
     if level(i.user) in ('jr', 'none'):
         return await deny(i)
     if name == 'config':
@@ -405,6 +415,8 @@ async def handle_command(i):
         return await command_release(i, opts)
     if name == 'unrelease':
         return await command_release(i, opts, True)
+    if name == 'progress':
+        return await command_progress(i, opts)
     if name == 'gamelink':
         return await command_gamelink(i, opts)
     if name == 'games':

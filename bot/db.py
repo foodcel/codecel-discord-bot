@@ -53,16 +53,26 @@ CREATE TABLE IF NOT EXISTS game_status(
   key TEXT PRIMARY KEY, name TEXT, owners TEXT, since TEXT, status TEXT NOT NULL DEFAULT 'unreleased',
   released_at INTEGER, released_by TEXT, link TEXT
 );
+CREATE TABLE IF NOT EXISTS board_posts(  -- the suggestions forum's posts as last synced
+  post_id TEXT PRIMARY KEY, title TEXT NOT NULL, votes INTEGER NOT NULL DEFAULT 0, excluded INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS board_claims(  -- a claimed game: a forum post (post_id) or a custom game (game)
+  id INTEGER PRIMARY KEY AUTOINCREMENT, post_id TEXT, game TEXT, user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, completed_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS board_claim_post ON board_claims(post_id) WHERE post_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS board_claim_game ON board_claims(game COLLATE NOCASE) WHERE post_id IS NULL;
 CREATE TABLE IF NOT EXISTS dev_prefs(user_id TEXT PRIMARY KEY, ping_bugs INTEGER NOT NULL DEFAULT 1, ping_exploits INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS announcements(
   id INTEGER PRIMARY KEY AUTOINCREMENT, tag_id TEXT, game_name TEXT, posted_at INTEGER, url TEXT, bug_ids TEXT
 );
 """)
 
-try:
-    db.execute('ALTER TABLE game_status ADD COLUMN source_link TEXT')  # where an unreleased game is ported from (Steam etc.)
-except Exception:
-    pass
+for _col in ('source_link TEXT', 'progress INTEGER', 'working INTEGER'):  # link of the original game; % done; being worked on now
+    try:
+        db.execute(f'ALTER TABLE game_status ADD COLUMN {_col}')
+    except Exception:
+        pass
 
 for _col in ('note TEXT', 'device TEXT', 'body TEXT', 'source TEXT'):
     try:

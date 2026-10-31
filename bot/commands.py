@@ -1,7 +1,7 @@
 """The slash command definitions, in the raw form Discord expects."""
 from .tester import ATTACH
 
-SUB, STRING, INTEGER, USER, CHANNEL, ROLE, ATTACHMENT = 1, 3, 4, 6, 7, 8, 11
+SUB, STRING, INTEGER, BOOLEAN, USER, CHANNEL, ROLE, ATTACHMENT = 1, 3, 4, 5, 6, 7, 8, 11
 GUILD_TEXT, GUILD_ANNOUNCEMENT = 0, 5
 
 
@@ -33,6 +33,38 @@ def _bug_command():
         opts.append(option(ATTACHMENT, name, f'Video {k + 1} (optional)'))
     return command('bug', 'Testers: report a bug straight to the developers', opts)
 
+
+FORUM, TEXT = 15, 0
+
+SETUP_COMMAND = command('bounty-board', 'Rank a suggestions forum by votes in a dev channel, with claims (admins only)', [
+    option(CHANNEL, 'channel', 'Dev channel for the three pinned messages. Running this again moves them.', required=True,
+           channel_types=[TEXT]),
+    option(CHANNEL, 'forum', 'The game suggestions forum', required=True, channel_types=[FORUM]),
+    option(ROLE, 'role', 'Who can /claim games', required=True),
+])
+
+# Registered only once the board is set up with /bounty-board, so they never sit next to another bot's /claim before that.
+BOARD_COMMANDS = [
+    command('claim', "Claim a game you're working on: a suggestion, or a custom game", [
+        option(STRING, 'post', "Type to search the forum's posts, or pick \"Custom game\" for one that has no post", required=True,
+               autocomplete=True),
+        option(STRING, 'link', 'Link to the original game (Steam page etc.), shown on the games board'),
+    ]),
+    command('unclaim', 'Release a game you claimed', [option(STRING, 'post', 'The game', required=True, autocomplete=True)]),
+    command('complete', 'Mark a game you claimed as finished', [option(STRING, 'post', 'The game', required=True, autocomplete=True)]),
+    command('uncomplete', 'Reopen a completed game: it goes back to unclaimed (admins only)',
+            [option(STRING, 'post', 'The completed game', required=True, autocomplete=True)]),
+    command('assign', 'Give a game to a dev, taking it from whoever holds it (admins only)', [
+        option(STRING, 'post', "Type to search the forum's posts, or pick \"Custom game\" for one that has no post", required=True,
+               autocomplete=True),
+        option(USER, 'dev', 'Who gets the game', required=True),
+    ]),
+    command('exclude', 'Remove a forum post from the bounty board and /claim (admins only)',
+            [option(STRING, 'post', "The game's forum post", required=True, autocomplete=True)]),
+    command('include', 'Put an excluded forum post back on the bounty board (admins only)',
+            [option(STRING, 'post', "The game's forum post", required=True, autocomplete=True)]),
+]
+BOARD_NAMES = {c['name'] for c in BOARD_COMMANDS}
 
 ON_OFF = [('On', 'on'), ('Off', 'off')]
 
@@ -78,6 +110,12 @@ COMMANDS = [
         option(STRING, 'game', 'Game', required=True, autocomplete=True),
         option(STRING, 'link', 'Link to the original game', required=True),
     ]),
+    command('progress', 'Say how far an unreleased game is, and whether you are working on it right now', [
+        option(STRING, 'game', 'Game', required=True, autocomplete=True),
+        option(INTEGER, 'percent', 'How much of the game is done', min_value=0, max_value=100),
+        option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
+    ]),
+    SETUP_COMMAND,
     command('games', 'Admin: the released / unreleased games board', [
         sub('post', 'Post the board in this channel (it updates by itself)'),
         sub('rename', 'Fix the name shown for a game', [

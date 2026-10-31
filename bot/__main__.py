@@ -4,9 +4,10 @@ import traceback
 
 import discord
 
+from . import board
 from .bounty import refresh_claims
 from .catchup import catchup
-from .commands import COMMANDS
+from .commands_sync import register_commands
 from .ctx import ctx, sleep
 from .db import kv_get, kv_set, run
 from .devboard import clear_bug_messages, refresh_all_boards, schedule_boards
@@ -66,7 +67,13 @@ async def on_ready():
     ctx.guild = client.get_guild(int(cfg.guild_id)) or await client.fetch_guild(int(cfg.guild_id))
     print(f'Logged in as {client.user}')
     await load_tags()
-    await client.http.bulk_upsert_guild_commands(client.application_id, int(cfg.guild_id), COMMANDS)
+    await register_commands()
+    if board.is_live():  # this bot runs the bounty board: read the forum again before anything uses the claims
+        try:
+            await board.sync_forum()
+        except Exception:
+            print('bounty board sync failed')
+            traceback.print_exc()
     await refresh_claims()
     try:
         await catchup()
@@ -92,11 +99,13 @@ async def on_ready():
     except Exception:
         traceback.print_exc()
     asyncio.ensure_future(timer_loop())
+    asyncio.ensure_future(board.sync_loop())
     print('Ready. Catch-up finished.')
 
 
 @client.event
 async def on_thread_create(thread):
+    board.on_thread_create(thread)
     if str(thread.parent_id) != cfg.bugs_id or not ctx.guild:
         return
     await sleep(1500)
@@ -108,7 +117,7 @@ async def on_thread_create(thread):
 
 @client.event
 async def on_message(m):
-    if str(m.channel.id) == cfg.bounty_id:
+    if str(m.channel.id) == cfg.bounty_id and not board.is_live():
         return schedule_claims()
     try:
         await handle_message(m)
@@ -118,8 +127,33 @@ async def on_message(m):
 
 @client.event
 async def on_raw_message_edit(payload):
-    if str(payload.channel_id) == cfg.bounty_id:
+    if str(payload.channel_id) == cfg.bounty_id and not board.is_live():
         schedule_claims()
+
+
+@client.event
+async def on_raw_reaction_add(p):
+    await board.on_vote_change(p.channel_id, p.message_id)
+
+
+@client.event
+async def on_raw_reaction_remove(p):
+    await board.on_vote_change(p.channel_id, p.message_id)
+
+
+@client.event
+async def on_raw_reaction_clear(p):
+    await board.on_vote_change(p.channel_id, p.message_id)
+
+
+@client.event
+async def on_raw_reaction_clear_emoji(p):
+    await board.on_vote_change(p.channel_id, p.message_id)
+
+
+@client.event
+async def on_raw_thread_delete(p):
+    board.on_thread_delete(p.thread_id)
 
 
 @client.event

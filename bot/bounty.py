@@ -31,9 +31,20 @@ def parse_claims(embed):
     return out
 
 
+def set_claims(found):
+    """Used once the bot runs the bounty board itself. Returns True when the claim list changed."""
+    global _claims
+    changed = found != _claims
+    _claims = found
+    return changed
+
+
 async def refresh_claims():
     """Returns True when the claim list changed."""
     global _claims
+    from . import board
+    if board.is_live():  # this bot runs the board: the claims are in its own database
+        return set_claims(board.live_claims())
     if not cfg.bounty_id:
         return False  # optional feature, owners can also be set with /config
     try:

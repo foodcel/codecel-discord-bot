@@ -27,7 +27,13 @@ def sample_lists():
                  'released_at': int(time.time() * 1000) - k * 86400000,
                  'link': 'https://www.roblox.com/games/1' if k == 0 else None}
                 for k, g in enumerate(live['unreleased'][:3])]
-    return {'released': released, 'unreleased': live['unreleased'][3:]}
+    rest = [dict(g) for g in live['unreleased'][3:]]
+    for n, g in enumerate(rest):  # made-up progress so the tree can be judged
+        if n % 3 == 0:
+            g['progress'], g['working'] = 20 + (n * 17) % 75, 1
+        elif n % 3 == 1:
+            g['progress'], g['working'] = 10 + (n * 11) % 60, 0
+    return {'released': released, 'unreleased': rest}
 
 
 async def clear_channel(ch):
