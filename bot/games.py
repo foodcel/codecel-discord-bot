@@ -13,7 +13,7 @@ from .ctx import ctx, fetch_channel
 from .db import all_, kv_del, kv_get, kv_set, now, one, run
 from .devboard import on_boards_refreshed
 from .perms import can_manage, level
-from .ui import E, ZW, columns, cut, describe, flat, head, lkey, RULE
+from .ui import E, EM, ZW, columns, cut, describe, flat, head, lkey, RULE
 
 NONE = '__none__'  # value of the "nothing here" autocomplete entry
 
@@ -79,15 +79,17 @@ def game_lists():
     released_keys = {r['key'] for r in released}
     unreleased = []
     seen = set()
+    sources = {r['key']: r['source_link'] for r in rows}
     for c in get_claims():
         k = key(c['name'])
         seen.add(k)
         if k not in released_keys:
-            unreleased.append({'key': k, 'name': c['name'], 'owners': c['owners'], 'since': c['since']})
+            unreleased.append({'key': k, 'name': c['name'], 'owners': c['owners'], 'since': c['since'], 'source_link': sources.get(k)})
     # moved back to unreleased after it had left the bounty-board
     for r in rows:
         if r['status'] == 'unreleased' and r['key'] not in seen:
-            unreleased.append({'key': r['key'], 'name': r['name'], 'owners': owner_ids(r), 'since': r['since']})
+            unreleased.append({'key': r['key'], 'name': r['name'], 'owners': owner_ids(r), 'since': r['since'],
+                               'source_link': r['source_link']})
     return {'released': released, 'unreleased': unreleased}
 
 
@@ -102,7 +104,7 @@ async def dev_name(id_):
 
 async def rows_by_dev(entries):
     """Rows are sorted by dev, so all the games of one dev sit right under each other (dev with most games first).
-    A game with two owners shows once under each owner."""
+    A game with two owners shows once under each owner. The dev shows as a mention; 'gap' marks the first row of the next dev."""
     per = {}
     for e in entries:
         for o in (e['owners'] if e['owners'] else ['none']):
@@ -112,10 +114,13 @@ async def rows_by_dev(entries):
         devs.append({'id': id_, 'name': 'No dev' if id_ == 'none' else await dev_name(id_), 'list': lst})
     devs.sort(key=lambda d: (-len(d['list']), lkey(d['name'])))
     out = []
-    for d in devs:
-        for g in sorted(d['list'], key=lambda g: lkey(g['name'])):
-            out.append({'dev': '—' if d['id'] == 'none' else cut(d['name'], 14), **g})
+    for n, d in enumerate(devs):
+        for k, g in enumerate(sorted(d['list'], key=lambda g: lkey(g['name']))):
+            out.append({'dev': '—' if d['id'] == 'none' else f"<@{d['id']}>", 'gap': n > 0 and k == 0, **g})
     return out
+
+
+GAP_ROW = object()  # marks the blank line between two devs
 
 
 def table(e, headings, rows):
@@ -131,6 +136,11 @@ def table(e, headings, rows):
         state['first'] = False
 
     for r in rows:
+        if r is GAP_ROW:
+            if state['chunk']:  # an empty line between two devs (never at the top of a block)
+                r = [ZW, ZW, ZW]
+            else:
+                continue
         if state['chunk'] and any(state['len'][i] + len(cell) + 1 > 960 for i, cell in enumerate(r)):
             flush()
         state['chunk'].append(r)
@@ -138,6 +148,16 @@ def table(e, headings, rows):
             state['len'][i] += len(cell) + 1
     if state['chunk']:
         flush()
+
+
+def with_gaps(rows, cells):
+    """Table rows, with a blank line between the games of one dev and the next."""
+    out = []
+    for r in rows:
+        if r['gap']:
+            out.append(GAP_ROW)
+        out.append(cells(r))
+    return out
 
 
 def _valid_date(s):
@@ -152,7 +172,8 @@ async def game_embeds(lists=None):
     lists = lists or game_lists()
     rel = await rows_by_dev([{'name': clean_name(r['name']), 'owners': owner_ids(r), 'at': r['released_at'], 'link': r['link']}
                              for r in lists['released']])
-    dev = await rows_by_dev([{'name': clean_name(g['name']), 'owners': g['owners'], 'since': g['since']} for g in lists['unreleased']])
+    dev = await rows_by_dev([{'name': clean_name(g['name']), 'owners': g['owners'], 'since': g['since'], 'link': g.get('source_link')}
+                             for g in lists['unreleased']])
 
     def n_games(rows):
         return len({r['name'] for r in rows})
@@ -161,9 +182,9 @@ async def game_embeds(lists=None):
     e1.title = head('✅', 'Released games')
     describe(e1, f"{E['fixed']} **{n_games(rel)}** released")
     if rel:
-        table(e1, [head(E['user'], 'Dev'), head(E['game'], 'Game'), head(E['date'], 'Released')], [
-            [r['dev'], f"[**{cut(r['name'], 19)}**]({r['link']})" if http(r['link']) else f"**{cut(r['name'], 19)}**",
-             datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d')] for r in rel])
+        table(e1, [head(E['user'], 'Dev'), head(E['game'], 'Game'), head(E['date'], 'Released')], with_gaps(rel, lambda r: [
+            r['dev'], f"[**{cut(r['name'], 19)}**]({r['link']})" if http(r['link']) else f"**{cut(r['name'], 19)}**",
+            datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d')]))
     else:
         e1.add_field(name=ZW, value='None yet.', inline=False)
 
@@ -172,8 +193,9 @@ async def game_embeds(lists=None):
     e2.set_footer(text='Game owners: /release when a game is out, /unrelease to move it back.')
     describe(e2, f'🛠️ **{n_games(dev)}** in development')
     if dev:
-        table(e2, [head(E['user'], 'Dev'), head(E['game'], 'Game'), head(E['date'], 'Since')], [
-            [r['dev'], f"**{cut(r['name'], 19)}**", r['since'] if r.get('since') and _valid_date(r['since']) else '—'] for r in dev])
+        table(e2, [head(E['user'], 'Dev'), head(E['game'], 'Game'), head(E['date'], 'Since')], with_gaps(dev, lambda r: [
+            r['dev'], f"[**{cut(r['name'], 19)}**]({r['link']})" if http(r['link']) else f"**{cut(r['name'], 19)}**",
+            r['since'] if r.get('since') and _valid_date(r['since']) else '—']))
     else:
         e2.add_field(name=ZW, value='None yet.', inline=False)
     return [e1, e2]
@@ -214,7 +236,7 @@ async def autocomplete_games(i, command, focused):
     """Shows the proper name, answers with the typed name (that is what the lists are keyed on)."""
     q = str(focused or '').lower()
     lists = game_lists()
-    if command == 'release':
+    if command in ('release', 'gamelink'):
         pool = lists['unreleased']
     elif command == 'unrelease':
         pool = lists['released']
@@ -261,10 +283,30 @@ async def command_release(i, opts, undo=False):
             k, g['name'], ','.join(owner_ids(g)), g.get('since'), now(), str(i.user.id), link or None)
     await refresh_game_board()
     shown = clean_name(g['name'])
-    from .ui import EM
     return await reply(
         f"{E['warn']} **UNRELEASED**{EM}·{EM}{shown} is back in development." if undo
         else f"{E['fixed']} **RELEASED**{EM}·{EM}{shown} is now in the released list.", ephemeral=True)
+
+
+async def command_gamelink(i, opts):
+    """Sets the link shown on an unreleased game (the site it is ported from, e.g. its Steam page)."""
+    reply = i.response.send_message
+    name = opts.get('game')
+    if name == NONE:
+        return await reply('No games are waiting to be released.', ephemeral=True)
+    k, _, g = _find(name)
+    if not g:
+        return await reply('That game is not in the unreleased list. Claim it on the bounty-board first.', ephemeral=True)
+    if not can_manage(i.user, owner_ids(g)):
+        return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
+    link = (opts.get('link') or '').strip()
+    if not http(link):
+        return await reply('The link must start with http:// or https://', ephemeral=True)
+    run("""INSERT INTO game_status(key,name,owners,since,status,source_link) VALUES(?,?,?,?,'unreleased',?)
+        ON CONFLICT(key) DO UPDATE SET source_link=excluded.source_link""",
+        k, g['name'], ','.join(owner_ids(g)), g.get('since'), link)
+    await refresh_game_board()
+    return await reply(f"{E['fixed']} **LINKED**{EM}·{EM}{clean_name(g['name'])} now links to {link}", ephemeral=True)
 
 
 async def command_games(i, sub, opts):

@@ -74,6 +74,10 @@ COMMANDS = [
         option(STRING, 'link', 'Link players use to play it (optional)'),
     ]),
     command('unrelease', 'Move a released game back to unreleased', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
+    command('gamelink', 'Set the link of an unreleased game (the site it is ported from, e.g. Steam)', [
+        option(STRING, 'game', 'Game', required=True, autocomplete=True),
+        option(STRING, 'link', 'Link to the original game', required=True),
+    ]),
     command('games', 'Admin: the released / unreleased games board', [
         sub('post', 'Post the board in this channel (it updates by itself)'),
         sub('rename', 'Fix the name shown for a game', [

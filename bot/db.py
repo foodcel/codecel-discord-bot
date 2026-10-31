@@ -59,6 +59,11 @@ CREATE TABLE IF NOT EXISTS announcements(
 );
 """)
 
+try:
+    db.execute('ALTER TABLE game_status ADD COLUMN source_link TEXT')  # where an unreleased game is ported from (Steam etc.)
+except Exception:
+    pass
+
 for _col in ('note TEXT', 'device TEXT', 'body TEXT', 'source TEXT'):
     try:
         db.execute(f'ALTER TABLE bugs ADD COLUMN {_col}')

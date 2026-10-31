@@ -14,7 +14,7 @@ from .devboard import board_components, exploit_buttons, exploit_status_line, op
 from .env import cfg
 from .fixes import apply_status
 from .fixlog import log_page, open_log, send_fix_transcript
-from .games import autocomplete_games, command_games, command_release
+from .games import autocomplete_games, command_gamelink, command_games, command_release
 from .perms import can_confirm, can_manage, level
 from .previews import post_previews
 from .strikes import pardon, resolve_strike, rules_embed, strike_info
@@ -63,7 +63,7 @@ async def autocomplete(i):
     name = i.data['name']
     sub, _, focused = get_options(i)
     fname, fvalue = focused or ('', '')
-    if name in ('release', 'unrelease', 'games'):
+    if name in ('release', 'unrelease', 'games', 'gamelink'):
         return await autocomplete_games(i, name, fvalue)
     q = str(fvalue).lower()
     if fname == 'board':
@@ -405,6 +405,8 @@ async def handle_command(i):
         return await command_release(i, opts)
     if name == 'unrelease':
         return await command_release(i, opts, True)
+    if name == 'gamelink':
+        return await command_gamelink(i, opts)
     if name == 'games':
         return await command_games(i, sub, opts)
     if name == 'botrules':
