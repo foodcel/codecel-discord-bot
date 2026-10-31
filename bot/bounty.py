@@ -2,7 +2,7 @@
 import re
 
 from .ctx import ctx
-from .db import get_game
+from .db import all_, get_game
 from .env import cfg
 
 _claims = []  # [{'name', 'owners': [userId], 'since': 'YYYY-MM-DD' | None, 'votes': int}]
@@ -86,14 +86,25 @@ def _norm(s):
     return re.sub(r'[^a-z0-9]', '', s.lower())
 
 
-def match_claims(game_name):
+def released_pool():
+    """Games that are out keep their owner: a released game is no longer an open claim, but its dev still owns its bugs and suggestions."""
+    return [{'name': r['name'], 'owners': [o for o in (r['owners'] or '').split(',') if o]}
+            for r in all_("SELECT name, owners FROM game_status WHERE status='released'")]
+
+
+def all_owner_ids():
+    """Everyone who owns a game now, open claims and released games."""
+    return list(dict.fromkeys(o for c in [*_claims, *released_pool()] for o in c['owners']))
+
+
+def match_claims(game_name, pool=None):
     g = _toks(game_name or '')
     if not g:
         return []
     gn = _norm(game_name)
     best = 0
     hits = []
-    for c in _claims:
+    for c in (_claims if pool is None else pool):
         ct = set(_toks(c['name']))
         cn = _norm(c['name'])
         # Same letters with different spacing/plurals ("OneShot" / "One shot", "parappa" / "Parappa 2") count as a full match.
@@ -118,7 +129,7 @@ def owners_for(tag_id, game_name):
     if row and row.get('board_name'):
         hits = [c for c in _claims if _norm(c['name']) == _norm(row['board_name'])]
     if not hits:
-        hits = match_claims(game_name)
+        hits = match_claims(game_name) or match_claims(game_name, released_pool())
     return list(dict.fromkeys(o for c in hits for o in c['owners']))
 
 
@@ -126,4 +137,4 @@ def board_name_for(tag_id, game_name):
     row = get_game(tag_id) if tag_id else None
     if row and row.get('board_name'):
         return row['board_name']
-    return ', '.join(c['name'] for c in match_claims(game_name)) or None
+    return ', '.join(c['name'] for c in (match_claims(game_name) or match_claims(game_name, released_pool()))) or None

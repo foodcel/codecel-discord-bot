@@ -4,7 +4,7 @@ import asyncio
 
 import discord
 
-from .bounty import get_claims, owners_for
+from .bounty import all_owner_ids, owners_for
 from .components import allowed, button, make_view, select
 from .ctx import ctx, fetch_channel
 from .db import all_, get_prefs, kv_get, kv_keys, kv_set, run, update_bug
@@ -166,10 +166,10 @@ def on_boards_refreshed(fn):
 
 async def refresh_all_boards():
     keys = [r['k'][len('devthread:'):] for r in kv_keys('devthread:')]
-    for c in get_claims():
-        keys.extend(c['owners'])
+    for o in all_owner_ids():
+        keys.append(o)
         if cfg.dev_suggestions_id:
-            keys.extend('S' + o for o in c['owners'])
+            keys.append('S' + o)
     keys.append('unclaimed')
     if cfg.dev_suggestions_id:
         keys.append('Sunclaimed')
