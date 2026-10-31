@@ -111,6 +111,8 @@ def roster_embed(rows=None, reports=None):
         for k, r in enumerate([r for r in rows if r['status'] == st]):
             if used >= 24:
                 break
+            if k == 0 and used:
+                gap(e)  # one empty line above each group name after the first
             # the first tester of a group carries the group's name, the others a blank line above them
             e.add_field(name=head(MARK[st], f'{LABEL[st]} · {count[st]}') if k == 0 else ZW, value=_block(r, reports)[:1024], inline=False)
             used += 1

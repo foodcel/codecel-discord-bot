@@ -1,5 +1,6 @@
 """Posts an EXAMPLE tester roster in the test channel: every status at once and made-up report counts. Nothing is saved."""
 import asyncio
+import sys
 
 from _boot import boot, finish
 
@@ -32,6 +33,10 @@ REPORTS = {IDS[0]: 14, IDS[1]: 9, IDS[2]: 1, IDS[3]: 6, IDS[4]: 3}  # made up
 async def main():
     client = await boot(members=True, claims=False)
     ch = await client.fetch_channel(int(cfg.test_id))
+    if '--edit' in sys.argv:  # --edit=<message id>: update an earlier example instead of posting another
+        mid = [a for a in sys.argv if a.startswith('--edit=')][0].split('=')[1]
+        await ch.get_partial_message(int(mid)).edit(embed=roster_embed(ROWS, REPORTS))
+        return await finish(client)
     await ch.send(content='**Example roster** · every status at once, made-up report counts (nothing here is real data except the names)',
                   embed=roster_embed(ROWS, REPORTS))
     await finish(client)
