@@ -4,7 +4,7 @@ import time
 import discord
 
 from .announce import build_embeds, draft_payload, polish_dev_updates
-from .botnews import board_news_embeds, bot_news_embeds, tester_news_embeds
+from .botnews import board_news_embeds, bot_news_embeds, suggestion_news_embeds, tester_news_embeds
 from .bugview import bug_embeds
 from .components import NO_MENTIONS, button, disable_all, make_view
 from .ctx import ctx, fetch_channel
@@ -183,6 +183,9 @@ async def post_previews(what='all'):
     if what == 'testernews':
         await send('**Tester announcement draft** · for the tester announcements channel. NOT posted there. Would ping: the Tester role only',
                    embeds=tester_news_embeds())
+        n += 1
+    if what == 'suggestionnews':
+        await send('**Suggestion boards announcement draft** · for the dev announcements channel. NOT posted there, waiting for approval', embeds=suggestion_news_embeds())
         n += 1
     if what == 'boardnews':
         await send('**Bounty board announcement draft** · for #📣┃announcements. NOT posted there, waiting for approval', embeds=board_news_embeds())

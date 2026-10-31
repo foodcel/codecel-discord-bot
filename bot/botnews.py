@@ -90,3 +90,34 @@ def board_news_embeds():
     ps = ['Credits to <@1134858072989376644> for the original bounty board', owner_id and f'Report any bugs to <@{owner_id}>']
     e.add_field(name=ZW, value='\n'.join(x for x in ps if x), inline=False)
     return [e]
+
+
+def suggestion_news_embeds():
+    """The announcement for the suggestion boards. One embed."""
+    owner_id = os.environ.get('OWNER_ID') or ''
+    suggestions = f'<#{cfg.suggestions_id}>'
+    board = f'<#{cfg.dev_suggestions_id}>'
+    bugs = f'<#{cfg.bugs_id}>'
+    e = flat()
+    e.title = head(E['update'], 'New · suggestion boards')
+    e.set_footer(text='The 🙏 votes show devs what players want most.')
+    describe(e, f'Posts in {suggestions} are now handled like bug reports: checked, tagged with their game and sent to the dev who owns it.')
+    section(e, head('💡', 'Your suggestion board'),
+            f'Every dev has a post in {board} with their open suggestions and their 🙏 votes. Pick a game in the dropdown to browse them one by one. A new suggestion gives you a quick ping.')
+    section(e, head(E['fixed'], 'Added or declined'),
+            'Press **Added** or **Declined**, or type `12 added` or `7 declined`. The player is pinged and the post is deleted after 24 hours. Added suggestions go into the update announcements next to the bug fixes.')
+    section(e, head(E['update'], 'Bugs posted there'),
+            f'If a post is really a bug, the bot turns it into a bug on the owner\'s bug board and tells the player to use {bugs} next time.')
+    section(e, head(E['duplicate'], 'Duplicates and missing info'),
+            'The same idea posted twice points to the first one. A vague post gets a short question, and is closed after 3 days without an answer.')
+    gap(e)  # one empty line between the sections above and the commands
+    columns(e, [
+        {'name': head('⌨️', 'Commands'), 'lines': [
+            '`12 added` · the idea is in the game', '`7 declined` · we are not adding it', '`3 duplicate` · already suggested',
+            '`1-5 added` · several at once']},
+        {'name': head(E['user'], 'Who can do what'), 'lines': [
+            '**Devs** · suggestions for their own games', '**Jr devs** · read only', '**Admins** · everything']},
+    ], '─' * 28)
+    if owner_id:
+        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    return [e]
