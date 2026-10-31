@@ -78,6 +78,12 @@ for _col in ("kind TEXT NOT NULL DEFAULT 'bug'", 'votes INTEGER NOT NULL DEFAULT
     except Exception:
         pass
 
+for _col in ('message_id TEXT', 'channel_id TEXT', 'payload TEXT'):  # where an announcement was posted, and its lines (to add to it later)
+    try:
+        db.execute(f'ALTER TABLE announcements ADD COLUMN {_col}')
+    except Exception:
+        pass
+
 for _col in ('source_link TEXT', 'progress INTEGER', 'working INTEGER'):  # link of the original game; % done; being worked on now
     try:
         db.execute(f'ALTER TABLE game_status ADD COLUMN {_col}')

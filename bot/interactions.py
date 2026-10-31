@@ -4,8 +4,8 @@ import discord
 from discord import app_commands
 
 from .ai import interpret_note
-from .announce import (chosen, chosen_ids, confirm_view, draft_payload, items, ping_role, polish_dev_updates, polish_fixes, post_announcement,
-                       snooze, unannounced)
+from .announce import (_ago, chosen, chosen_ids, confirm_view, draft_payload, items, merge_announcement, ping_role, polish_dev_updates,
+                       polish_fixes, post_announcement, recent_announcement, snooze, unannounced)
 from . import board as bounty_board
 from . import testers
 from .bounty import board_name_for, get_claims, owners_for
@@ -198,21 +198,29 @@ async def button_ann(i, action, pid, extra=None):
     if action == 'back':
         return await i.response.edit_message(**await draft_payload(pid))
     role = ping_role(game)
-    if action == 'post' and role:  # ask first: ping the updates role or not
-        await devlog.update_step(pid, i.user, game['name'], 'Pressed Post: asked whether to ping the updates role.')
-        return await i.response.edit_message(
-            content=f"{E['update']} **POST {game['name'].upper()}?**\nPing <@&{role}> with this update?",
-            view=confirm_view(pid), allowed_mentions=NO_MENTIONS)
+    recent = recent_announcement(p['tagId'])
+    if action == 'post' and (role or recent):  # ask first: add to the earlier update, or post a new one, and ping or not
+        await devlog.update_step(pid, i.user, game['name'], 'Pressed Post: asked what to do' + (' (an update was posted a few hours ago)' if recent else '') + '.')
+        text = f"{E['update']} **POST {game['name'].upper()}?**"
+        if recent:
+            text += f"\nThere was already an update {_ago(recent['posted_at'])}. Add to it and it stays one embed, with no new ping. Or post a new one."
+        if role:
+            text += f"\nA new post can ping <@&{role}>."
+        return await i.response.edit_message(content=text, view=confirm_view(pid, recent, role), allowed_mentions=NO_MENTIONS)
+    merge = action == 'go' and extra == 'merge'
     ping = action == 'go' and extra == 'ping'
     await i.response.defer()
-    r = await post_announcement(pid, ping=ping)
+    r = await (merge_announcement(pid) if merge else post_announcement(pid, ping=ping))
     if not r['ok']:
-        await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'], f"⛔ Pressed Post: refused. {r['msg']}")
+        await devlog.update_step(pid, i.user, game['name'], f"⛔ Pressed Post: refused. {r['msg']}")
         return await i.followup.send(r['msg'], ephemeral=True)
     bug_lines, new_lines = chosen(p)
-    await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'],
-                             f"Posted {len(bug_lines)} bug fix(es) and {len(p['updates']) + len(new_lines)} update(s), {'pinging the updates role' if ping else 'without a ping'}.",
-                             final=f"Posted: {r['url']}" + (' (pinged)' if ping else ' (no ping)'))
+    how = 'added to the earlier update' if merge else ('pinging the updates role' if ping else 'without a ping')
+    await devlog.update_step(pid, i.user, game['name'],
+                             f"Posted {len(bug_lines)} bug fix(es) and {len(p['updates']) + len(new_lines)} update(s), {how}.",
+                             final=f"{'Added to the earlier update' if merge else 'Posted'}: {r['url']}" + ('' if merge else (' (pinged)' if ping else ' (no ping)')))
+    if merge:
+        return await i.message.edit(content=f"{E['fixed']} **ADDED**{EM}·{EM}to the earlier update: {r['url']}", embeds=[], view=None)
     return await i.message.edit(content=f"{E['fixed']} **POSTED**{EM}·{EM}{r['url']}", embeds=[], view=None)
 
 

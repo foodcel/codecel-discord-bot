@@ -10,7 +10,7 @@ from .ai import draft_bug_fixes, draft_new_features, polish_updates
 from .bounty import owners_for
 from .components import NO_MENTIONS, allowed, button, make_view, select
 from .ctx import ctx, fetch_channel
-from .db import (bug_by_id, create_pending, del_pending, get_game, get_pending, kv_del, kv_get, kv_set, now, run, set_pending,
+from .db import (bug_by_id, create_pending, one, del_pending, get_game, get_pending, kv_del, kv_get, kv_set, now, run, set_pending,
                  update_bug, upsert_game, all_)
 from .devboard import dev_thread, schedule_boards
 from .env import cfg
@@ -185,17 +185,32 @@ def draft_view(id_, p=None):
     return make_view(rows)
 
 
+MERGE_HOURS = 12  # updates of a game this close together become one embed
+
+
+def recent_announcement(tag_id):
+    """The last announcement of the game, if it is young enough to add to (and its message is known)."""
+    row = one('SELECT * FROM announcements WHERE tag_id=? ORDER BY id DESC LIMIT 1', tag_id)
+    if row and row.get('message_id') and row.get('payload') and now() - row['posted_at'] < MERGE_HOURS * 3600000:
+        return row
+    return None
+
+
 def ping_role(game):
     """The role an announcement can ping: the game's own, or the updates role."""
     return game.get('ping_role_id') or cfg.updates_role
 
 
-def confirm_view(id_):
-    return make_view([[
-        button(f'ann:go:{id_}:ping', 'Post and ping', discord.ButtonStyle.success),
-        button(f'ann:go:{id_}:quiet', 'Post without ping', discord.ButtonStyle.secondary),
-        button(f'ann:back:{id_}', 'Back', discord.ButtonStyle.secondary),
-    ]])
+def confirm_view(id_, recent=None, role=None):
+    """The question when Post is pressed: add to the update posted a few hours ago, or post a new one (with or without a ping)."""
+    row = []
+    if recent:
+        row.append(button(f'ann:go:{id_}:merge', 'Add to the earlier update', discord.ButtonStyle.primary))
+    if role:
+        row.append(button(f'ann:go:{id_}:ping', 'Post new and ping', discord.ButtonStyle.success))
+    row.append(button(f'ann:go:{id_}:quiet', 'Post new without ping' if role else 'Post new', discord.ButtonStyle.secondary))
+    row.append(button(f'ann:back:{id_}', 'Back', discord.ButtonStyle.secondary))
+    return make_view([row])
 
 
 def _no_channel_warning():
@@ -350,13 +365,49 @@ async def post_announcement(pending_id, ping=False):
     ids = b_ids + n_ids  # what was not ticked stays pending for the next update
     for i in ids:
         update_bug(i, {'announced': 1})
-    run('INSERT INTO announcements(tag_id,game_name,posted_at,url,bug_ids) VALUES(?,?,?,?,?)',
-        p['tagId'], game['name'], now(), sent.jump_url, json.dumps(ids))
+    run('INSERT INTO announcements(tag_id,game_name,posted_at,url,bug_ids,message_id,channel_id,payload) VALUES(?,?,?,?,?,?,?,?)',
+        p['tagId'], game['name'], now(), sent.jump_url, json.dumps(ids), str(sent.id), str(ch.id),
+        json.dumps({'bugfixes': bug_lines, 'updates': list(p['updates']) + new_lines, 'version': p.get('version') or ''}))
     schedule_boards()
     del_pending(pending_id)
     kv_del(f"offer:{p['tagId']}")
     upsert_game(p['tagId'], game['name'], {'next_offer_at': 0})
     return {'ok': True, 'url': sent.jump_url}
+
+
+async def merge_announcement(pending_id):
+    """Adds the ticked items to the game's last announcement (one embed instead of several posts in a row). No new ping."""
+    p = get_pending(pending_id)
+    if not p:
+        return {'ok': False, 'msg': 'This draft no longer exists.'}
+    bug_lines, new_lines = chosen(p)
+    if not bug_lines and not p['updates'] and not new_lines:
+        return {'ok': False, 'msg': 'Nothing to add. Tick a fix, or press Edit and write an update.'}
+    game = get_game(p['tagId'])
+    row = recent_announcement(p['tagId'])
+    ch = await fetch_channel(row['channel_id']) if row else None
+    try:
+        msg = await ch.fetch_message(int(row['message_id'])) if ch else None
+    except Exception:
+        msg = None
+    if not msg:
+        return {'ok': False, 'msg': 'I could not find the earlier update any more. Post a new one.'}
+    old = json.loads(row['payload'])
+    bugfixes = old['bugfixes'] + [l for l in bug_lines if l not in old['bugfixes']]
+    mine = list(p['updates']) + new_lines
+    updates = old['updates'] + [l for l in mine if l not in old['updates']]
+    version = p.get('version') or old.get('version') or ''
+    await msg.edit(embeds=await build_embeds(game, bugfixes, updates, version), allowed_mentions=NO_MENTIONS)
+    b_ids, n_ids = chosen_ids(p)
+    for i in b_ids + n_ids:
+        update_bug(i, {'announced': 1})
+    run('UPDATE announcements SET bug_ids=?, payload=? WHERE id=?',
+        json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'version': version}), row['id'])
+    schedule_boards()
+    del_pending(pending_id)
+    kv_del(f"offer:{p['tagId']}")
+    upsert_game(p['tagId'], game['name'], {'next_offer_at': 0})
+    return {'ok': True, 'url': msg.jump_url, 'merged': True}
 
 
 def snooze(pending_id):
