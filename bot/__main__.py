@@ -16,10 +16,11 @@ from .fixlog import backfill_snapshots
 from .intake import intake_thread
 from .interactions import handle_interaction
 from .router import handle_message
-from . import suggest
+from . import devlog, suggest
 from .tags import ensure_suggest_tags, load_tags
 from .timers import run_timers
 
+devlog.install()
 intents = discord.Intents.none()
 intents.guilds = True
 intents.guild_messages = True
@@ -182,9 +183,12 @@ async def on_guild_channel_update(before, after):
 async def on_interaction(i):
     if i.type == discord.InteractionType.application_command:
         print(f"/{i.data.get('name')} by {i.user}")
+    captured, token = devlog.begin()
+    error = None
     try:
         await handle_interaction(i)
-    except Exception:
+    except Exception as e:
+        error = e
         print('interaction')
         traceback.print_exc()
         try:
@@ -192,6 +196,9 @@ async def on_interaction(i):
                 await i.response.send_message('Something went wrong.', ephemeral=True)
         except Exception:
             pass
+    finally:
+        devlog.end(token)
+    devlog.record(i, captured, error)
 
 
 if __name__ == '__main__':

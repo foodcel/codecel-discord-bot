@@ -230,7 +230,7 @@ async def button_bug(i, id_, status):
     if not bug:
         return await deny(i, 'That bug no longer exists.')
     await i.response.defer(ephemeral=True, thinking=True)
-    done, skipped = await apply_status([bug['id']], status, i.user)
+    done, skipped = await apply_status([bug['id']], status, i.user, via='button')
     return await i.edit_original_response(
         content=f"#{bug['id']} → {status.replace('_', ' ', 1)}" if done else f"Could not change #{bug['id']}: {skipped[0] if skipped else 'unknown'}")
 

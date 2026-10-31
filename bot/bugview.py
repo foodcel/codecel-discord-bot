@@ -151,7 +151,7 @@ async def handle_view(i):
         target = lst[min(len(lst) - 1, max(0, idx + (1 if act == 'n' else -1)))] if lst else None
         return await i.edit_original_response(**await render_view(i.user, key, game, target['id'] if target else bug_id))
     if act == 'st':
-        done, skipped = await apply_status([bug_id], status, i.user)
+        done, skipped = await apply_status([bug_id], status, i.user, via='bug page')
         if not done:
             await i.followup.send(f"Could not change #{bug_id}: {skipped[0] if skipped else 'unknown'}", ephemeral=True)
         return await i.edit_original_response(**await render_view(i.user, key, game, bug_id))

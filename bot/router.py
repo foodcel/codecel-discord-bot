@@ -4,6 +4,7 @@ import asyncio
 import discord
 
 from .ctx import get_member
+from . import devlog
 from .db import bug_by_thread, kv_set, run
 from .env import cfg
 from .fixes import apply_status
@@ -29,6 +30,7 @@ async def handle_dev(msg, kind='bug'):
     member = await _member_of(msg)
     lvl = level(member)
     if lvl == 'jr':
+        asyncio.ensure_future(devlog.post(msg.author, 'Jr dev wrote in a dev board', f'**message** · {msg.content[:300]}', 'Message deleted', False, msg.channel.id))
         try:
             await msg.delete()
         except Exception:
@@ -44,7 +46,7 @@ async def handle_dev(msg, kind='bug'):
     cmd = parse_command(msg.content)
     if not cmd or not cmd['ids']:
         return
-    done, skipped = await apply_status(cmd['ids'], cmd['status'], member, kind)
+    done, skipped = await apply_status(cmd['ids'], cmd['status'], member, kind, via='typed in the board')
     try:
         await msg.add_reaction('✅' if done else '❌')
     except Exception:
@@ -68,7 +70,7 @@ async def handle_bug_thread(msg):
         if cmd:
             ids = cmd['ids'] if cmd['ids'] else ([bug['id']] if bug else [])
             if ids:
-                done, _ = await apply_status(ids, cmd['status'], member)
+                done, _ = await apply_status(ids, cmd['status'], member, via='typed in the post')
                 if done:
                     try:
                         await msg.add_reaction('✅')
@@ -91,7 +93,7 @@ async def handle_suggestion_thread(msg):
     if level(member) in ('admin', 'dev'):
         cmd = parse_command(msg.content)
         if cmd:
-            done, _ = await apply_status(cmd['ids'] or [bug['id']], cmd['status'], member, 'suggestion')
+            done, _ = await apply_status(cmd['ids'] or [bug['id']], cmd['status'], member, 'suggestion', via='typed in the post')
             if done:
                 try:
                     await msg.add_reaction('✅')

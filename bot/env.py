@@ -30,6 +30,7 @@ class Cfg:
     test_id = _e.get('TEST_CHANNEL_ID') or None
     updates_id = _e.get('UPDATES_CHANNEL_ID') or None
     testing_id = _e.get('TESTING_CHANNEL_ID') or None
+    devlog_id = _e.get('DEV_LOG_CHANNEL_ID') or None                   # optional: every dev action is logged here
     suggestions_id = _e.get('SUGGESTIONS_CHANNEL_ID') or None          # optional: forum where players suggest improvements
     dev_suggestions_id = _e.get('DEV_SUGGESTIONS_FORUM_ID') or None    # optional: dev-only forum, a board post per dev
     tester_roles = [r for r in (_e.get('TESTER_ROLE_IDS') or '').split(',') if r]

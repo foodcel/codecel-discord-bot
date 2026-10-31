@@ -6,6 +6,7 @@ from .bounty import owners_for
 from .components import allowed
 from .ctx import fetch_channel
 from .db import add_timer, bug_by_id, cancel_timers, now, update_bug
+from . import devlog
 from .devboard import route_bug, schedule_boards
 from .fixlog import snapshot_bug
 from .perms import can_manage
@@ -115,33 +116,43 @@ async def reopen(bug):
     fire(maybe_offer(bug['game_tag_id']), 'offer')  # drops it from a pending draft
 
 
-async def apply_status(ids, status, member, kind=None):
+async def apply_status(ids, status, member, kind=None, via='command'):
     """ids: bug or suggestion numbers. kind: the forum the dev typed in ('bug' or 'suggestion'), or None.
     Returns (done, skipped) lists of short strings for the dev."""
     done = []
     skipped = []
     for id_ in ids:
+        n_skipped = len(skipped)
         bug = bug_by_id(id_)
-        if not bug or bug['status'] in ('removed', 'closed') or bug['status'].startswith('exploit'):
-            skipped.append(f'#{id_} not found')
-            continue
-        if kind and bug['kind'] != kind:
-            skipped.append(f"#{id_} is a {bug['kind']}")
-            continue
-        if bug['kind'] == 'suggestion' and status not in ('fixed', 'declined', 'duplicate', 'new'):
-            skipped.append(f'#{id_} is a suggestion: use added, declined or duplicate')
-            continue
-        if bug['kind'] == 'bug' and status == 'declined':
-            skipped.append(f'#{id_} is a bug: use fixed, not a bug or duplicate')
-            continue
-        owners = owners_for(bug['game_tag_id'], bug['game_name'])
-        if not can_manage(member, owners):
-            skipped.append(f'#{id_} not your game')
-            continue
-        try:
-            await set_bug_status(bug, status, str(member.id))
-            done.append(f'#{id_}')
-        except Exception as e:
-            print('applyStatus', repr(e))
-            skipped.append(f'#{id_} error')
+        await _apply_one(id_, bug, status, member, kind, done, skipped)
+        if len(skipped) > n_skipped:
+            devlog.log_status(member, id_, status, bug, f'Refused: {skipped[-1]}', False, via)
+        else:
+            devlog.log_status(member, id_, status, bug, 'Done', True, via)
     return done, skipped
+
+
+async def _apply_one(id_, bug, status, member, kind, done, skipped):
+    """One id of apply_status: adds to done or skipped."""
+    if not bug or bug['status'] in ('removed', 'closed') or bug['status'].startswith('exploit'):
+        skipped.append(f'#{id_} not found')
+        return
+    if kind and bug['kind'] != kind:
+        skipped.append(f"#{id_} is a {bug['kind']}")
+        return
+    if bug['kind'] == 'suggestion' and status not in ('fixed', 'declined', 'duplicate', 'new'):
+        skipped.append(f'#{id_} is a suggestion: use added, declined or duplicate')
+        return
+    if bug['kind'] == 'bug' and status == 'declined':
+        skipped.append(f'#{id_} is a bug: use fixed, not a bug or duplicate')
+        return
+    owners = owners_for(bug['game_tag_id'], bug['game_name'])
+    if not can_manage(member, owners):
+        skipped.append(f'#{id_} not your game')
+        return
+    try:
+        await set_bug_status(bug, status, str(member.id))
+        done.append(f'#{id_}')
+    except Exception as e:
+        print('applyStatus', repr(e))
+        skipped.append(f'#{id_} error')
