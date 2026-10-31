@@ -5,12 +5,14 @@ Slash commands, buttons and forms are recorded in one place, around the interact
 shown as the result. Status changes are recorded where they are applied, whichever way they were typed or clicked."""
 import asyncio
 import contextvars
+import json
 import re
 from datetime import datetime, timezone
 
 import discord
 
 from .ctx import fetch_channel
+from .db import kv_del, kv_get, kv_set
 from .env import cfg
 from .perms import level
 from .ui import describe, flat, head
@@ -71,7 +73,6 @@ def end(token):
 
 # Commands that only show something or open a draft: the log says so, so it never looks like something was changed.
 READ_ONLY = {
-    '/update': 'Opened the update draft: nothing was posted',
     '/strikes': 'Looked up only: nothing changed',
     '/config show': 'Looked up only: nothing changed',
     '/preview': 'Posted previews in the test channel: nothing live changed',
@@ -135,12 +136,12 @@ def _option(name, v):
 
 def describe_interaction(i):
     """(title, details, fixed result or None) for an interaction worth logging, or None for reading around (browsing, transcripts, autocomplete)."""
-    from .db import bug_by_id, get_pending
+    from .db import bug_by_id
     from .interactions import get_options
     t = i.type
     if t == discord.InteractionType.application_command:
         name = i.data['name']
-        if name == 'bug':  # a tester's report, not a dev action
+        if name in ('bug', 'update'):  # a tester's report is not a dev action; /update has its own single entry (update_step)
             return None
         sub, opts, _ = get_options(i)
         details = '\n'.join(f'**{k}** · {_option(k, v)}' for k, v in opts.items() if not isinstance(v, dict))
@@ -149,11 +150,6 @@ def describe_interaction(i):
     parts = (i.data.get('custom_id') or '').split(':')
     kind = parts[0]
     if t == discord.InteractionType.component:
-        if kind == 'ann' and len(parts) > 2:
-            p = get_pending(int(parts[2]))
-            game = _option('game', p['tagId']) if p else '?'
-            fixed = {'edit': 'Opened the editor: nothing changed'}.get(parts[1])
-            return f'Announcement · {parts[1]}', f'**game** · {game}', fixed
         if kind == 'strike' and len(parts) > 2:
             return f'Strike · {parts[1]}', f'**strike log** · #{parts[2]}', None
         if kind == 'exp' and len(parts) > 2:
@@ -163,9 +159,6 @@ def describe_interaction(i):
     if t == discord.InteractionType.modal_submit:
         from .components import modal_fields
         f = modal_fields(i)
-        if kind == 'annedit':
-            return 'Announcement draft edited', (f"**bug fixes** · {_cut(f.get('bugfixes', ''), 300)}\n**updates** · {_cut(f.get('updates', ''), 300)}"
-                                                 f"\n**version** · {f.get('version') or '-'}"), None
         if kind == 'note':
             b = bug_by_id(int(parts[1]))
             return 'Note on a bug', f"**bug** · #{parts[1]}" + (f" {b['title']}" if b else '') + f"\n**note** · {_cut(f.get('note', ''), 400)}", None
@@ -200,3 +193,59 @@ def log_status(member, bug_id, status, bug, outcome, ok, via):
     words = {'fixed': 'ADDED' if kind == 'suggestion' else 'FIXED'}
     title = f"Status · {words.get(status, status.upper().replace('_', ' '))}"
     asyncio.ensure_future(post(member, title, f'**{kind}** · {what}\n**via** · {via}', outcome, ok))
+
+
+# ---- one entry per update draft ----
+# Opening a draft, ticking, editing and posting are one story: they all go into the same log entry, which is edited as it goes
+# and ends with the result (posted, or not posted).
+_session_locks = {}
+
+
+def _load_session(pid):
+    raw = kv_get(f'devlog:upd:{pid}')
+    return json.loads(raw) if raw else None
+
+
+async def update_step(pid, user, game_name, text, final=None):
+    """Adds a step to the log entry of update draft `pid` (made on the first step). `final` closes the entry with that result."""
+    if not cfg.devlog_id:
+        return
+    lock = _session_locks.setdefault(pid, asyncio.Lock())
+    async with lock:
+        try:
+            s = _load_session(pid) or {'mid': None, 'user': str(user.id), 'game': game_name, 'steps': []}
+            s['steps'].append([int(datetime.now(timezone.utc).timestamp()), str(user.id), text])
+            s['steps'] = s['steps'][-20:]
+            if final:
+                s['final'] = final
+            e = flat()
+            posted = bool(final) and final.startswith('Posted')
+            e.title = head('📣' if posted else '📋', _cut(f"/update · {s['game']}" + (' · NOT POSTED' if final and not posted else ''), 230))
+            status = f'**Result** · {final}' if final else '**Status** · Draft open, nothing posted yet'
+            lines = []
+            for ts, uid, step in s['steps']:
+                who = '' if uid == s['user'] else f' <@{uid}>'
+                lines.append(f'<t:{ts}:T>{who} · {_cut(step, 250)}')
+            describe(e, f"<@{s['user']}>\n{status}\n\n" + '\n'.join(lines))
+            e.timestamp = datetime.now(timezone.utc)
+            e.set_footer(text=f'{user} · {user.id} · draft #{pid}')
+            ch = await fetch_channel(cfg.devlog_id)
+            if ch is None:
+                return
+            msg = None
+            if s['mid']:
+                try:
+                    msg = await ch.fetch_message(int(s['mid']))
+                except Exception:
+                    msg = None
+            if msg:
+                await msg.edit(embeds=[e])
+            else:
+                msg = await ch.send(embeds=[e], allowed_mentions=discord.AllowedMentions.none())
+                s['mid'] = str(msg.id)
+            if final:
+                kv_del(f'devlog:upd:{pid}')  # finished: the next action on a new draft starts a new entry
+            else:
+                kv_set(f'devlog:upd:{pid}', json.dumps(s))
+        except Exception as ex:
+            print('devlog update', repr(ex))
