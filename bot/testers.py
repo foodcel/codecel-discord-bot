@@ -12,7 +12,7 @@ from .ctx import ctx, fetch_channel
 from .db import all_, kv_get, kv_set, one, run
 from .env import cfg
 from .perms import level
-from .ui import E, ZW, describe, flat, gap, head, section
+from .ui import E, EM, ZW, describe, flat, gap, head, section
 
 MARK = {'active': '🟢', 'pending': '🟡', 'private': '🔒', 'inactive': '💤'}
 FIELDS = ('devices', 'recording', 'availability', 'best_for')
@@ -65,36 +65,53 @@ def guide_embed():
     return e
 
 
-def _block(r, reports):
-    mark = MARK.get(r['status'], '🟡')
+LABEL = {'active': 'Active', 'private': 'Private', 'pending': 'Waiting for a reply', 'inactive': 'On a break'}
+
+
+def _lines(r, reports):
+    """The lines under one tester in the tree."""
     n = reports.get(r['user_id'], 0)
     count = f'  ·  📝 {n} report{"" if n == 1 else "s"}' if n else ''
     if r['status'] == 'pending' and not r['devices']:
-        return f"{mark} <@{r['user_id']}>\n⏳ No response yet"
+        return [f"<@{r['user_id']}>", '⏳ No response yet']
     if r['status'] == 'inactive':
-        return f"{mark} <@{r['user_id']}>\nOn a break: not available for testing"
-    lines = [f"{mark} <@{r['user_id']}>{count}"]
-    lines.append(f"🎮 {r['devices'] or '?'}  ·  🎥 {r['recording'] or '?'}")
-    lines.append(f"🕐 {r['availability'] or '?'}")
+        return [f"<@{r['user_id']}>", 'On a break: not available for testing']
+    out = [f"<@{r['user_id']}>{count}", f"🎮 {r['devices'] or '?'}  ·  🎥 {r['recording'] or '?'}", f"🕐 {r['availability'] or '?'}"]
     if r['best_for']:
-        lines.append(f"⭐ {r['best_for']}")
+        out.append(f"⭐ {r['best_for']}")
     if r['status'] == 'private':
-        lines.append(f"🔒 Only tests <@{r['only_for']}>'s games. Not available to other devs." if r['only_for'] else '🔒 Private tester. Not available to other devs.')
-    return '\n'.join(lines)
+        out.append(f"🔒 Only tests <@{r['only_for']}>'s games. Not offered to other devs." if r['only_for'] else '🔒 Private tester. Not offered to other devs.')
+    return out
+
+
+def _tree(rows, reports):
+    """A group of testers as a tree: each tester branches off, its details hang under it. Split into pieces that fit a field."""
+    pieces, cur = [], []
+    for k, r in enumerate(rows):
+        last = k == len(rows) - 1
+        lines = _lines(r, reports)
+        block = [f"{'└─' if last else '├─'} {lines[0]}"] + [f"{EM * 2 if last else '│' + EM}{EM}{ln}" for ln in lines[1:]]
+        if cur and sum(len(x) + 1 for x in cur) + sum(len(x) + 1 for x in block) > 950:
+            pieces.append(cur)
+            cur = []
+        cur += block
+    if cur:
+        pieces.append(cur)
+    return ['\n'.join(p) for p in pieces]
 
 
 def roster_embed():
     rows = everyone()
     reports = report_counts()
-    count = {s: sum(1 for r in rows if r['status'] == s) for s in MARK}
+    count = {st: sum(1 for r in rows if r['status'] == st) for st in MARK}
     e = flat()
     e.title = head('👥', 'Tester roster')
-    parts = [f"{MARK[s]} **{n}** {label}" for s, label in (('active', 'active'), ('private', 'private'), ('pending', 'waiting for a reply'), ('inactive', 'on a break')) if (n := count[s])]
+    parts = [f"{MARK[st]} **{n}** {label}" for st, label in (('active', 'active'), ('private', 'private'), ('pending', 'waiting for a reply'), ('inactive', 'on a break')) if (n := count[st])]
     describe(e, '  ·  '.join(parts) or 'Nobody on the roster yet.')
-    for r in rows[:24]:
-        e.add_field(name=ZW, value=_block(r, reports)[:1024], inline=False)
-    if len(rows) > 24:
-        e.add_field(name=ZW, value=f'…and {len(rows) - 24} more.', inline=False)
+    for st in ('active', 'private', 'pending', 'inactive'):
+        group = [r for r in rows if r['status'] == st][:30]
+        for k, piece in enumerate(_tree(group, reports)):
+            e.add_field(name=head(MARK[st], f'{LABEL[st]} · {count[st]}') if k == 0 else ZW, value=piece, inline=False)
     gap(e)
     e.set_footer(text='🟢 open to every dev · 🔒 private tester · 🟡 waiting for a reply · 💤 on a break · /tester profile to update yours')
     return e
