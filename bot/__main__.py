@@ -16,7 +16,7 @@ from .fixlog import backfill_snapshots
 from .intake import intake_thread
 from .interactions import handle_interaction
 from .router import handle_message
-from . import devlog, suggest
+from . import devlog, suggest, testers
 from .tags import ensure_suggest_tags, load_tags
 from .timers import run_timers
 
@@ -101,6 +101,12 @@ async def on_ready():
         await refresh_all_boards()  # claims may have changed while offline (also creates/refreshes the fix log post)
     except Exception:
         traceback.print_exc()
+    try:
+        if await testers.import_old():
+            print('tester roster imported')
+        await testers.refresh_roster()
+    except Exception:
+        traceback.print_exc()
     asyncio.ensure_future(timer_loop())
     asyncio.ensure_future(board.sync_loop())
     print('Ready. Catch-up finished.')
@@ -168,6 +174,14 @@ async def on_raw_reaction_clear_emoji(p):
 @client.event
 async def on_raw_thread_delete(p):
     board.on_thread_delete(p.thread_id)
+
+
+@client.event
+async def on_member_update(before, after):
+    try:
+        await testers.on_member_update(before, after)
+    except Exception:
+        traceback.print_exc()
 
 
 @client.event

@@ -159,4 +159,6 @@ async def modal_bug(i, tag_id, token, fields):
             await thread.send(content=f'📎 **MORE FILES**{EM}·{EM}{k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
     update_bug(id_, {'last_msg_id': str(sent.id)})
     await route_bug(bug_by_id(id_))  # ghost ping to the owner and the dev board
+    from .testers import schedule_refresh
+    schedule_refresh()  # the roster shows how many reports each tester made
     return await i.edit_original_response(content=f"{E['fixed']} **SENT**{EM}·{EM}#{id_} went to the {game} developer. Follow it here: {thread.jump_url}")

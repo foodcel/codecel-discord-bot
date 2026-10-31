@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS board_claims(  -- a claimed game: a forum post (post_
 );
 CREATE UNIQUE INDEX IF NOT EXISTS board_claim_post ON board_claims(post_id) WHERE post_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS board_claim_game ON board_claims(game COLLATE NOCASE) WHERE post_id IS NULL;
+CREATE TABLE IF NOT EXISTS testers(  -- the tester roster
+  user_id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'pending', only_for TEXT,
+  devices TEXT, recording TEXT, availability TEXT, best_for TEXT, added_at INTEGER
+);
 CREATE TABLE IF NOT EXISTS dev_prefs(user_id TEXT PRIMARY KEY, ping_bugs INTEGER NOT NULL DEFAULT 1, ping_exploits INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS announcements(
   id INTEGER PRIMARY KEY AUTOINCREMENT, tag_id TEXT, game_name TEXT, posted_at INTEGER, url TEXT, bug_ids TEXT

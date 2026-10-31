@@ -6,6 +6,7 @@ from discord import app_commands
 from .ai import interpret_note
 from .announce import (chosen, chosen_ids, draft_payload, items, polish_dev_updates, polish_fixes, post_announcement, snooze, unannounced)
 from . import board as bounty_board
+from . import testers
 from .bounty import board_name_for, get_claims, owners_for
 from .bugview import handle_view, open_game
 from . import commands as bounty_board_commands
@@ -401,6 +402,8 @@ async def handle_interaction(i):
 async def handle_command(i):
     name = i.data['name']
     sub, opts, _ = get_options(i)
+    if name == 'tester':  # testers have no dev role: it checks who may do what itself
+        return await testers.command_tester(i, sub, opts)
     if name == 'bug':
         return await command_bug(i, opts)  # testers have no dev role, so it skips the dev-only gate below
     board_handlers = {'claim': bounty_board.command_claim, 'unclaim': bounty_board.command_unclaim,
@@ -509,6 +512,8 @@ async def handle_modal(i):
     fields = modal_fields(i)
     if kind == 'tb':
         return await modal_bug(i, a, b, fields)
+    if kind == 'tp':
+        return await testers.modal_profile(i, fields)
     if kind == 'note':
         return await modal_note(i, a, fields)
     if kind == 'annedit':

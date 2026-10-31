@@ -63,6 +63,8 @@ BOARD_COMMANDS = [
 ]
 BOARD_NAMES = {c['name'] for c in BOARD_COMMANDS}
 
+STATUS_CHOICES = [('🟢 Active (open to every dev)', 'active'), ('🟡 Waiting for a reply', 'pending'),
+                  ('🔒 Private (one dev only)', 'private'), ('💤 On a break', 'inactive')]
 ON_OFF = [('On', 'on'), ('Off', 'off')]
 
 PREVIEW_CHOICES = [
@@ -111,6 +113,34 @@ COMMANDS = [
         option(STRING, 'game', 'Game', required=True, autocomplete=True),
         option(INTEGER, 'percent', 'How much of the game is done', min_value=0, max_value=100),
         option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
+    ]),
+    command('tester', 'The tester roster', [
+        sub('add', 'Add a tester to the roster (admins)', [
+            option(USER, 'user', 'The tester', required=True),
+            option(STRING, 'status', 'Default: waiting for a reply', choices=STATUS_CHOICES),
+            option(USER, 'only_for', 'For a private tester: the dev whose games they test'),
+            option(STRING, 'devices', 'What they test on', max_length=120),
+            option(STRING, 'recording', 'How they record', max_length=120),
+            option(STRING, 'availability', 'When they are free', max_length=120),
+            option(STRING, 'best_for', 'What they are best for', max_length=120),
+        ]),
+        sub('remove', 'Take a tester off the roster and remove the Tester role (admins)', [option(USER, 'user', 'The tester', required=True)]),
+        sub('status', 'Open to all devs, waiting, private (one dev only) or on a break (admins)', [
+            option(USER, 'user', 'The tester', required=True),
+            option(STRING, 'status', 'New status', required=True, choices=STATUS_CHOICES),
+            option(USER, 'only_for', 'Private only: the dev whose games they test'),
+        ]),
+        sub('edit', "Change a tester's details (admins)", [
+            option(USER, 'user', 'The tester', required=True),
+            option(STRING, 'devices', 'What they test on', max_length=120),
+            option(STRING, 'recording', 'How they record', max_length=120),
+            option(STRING, 'availability', 'When they are free', max_length=120),
+            option(STRING, 'best_for', 'What they are best for', max_length=120),
+        ]),
+        sub('profile', 'Fill in or update your own tester profile'),
+        sub('find', 'Find testers who are open for testing on a device (devs)', [option(STRING, 'device', 'e.g. Xbox, Mobile, PS5', required=True)]),
+        sub('post', 'Post the tester guide and the roster in a channel; they update by themselves (admins)', [
+            option(CHANNEL, 'channel', 'Default: this channel', channel_types=[GUILD_TEXT])]),
     ]),
     SETUP_COMMAND,
     command('games', 'Admin: the released / unreleased games board', [
