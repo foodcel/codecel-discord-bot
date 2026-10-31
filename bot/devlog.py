@@ -22,6 +22,11 @@ _REFUSED = re.compile(r"^(Only |You do not|You cannot|You can't|Pick |Give |The 
                       r"Unknown|Nothing|There's no|No games|Someone|Skipped|This (draft|command)|The \w+ must)", re.I)
 
 
+def note(text):
+    """Adds a line to the result of the entry being written (what really happened)."""
+    _note(text)
+
+
 def _note(text):
     c = _capture.get()
     if c is not None and isinstance(text, str) and text:
@@ -62,6 +67,16 @@ def begin():
 
 def end(token):
     _capture.reset(token)
+
+
+# Commands that only show something or open a draft: the log says so, so it never looks like something was changed.
+READ_ONLY = {
+    '/update': 'Opened the update draft: nothing was posted',
+    '/strikes': 'Looked up only: nothing changed',
+    '/config show': 'Looked up only: nothing changed',
+    '/preview': 'Posted previews in the test channel: nothing live changed',
+    '/botrules': 'Posted the rules message',
+}
 
 
 def _cut(s, n):
@@ -119,7 +134,7 @@ def _option(name, v):
 
 
 def describe_interaction(i):
-    """(title, details) for an interaction worth logging, or None for reading around (browsing, transcripts, autocomplete)."""
+    """(title, details, fixed result or None) for an interaction worth logging, or None for reading around (browsing, transcripts, autocomplete)."""
     from .db import bug_by_id, get_pending
     from .interactions import get_options
     t = i.type
@@ -129,30 +144,31 @@ def describe_interaction(i):
             return None
         sub, opts, _ = get_options(i)
         details = '\n'.join(f'**{k}** · {_option(k, v)}' for k, v in opts.items() if not isinstance(v, dict))
-        return f'/{name}' + (f' {sub}' if sub else ''), details
+        title = f'/{name}' + (f' {sub}' if sub else '')
+        return title, details, READ_ONLY.get(title)
     parts = (i.data.get('custom_id') or '').split(':')
     kind = parts[0]
     if t == discord.InteractionType.component:
         if kind == 'ann' and len(parts) > 2:
             p = get_pending(int(parts[2]))
             game = _option('game', p['tagId']) if p else '?'
-            return f'Announcement · {parts[1]}', f'**game** · {game}'
+            fixed = {'edit': 'Opened the editor: nothing changed'}.get(parts[1])
+            return f'Announcement · {parts[1]}', f'**game** · {game}', fixed
         if kind == 'strike' and len(parts) > 2:
-            return f'Strike · {parts[1]}', f'**strike log** · #{parts[2]}'
+            return f'Strike · {parts[1]}', f'**strike log** · #{parts[2]}', None
         if kind == 'exp' and len(parts) > 2:
             b = bug_by_id(int(parts[1]))
-            return f'Exploit card · {parts[2]}', f"**report** · #{parts[1]}" + (f" {b['title']}" if b else '')
+            return f'Exploit card · {parts[2]}', f"**report** · #{parts[1]}" + (f" {b['title']}" if b else ''), None
         return None
     if t == discord.InteractionType.modal_submit:
         from .components import modal_fields
         f = modal_fields(i)
-        if kind == 'upd':
-            return 'Update posted as draft', f"**game** · {_option('game', parts[1])}\n**updates** · {_cut(f.get('updates', ''), 300)}"
         if kind == 'annedit':
-            return 'Announcement edited', f"**version** · {f.get('version') or '-'}\n**updates** · {_cut(f.get('updates', ''), 300)}"
+            return 'Announcement draft edited', (f"**bug fixes** · {_cut(f.get('bugfixes', ''), 300)}\n**updates** · {_cut(f.get('updates', ''), 300)}"
+                                                 f"\n**version** · {f.get('version') or '-'}"), None
         if kind == 'note':
             b = bug_by_id(int(parts[1]))
-            return 'Note on a bug', f"**bug** · #{parts[1]}" + (f" {b['title']}" if b else '') + f"\n**note** · {_cut(f.get('note', ''), 400)}"
+            return 'Note on a bug', f"**bug** · #{parts[1]}" + (f" {b['title']}" if b else '') + f"\n**note** · {_cut(f.get('note', ''), 400)}", None
     return None
 
 
@@ -167,9 +183,9 @@ def record(i, captured, error=None):
         return
     if not d:
         return
-    title, details = d
-    result = ' / '.join(c.replace('\n', ' ') for c in captured[:3]) if captured else None
-    ok = error is None and not (result and _REFUSED.match(captured[0]))
+    title, details, fixed = d
+    result = fixed or (' / '.join(c.replace('\n', ' ') for c in captured[:3]) if captured else 'No reply: nothing changed')
+    ok = error is None and not (captured and not fixed and _REFUSED.match(captured[0]))
     if error is not None:
         result = f'Error: {error!r}'
     asyncio.ensure_future(post(i.user, title, details, result, ok, getattr(i, 'channel_id', None)))

@@ -8,7 +8,7 @@ import discord
 
 from .ai import draft_bug_fixes, draft_new_features, polish_updates
 from .bounty import owners_for
-from .components import NO_MENTIONS, allowed, button, make_view
+from .components import NO_MENTIONS, allowed, button, make_view, select
 from .ctx import fetch_channel
 from .db import (create_pending, del_pending, get_game, get_pending, kv_del, kv_get, kv_set, now, run, set_pending,
                  update_bug, upsert_game, all_)
@@ -122,12 +122,49 @@ async def build_embeds(game, bugfixes, updates, version=''):
     return embeds[:10]
 
 
-def draft_view(id_):
-    return make_view([[
+def items(p):
+    """The fixes and added suggestions of a draft, as [(key, line)]. Empty when the lines were edited by hand (they no longer line up)."""
+    out = []
+    if len(p['bugIds']) == len(p['bugfixes']):
+        out += [(f'b:{i}', l) for i, l in zip(p['bugIds'], p['bugfixes'])]
+    if len(p.get('newIds', [])) == len(p.get('newLines', [])):
+        out += [(f'n:{i}', l) for i, l in zip(p.get('newIds', []), p.get('newLines', []))]
+    return out
+
+
+def chosen(p):
+    """(bug fix lines, new feature lines) that will be posted: everything the dev did not untick."""
+    off = set(p.get('off', []))
+    bugs = ([l for i, l in zip(p['bugIds'], p['bugfixes']) if f'b:{i}' not in off]
+            if len(p['bugIds']) == len(p['bugfixes']) else list(p['bugfixes']))
+    news = ([l for i, l in zip(p.get('newIds', []), p.get('newLines', [])) if f'n:{i}' not in off]
+            if len(p.get('newIds', [])) == len(p.get('newLines', [])) else list(p.get('newLines', [])))
+    return bugs, news
+
+
+def chosen_ids(p):
+    """The ids of the items that will be posted (they are marked as announced)."""
+    off = set(p.get('off', []))
+    bug_ids = [i for i in p['bugIds'] if f'b:{i}' not in off] if len(p['bugIds']) == len(p['bugfixes']) else list(p['bugIds'])
+    new_ids = ([i for i in p.get('newIds', []) if f'n:{i}' not in off]
+               if len(p.get('newIds', [])) == len(p.get('newLines', [])) else list(p.get('newIds', [])))
+    return bug_ids, new_ids
+
+
+def draft_view(id_, p=None):
+    rows = []
+    its = items(p)[:25] if p else []
+    if its:
+        off = set(p.get('off', []))
+        rows.append([select(f'ann:sel:{id_}', 'Choose what to post', [
+            {'label': (('🐛 ' if k[0] == 'b' else '✨ ') + l)[:100], 'value': k, 'default': k not in off} for k, l in its],
+            min_values=0, max_values=len(its))])
+    rows.append([
         button(f'ann:post:{id_}', 'Post', discord.ButtonStyle.success),
         button(f'ann:edit:{id_}', 'Edit', discord.ButtonStyle.primary),
         button(f'ann:later:{id_}', 'Later', discord.ButtonStyle.secondary),
-    ]])
+    ])
+    return make_view(rows)
 
 
 def _no_channel_warning():
@@ -146,10 +183,12 @@ async def draft_payload(pending_id):
     p = get_pending(pending_id)
     game = get_game(p['tagId'])
     warn = '' if (game.get('announce_channel_id') or cfg.updates_id) else _no_channel_warning()
+    bug_lines, new_lines = chosen(p)
+    hint = '' if p.get('offer') else '\n-# Untick what you do not want to post. Edit lets you add extra bug fixes and updates. Post when you are ready.'
     return {
-        'content': offer_text(game, p) if p.get('offer') else f"{E['update']} **DRAFT**{EM}·{EM}{game['name']}{warn}",
-        'embeds': await build_embeds(game, p['bugfixes'], all_updates(p), p.get('version') or ''),
-        'view': draft_view(pending_id),
+        'content': offer_text(game, p) if p.get('offer') else f"{E['update']} **DRAFT**{EM}·{EM}{game['name']}{warn}{hint}",
+        'embeds': await build_embeds(game, bug_lines, list(p['updates']) + new_lines, p.get('version') or ''),
+        'view': draft_view(pending_id, p),
         'allowed_mentions': NO_MENTIONS,
     }
 
@@ -263,6 +302,9 @@ async def post_announcement(pending_id):
     p = get_pending(pending_id)
     if not p:
         return {'ok': False, 'msg': 'This draft no longer exists.'}
+    bug_lines, new_lines = chosen(p)
+    if not bug_lines and not p['updates'] and not new_lines:
+        return {'ok': False, 'msg': 'Nothing to post. Tick a fix, or press Edit and write an update.'}
     game = get_game(p['tagId'])
     ch = await fetch_channel(game.get('announce_channel_id') or cfg.updates_id)
     if not ch:
@@ -270,9 +312,10 @@ async def post_announcement(pending_id):
     role = game.get('ping_role_id')
     sent = await ch.send(
         content=f'<@&{role}>' if role else None,
-        embeds=await build_embeds(game, p['bugfixes'], all_updates(p), p.get('version') or ''),
+        embeds=await build_embeds(game, bug_lines, list(p['updates']) + new_lines, p.get('version') or ''),
         allowed_mentions=allowed(roles=[role] if role else []))
-    ids = list(p['bugIds']) + list(p.get('newIds', []))
+    b_ids, n_ids = chosen_ids(p)
+    ids = b_ids + n_ids  # what was not ticked stays pending for the next update
     for i in ids:
         update_bug(i, {'announced': 1})
     run('INSERT INTO announcements(tag_id,game_name,posted_at,url,bug_ids) VALUES(?,?,?,?,?)',

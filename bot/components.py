@@ -27,11 +27,12 @@ def link_button(label, url):
     return discord.ui.Button(label=label, style=discord.ButtonStyle.link, url=url)
 
 
-def select(custom_id, placeholder, options):
-    """options: [{'label', 'value', 'description'?}]"""
+def select(custom_id, placeholder, options, min_values=1, max_values=1):
+    """options: [{'label', 'value', 'description'?, 'default'?}]. A select that picks several: max_values > 1."""
     return discord.ui.Select(
-        custom_id=custom_id, placeholder=placeholder,
-        options=[discord.SelectOption(label=o['label'], value=o['value'], description=o.get('description')) for o in options])
+        custom_id=custom_id, placeholder=placeholder, min_values=min_values, max_values=max_values,
+        options=[discord.SelectOption(label=o['label'], value=o['value'], description=o.get('description'), default=bool(o.get('default')))
+                 for o in options])
 
 
 def disable_all(view):

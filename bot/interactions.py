@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from .ai import interpret_note
-from .announce import (draft_payload, polish_dev_updates, polish_fixes, post_announcement, snooze, unannounced)
+from .announce import (chosen, chosen_ids, draft_payload, items, polish_dev_updates, polish_fixes, post_announcement, snooze, unannounced)
 from . import board as bounty_board
 from .bounty import board_name_for, get_claims, owners_for
 from .bugview import handle_view, open_game
@@ -13,6 +13,7 @@ from .components import NO_MENTIONS, FormModal, make_view, modal_fields, select
 from .ctx import dm, fetch_channel
 from .db import (bug_by_id, create_pending, get_game, get_pending, get_prefs, set_pending, set_prefs, update_bug, upsert_game)
 from .devboard import board_components, exploit_buttons, exploit_status_line, open_bugs_for, route_bug, schedule_boards
+from . import devlog
 from .env import cfg
 from .fixes import apply_status
 from .fixlog import log_page, open_log, send_fix_transcript
@@ -145,15 +146,21 @@ def form_input(id_, label, style, value='', required=False):
 
 
 async def command_update(i, opts):
+    """Opens the draft with the bug fixes and added suggestions that are waiting; nothing is posted until Post is pressed."""
     tag_id = opts.get('game')
     if not tag_name(tag_id):
         return await deny(i, 'Unknown game.')
     if not can_manage(i.user, owner_of(tag_id)):
         return await deny(i, 'Only the dev who claimed this game (or an admin) can post updates.')
-    return await i.response.send_modal(FormModal(f'upd:{tag_id}', f'Update: {tag_name(tag_id)}'[:45], [
-        form_input('updates', 'Updates (one per line)', 'paragraph'),
-        form_input('version', 'Version (optional)', 'short'),
-    ]))
+    game = upsert_game(tag_id, tag_name(tag_id))
+    await i.response.defer(thinking=True)
+    fixes, fix_lines, sugs, sug_lines = await polish_fixes(tag_id, game)
+    pid = create_pending({
+        'tagId': tag_id, 'bugIds': [f['id'] for f in fixes], 'bugfixes': fix_lines,
+        'newIds': [f['id'] for f in sugs], 'newLines': sug_lines,
+        'updates': [], 'version': '', 'owners': owner_of(tag_id), 'off': [],
+    })
+    return await i.edit_original_response(**await draft_payload(pid))
 
 
 def lines_of(s):
@@ -165,20 +172,6 @@ def lines_of(s):
     return out
 
 
-async def modal_update(i, tag_id, fields):
-    game = upsert_game(tag_id, tag_name(tag_id))
-    await i.response.defer(thinking=True)
-    fixes, fix_lines, sugs, sug_lines = await polish_fixes(tag_id, game)
-    pid = create_pending({
-        'tagId': tag_id, 'bugIds': [f['id'] for f in fixes], 'bugfixes': fix_lines,
-        'newIds': [f['id'] for f in sugs], 'newLines': sug_lines,
-        'updates': await polish_dev_updates(game['name'], lines_of(fields.get('updates'))),  # Claude rewrites what the dev typed
-        'version': (fields.get('version') or '').strip(),
-        'owners': owner_of(tag_id),
-    })
-    return await i.edit_original_response(**await draft_payload(pid))
-
-
 async def button_ann(i, action, pid):
     p = get_pending(pid)
     if not p:
@@ -186,18 +179,21 @@ async def button_ann(i, action, pid):
     if not can_manage(i.user, owner_of(p['tagId'])):
         return await deny(i)
     if action == 'edit':
+        bug_lines, new_lines = chosen(p)  # only what is ticked; add extra bug fixes or updates in the boxes
         return await i.response.send_modal(FormModal(f'annedit:{pid}', 'Edit announcement', [
-            form_input('bugfixes', 'Bug fixes (one per line)', 'paragraph', '\n'.join(p['bugfixes'])),
-            form_input('updates', 'Updates (one per line)', 'paragraph', '\n'.join(p['updates'] + p.get('newLines', []))),
+            form_input('bugfixes', 'Bug fixes (one per line)', 'paragraph', '\n'.join(bug_lines)),
+            form_input('updates', 'Updates (one per line)', 'paragraph', '\n'.join(list(p['updates']) + new_lines)),
             form_input('version', 'Version (optional)', 'short', p.get('version')),
         ]))
     if action == 'later':
         snooze(pid)
+        devlog.note('Snoozed the draft: nothing was posted')
         return await i.response.edit_message(content=f"{E['update']} **LATER**{EM}·{EM}I will offer this again after 3 more fixes.", embeds=[], view=None)
     await i.response.defer()
     r = await post_announcement(pid)
     if not r['ok']:
         return await i.followup.send(r['msg'], ephemeral=True)
+    devlog.note(f"Posted the update: {r['url']}")
     return await i.message.edit(content=f"{E['fixed']} **POSTED**{EM}·{EM}{r['url']}", embeds=[], view=None)
 
 
@@ -210,18 +206,32 @@ async def modal_ann_edit(i, pid, fields):
         await i.response.defer()
     else:
         await i.response.defer(thinking=True)
+    bug_lines, new_lines = chosen(p)
+    bug_ids, new_ids = chosen_ids(p)
     # Only update lines the dev changed get rewritten again; untouched ones keep their wording.
     typed = lines_of(fields.get('updates'))
-    before = p['updates'] + p.get('newLines', [])
-    same = '\n'.join(typed) == '\n'.join(before)
-    updates = p['updates'] if same else await polish_dev_updates(get_game(p['tagId'])['name'], typed)
-    set_pending(pid, {**p, 'bugfixes': lines_of(fields.get('bugfixes')), 'updates': updates,
-                      'newLines': p.get('newLines', []) if same else [],
-                      'version': (fields.get('version') or '').strip()})
+    same = '\n'.join(typed) == '\n'.join(list(p['updates']) + new_lines)
+    updates = list(p['updates']) + new_lines if same else await polish_dev_updates(get_game(p['tagId'])['name'], typed)
+    set_pending(pid, {**p, 'bugfixes': lines_of(fields.get('bugfixes')), 'updates': updates, 'bugIds': bug_ids, 'newIds': new_ids,
+                      'newLines': [], 'off': [], 'version': (fields.get('version') or '').strip()})
+    devlog.note('Edited the draft: nothing was posted yet')
     payload = await draft_payload(pid)
     if from_message:
         return await i.message.edit(**payload)
     return await i.edit_original_response(**payload)
+
+
+async def select_ann(i, pid):
+    """The "Choose what to post" dropdown: whatever is not selected is left out of this announcement."""
+    p = get_pending(pid)
+    if not p:
+        return await i.response.edit_message(content='This draft is gone.', embeds=[], view=None)
+    if not can_manage(i.user, owner_of(p['tagId'])):
+        return await deny(i)
+    picked = set(i.data.get('values') or [])
+    p['off'] = [k for k, _ in items(p)[:25] if k not in picked]
+    set_pending(pid, p)
+    return await i.response.edit_message(**await draft_payload(pid))
 
 
 # ---- status buttons on old per-bug messages (kept so nothing breaks) ----
@@ -459,6 +469,8 @@ async def handle_component(i):
             return await button_transcript_all(i, a)
     elif ctype == 3:  # dropdown
         value = (i.data.get('values') or [None])[0]
+        if kind == 'ann' and a == 'sel':
+            return await select_ann(i, int(b))
         if kind == 'trgame':
             return await select_transcript(i, a)
         if kind == 'bd':
@@ -484,8 +496,6 @@ async def handle_modal(i):
     fields = modal_fields(i)
     if kind == 'tb':
         return await modal_bug(i, a, b, fields)
-    if kind == 'upd':
-        return await modal_update(i, a, fields)
     if kind == 'note':
         return await modal_note(i, a, fields)
     if kind == 'annedit':
