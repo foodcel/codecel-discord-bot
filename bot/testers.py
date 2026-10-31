@@ -332,8 +332,14 @@ async def command_tester(i, sub, opts):
         removed = await post_board(ch)
         return await i.edit_original_response(content=f'Posted in {ch.mention}. The roster updates by itself.' + (f' Replaced {removed} old message(s).' if removed else ''))
     uid = str(opts.get('user'))
+    only = opts.get('only_for')
+    if only:  # the dev a private tester belongs to must be a person, not a bot
+        dev = ctx.guild.get_member(int(only)) if ctx.guild else None
+        if dev and dev.bot:
+            return await reply(f'<@{only}> is a bot. Pick the developer whose games they test, or leave `only_for` empty to use yourself.',
+                               ephemeral=True, allowed_mentions=NO_MENTIONS)
     if sub == 'add':
-        status = opts.get('status') or 'pending'
+        status = opts.get('status') or ('private' if opts.get('only_for') else 'pending')  # naming a dev makes them private
         if status == 'private' and not opts.get('only_for'):
             opts['only_for'] = str(i.user.id)  # most often the admin's own friend: it defaults to whoever runs the command
         row = save(uid, status=status, only_for=str(opts['only_for']) if opts.get('only_for') else None,
