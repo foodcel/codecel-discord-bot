@@ -11,7 +11,14 @@ import { liveMedia } from './media.js';
 import { logComponents, logEmbed, renderLog } from './fixlog.js';
 import { E } from './ui.js';
 import { botNewsEmbeds, testerNewsEmbeds } from './botnews.js';
-import { gameEmbeds, gameLists } from './games.js';
+import { ensureNames, gameEmbeds, gameLists } from './games.js';
+
+// The first three unreleased games shown as released so both embeds can be judged. Nothing is saved.
+const sampleLists = () => {
+  const live = gameLists();
+  const released = live.unreleased.slice(0, 3).map((g, k) => ({ key: g.key, name: g.name, owners: g.owners.join(','), released_at: Date.now() - k * 86400000, link: k === 0 ? 'https://www.roblox.com/games/1' : null }));
+  return { released, unreleased: live.unreleased.slice(3) };
+};
 import { testerReportEmbed } from './tester.js';
 
 const NONE = { parse: [] };
@@ -114,10 +121,10 @@ export async function postPreviews(what = 'all') {
     await send('**Tester report** · what /bug posts inside the thread in #testing (example)', { embeds: [testerReportEmbed(bug, form, ctx.client.user.id, {})] }); n++;
   }
   if (want('games')) {
-    // sample: the first three games are shown as released so both lists can be seen. Nothing is saved.
-    const live = gameLists();
-    const sampleReleased = live.unreleased.slice(0, 3).map((g, k) => ({ key: g.key, name: g.name, owners: g.owners.join(','), released_at: Date.now() - k * 86400000, link: k === 0 ? 'https://www.roblox.com/games/1' : null }));
-    await send('**Games board** · built from the bounty-board. SAMPLE: the first 3 games are shown as released. Post the real one with /games', { embeds: gameEmbeds({ released: sampleReleased, unreleased: live.unreleased.slice(3) }) }); n++;
+    await ensureNames(); // proper titles for the names typed on the bounty-board (cached)
+    await send('**Games board** · built from the bounty-board, grouped by dev. SAMPLE: the first 3 unreleased games are shown as released. Post the real one with /games post', {
+      embeds: await gameEmbeds(sampleLists()),
+    }); n++;
   }
   if (what === 'testernews') { await send('**Tester announcement draft** · for the tester announcements channel. NOT posted there. Would ping: the Tester role only', { embeds: testerNewsEmbeds() }); n++; }
   if (want('botnews')) { await send('**Launch announcement draft** · for #📣┃announcements. NOT posted there, waiting for approval', { embeds: botNewsEmbeds() }); n++; }

@@ -72,7 +72,7 @@ const deny = (i, text = 'You do not have permission for that.') => i.reply({ con
 const ownerOf = (tagId) => ownersFor(tagId, tagName(tagId) || '');
 
 async function autocomplete(i) {
-  if (i.commandName === 'release' || i.commandName === 'unrelease') return autocompleteGames(i);
+  if (['release', 'unrelease', 'games'].includes(i.commandName)) return autocompleteGames(i);
   const focused = i.options.getFocused(true);
   const q = String(focused.value).toLowerCase();
   let list;
