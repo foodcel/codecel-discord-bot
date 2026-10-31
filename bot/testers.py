@@ -160,6 +160,33 @@ def schedule_refresh():
     _refresh_task = asyncio.ensure_future(go())
 
 
+async def post_board(ch):
+    """Posts the guide and the roster in a channel and keeps them up to date from now on. The earlier copy is removed. In the
+    tester-information channel the two old messages are replaced too. Returns how many old messages were removed."""
+    await import_old()  # the old roster message is read before it is replaced
+    old = _board()
+    g = await ch.send(embed=guide_embed())
+    r = await ch.send(embed=roster_embed())
+    kv_set('testerboard', json.dumps({'channelId': str(ch.id), 'guide': str(g.id), 'roster': str(r.id)}))
+    removed = 0
+    if old and (old['channelId'], old['roster']) != (str(ch.id), str(r.id)):  # the earlier copy stops updating: remove it
+        oc = await fetch_channel(old['channelId'])
+        for k in ('guide', 'roster'):
+            try:
+                await oc.get_partial_message(int(old[k])).delete()
+            except Exception:
+                pass
+    if cfg.tester_info_id and str(ch.id) == cfg.tester_info_id:
+        async for m in ch.history(limit=50):
+            if m.author.id != ctx.client.user.id and ('Total Testers' in m.content or 'TESTER RESPONSIBILITIES' in m.content):
+                try:
+                    await m.delete()
+                    removed += 1
+                except Exception:
+                    pass
+    return removed
+
+
 # ---- taking over the old message ----
 def parse_old_roster(text):
     out = []
@@ -275,28 +302,8 @@ async def command_tester(i, sub, opts):
         return await reply('\n'.join(found)[:1900] or f'Nobody open for testing matches "{q}".', ephemeral=True, allowed_mentions=NO_MENTIONS)
     if sub == 'post':
         ch = await fetch_channel(opts.get('channel')) if opts.get('channel') else i.channel
-        old = _board()
         await i.response.defer(ephemeral=True, thinking=True)
-        await import_old()  # the old roster message is read before it is replaced
-        g = await ch.send(embed=guide_embed())
-        r = await ch.send(embed=roster_embed())
-        kv_set('testerboard', json.dumps({'channelId': str(ch.id), 'guide': str(g.id), 'roster': str(r.id)}))
-        if old and (old['channelId'], old['roster']) != (str(ch.id), str(r.id)):  # the earlier copy stops updating: remove it
-            oc = await fetch_channel(old['channelId'])
-            for k in ('guide', 'roster'):
-                try:
-                    await oc.get_partial_message(int(old[k])).delete()
-                except Exception:
-                    pass
-        removed = 0
-        if cfg.tester_info_id and str(ch.id) == cfg.tester_info_id:  # in the tester-information channel the two old messages are replaced
-            async for m in ch.history(limit=50):
-                if m.author.id != ctx.client.user.id and ('Total Testers' in m.content or 'TESTER RESPONSIBILITIES' in m.content):
-                    try:
-                        await m.delete()
-                        removed += 1
-                    except Exception:
-                        pass
+        removed = await post_board(ch)
         return await i.edit_original_response(content=f'Posted in {ch.mention}. The roster updates by itself.' + (f' Replaced {removed} old message(s).' if removed else ''))
     uid = str(opts.get('user'))
     if sub == 'add':
