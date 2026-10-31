@@ -4,6 +4,7 @@ devs) or on a break (💤)."""
 import asyncio
 import json
 import re
+import textwrap
 
 import discord
 
@@ -42,26 +43,31 @@ def report_counts():
 
 
 # ---- the two embeds ----
+def _wrap(text, width=56):
+    """Short lines: a long paragraph would stretch the embed to its full width."""
+    return '\n'.join(textwrap.wrap(text, width))
+
+
 def guide_embed():
     e = flat()
     e.title = head('🧪', 'Tester responsibilities')
     describe(e, 'All testers are expected to:\n\n' + '\n'.join([
         '✅ Test assigned games thoroughly',
         '✅ Report bugs and gameplay issues',
-        '✅ Provide screenshots or recordings when possible',
-        '✅ Communicate regularly with the development team',
-        '✅ Remain active and complete assigned testing tasks',
-        '✅ Be patient with difficult or unfinished games']), WIDTH)  # the same width as the roster
+        '✅ Provide screenshots or recordings if you can',
+        '✅ Talk to the dev team regularly',
+        '✅ Stay active and finish your testing tasks',
+        '✅ Be patient with unfinished games']), WIDTH)  # the same width as the roster
     section(e, head(E['warn'], 'Important'),
-            "We expect consistent effort, honesty and communication. If you're unavailable or unable to finish a test, please notify the developer(s).")
+            _wrap("We expect consistent effort, honesty and communication. If you're unavailable or unable to finish a test, please notify the developer(s)."))
     where = f'<#{cfg.testing_id}>' if cfg.testing_id else 'the testing channel'
     section(e, head(E['open'], 'How to report bugs'),
-            f'Type `/bug` in {where}. The form asks for:\n'
-            '• **Game** · which game, the dev is pinged for you\n• **Issue** · what happened\n• **Steps** · how can we recreate it?\n'
-            '• **Evidence** · screenshots or videos\n• **Device** · your platform\n• **Frequency** · how often it happens (say it in the description)')
-    section(e, head('👤', 'Your profile'), 'Use `/tester profile` to tell the developers what you test on and when you are free.')
+            f'Type `/bug` in {where}. It asks for:\n'
+            '• **Game** · which game (the dev is pinged)\n• **Issue** · what happened\n• **Steps** · how can we recreate it?\n'
+            '• **Evidence** · screenshots or videos\n• **Device** · your platform\n• **Frequency** · how often it happens')
+    section(e, head('👤', 'Your profile'), _wrap('Use `/tester profile` to tell the developers what you test on and when you are free.'))
     gap(e)
-    e.set_footer(text='Questions? Ask in this channel or message a developer.')
+    e.set_footer(text='Questions? Ask here or message a developer.')
     return e
 
 
