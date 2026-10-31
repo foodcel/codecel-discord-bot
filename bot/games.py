@@ -269,6 +269,9 @@ async def _refresh_names_and_board():
     # Proper names are made as soon as the bounty-board is read (startup, or when a game is claimed), so the /release list is clean too.
     await ensure_names()
     await refresh_game_board()
+    from . import board
+    if board.is_live():
+        await board.refresh_board()
 
 
 on_boards_refreshed(_refresh_names_and_board)
@@ -324,6 +327,10 @@ async def command_release(i, opts, undo=False):
             ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by,
             link=COALESCE(excluded.link, game_status.link), owners=excluded.owners, name=excluded.name""",
             k, g['name'], ','.join(owner_ids(g)), g.get('since'), now(), str(i.user.id), link or None)
+    from . import board
+    if board.is_live():  # releasing a game completes its claim on the bounty board, moving it back reopens it
+        board.set_completed(g['name'], not undo)
+        await board.reload_claims()
     await refresh_game_board()
     shown = clean_name(g['name'])
     return await reply(

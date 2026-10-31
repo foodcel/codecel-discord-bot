@@ -117,13 +117,13 @@ async def main():
     print('game link on the games board:', link)
     if not link:
         problems.append('/claim link not saved')
-    o = await call(board.command_complete, dev, post=f"claim:{c['id']}")
-    print('complete ->', o.sent[0])
-    o = await call(board.command_uncomplete, dev, post=f"claim:{c['id']}")
-    if 'Only admins' not in o.sent[0]:
-        problems.append('non admin could /uncomplete')
-    o = await call(board.command_uncomplete, admin, post=f"claim:{c['id']}")
-    print('uncomplete ->', o.sent[0])
+    # releasing a game completes its claim, moving it back reopens it
+    board.set_completed(free['title'], True)
+    if not board.claim_for_post(free['post_id'])['completed_at']:
+        problems.append('releasing did not complete the claim')
+    board.set_completed(free['title'], False)
+    if board.claim_for_post(free['post_id'])['completed_at']:
+        problems.append('moving back did not reopen the claim')
     o = await call(board.command_assign, admin, post=free['post_id'], dev='333')
     print('assign ->', o.sent[0])
     o = await call(board.command_exclude, admin, post=free['post_id'])

@@ -377,7 +377,6 @@ async def handle_command(i):
     if name == 'bug':
         return await command_bug(i, opts)  # testers have no dev role, so it skips the dev-only gate below
     board_handlers = {'claim': bounty_board.command_claim, 'unclaim': bounty_board.command_unclaim,
-                      'complete': bounty_board.command_complete, 'uncomplete': bounty_board.command_uncomplete,
                       'assign': bounty_board.command_assign, 'exclude': bounty_board.command_exclude,
                       'include': bounty_board.command_include, 'bounty-board': bounty_board.command_setup}
     if name in board_handlers:  # they check the board's own role, so they skip the dev-only gate below

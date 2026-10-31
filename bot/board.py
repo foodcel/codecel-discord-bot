@@ -12,6 +12,7 @@ from .components import NO_MENTIONS
 from .ctx import ctx, fetch_channel
 from .db import all_, kv_get, kv_set, one, run
 from .perms import level
+from .ui import E, EN, SEP, cut, describe, flat, head
 
 TOP_LIMIT = 25  # posts listed in the top suggestions message
 DESCRIPTION_LIMIT = 3800  # embed descriptions cap at 4096
@@ -122,45 +123,53 @@ def fit(lines):
     return '\n'.join(shown)
 
 
-def top_suggestions(ps, claimed):
-    """Unclaimed, non-excluded posts, most votes first (ties by title), numbered."""
-    ranked = sorted((p for p in ps if p['post_id'] not in claimed and not p['excluded']), key=lambda p: (-p['votes'], p['title'].lower()))
-    lines = [f'{n}. {post_link(p)} · {votes_label(p["votes"])}' for n, p in enumerate(ranked[:TOP_LIMIT], 1)]
-    return fit(lines) or '_No open suggestions._'
-
-
-def claim_lines(ps, cs, done):
-    """(date, line) for each open claim, or each completed one when done, with who holds it."""
-    by_id = {p['post_id']: p for p in ps}
-    label = 'on' if done else 'since'
-    out = []
-    for c in cs:
-        if bool(c['completed_at']) != done:
-            continue
-        when = c['completed_at'] if done else c['created_at']
-        if c['post_id']:
-            p = by_id.get(c['post_id'])
-            if not p:
-                continue  # a claim on an unknown post is skipped
-            out.append((when, f"{post_link(p)} · <@{c['user_id']}> {label} {when[:10]} · {votes_label(p['votes'])}"))
-        else:  # "(custom)" only while open: a completed custom game may be a deleted post's
-            out.append((when, f"**{escape_markdown(c['game'])}**{'' if done else ' (custom)'} · <@{c['user_id']}> {label} {when[:10]}"))
-    return out
-
-
-def board_embeds():
+def top_embed():
+    """The best-voted suggestions nobody has claimed yet, in the bot's own look."""
     ps, cs = posts(), claims()
-    top = discord.Embed(title='Top suggestions', color=discord.Color.gold(),
-                        description=top_suggestions(ps, {c['post_id'] for c in cs if c['post_id']}))
-    top.set_footer(text='Ranked by votes in the suggestions forum. Working on one? /claim it.')
-    open_ = sorted(claim_lines(ps, cs, False), key=lambda t: t[0])
-    claimed = discord.Embed(title='Claimed games', color=discord.Color.blurple(),
-                            description=fit([l for _, l in open_]) or '_Nobody has claimed a game yet._')
-    claimed.set_footer(text='Finished it? /complete it. Dropped it? /unclaim it.')
-    done = sorted(claim_lines(ps, cs, True), key=lambda t: t[0], reverse=True)
-    completed = discord.Embed(title='Completed games', color=discord.Color.green(),
-                              description=fit([l for _, l in done]) or '_No completed games yet._')
-    return top, claimed, completed
+    taken = {c['post_id'] for c in cs if c['post_id']}
+    ranked = sorted((p for p in ps if p['post_id'] not in taken and not p['excluded']), key=lambda p: (-p['votes'], p['title'].lower()))
+    e = flat()
+    e.title = head('🏆', 'Top suggestions')
+    e.set_footer(text='Ranked by votes in the suggestions forum. Working on one? /claim it.')
+    lines = []
+    for n, p in enumerate(ranked[:TOP_LIMIT], 1):
+        title = cut(p['title'], 38).replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
+        lines.append(f"**{n}**{EN}[{title}](https://discord.com/channels/{ctx.guild.id}/{p['post_id']}){SEP}🔥 {p['votes']}")
+    summary = f"{E['open']} **{len(ranked)}** open suggestions" if ranked else 'No open suggestions.'
+    describe(e, summary + ('\n\n' + fit(lines) if lines else ''))
+    return e
+
+
+async def build_embeds():
+    """The three pinned messages: top suggestions, the games being worked on, and the released games."""
+    from .games import game_embeds
+    released, unreleased = await game_embeds()
+    return [top_embed(), unreleased, released]
+
+
+def set_completed(name, done):
+    """Releasing a game completes its claim; moving it back reopens the claim. Matches on the game's name."""
+    want = re.sub(r'[^a-z0-9]', '', name.lower())
+    by_id = {p['post_id']: p for p in posts()}
+    for c in claims():
+        t = claim_title(c, by_id)
+        if t and re.sub(r'[^a-z0-9]', '', t.lower()) == want and bool(c['completed_at']) != done:
+            run('UPDATE board_claims SET completed_at=' + ('CURRENT_TIMESTAMP' if done else 'NULL') + ' WHERE id=?', c['id'])
+            return True
+    return False
+
+
+def released_from_claims():
+    """Completed claims (taken over from an older board) show as released games, unless the game is already listed."""
+    from .games import key
+    by_id = {p['post_id']: p for p in posts()}
+    for c in claims():
+        t = claim_title(c, by_id) if c['completed_at'] else None
+        if t and not one('SELECT 1 FROM game_status WHERE key=?', key(t)):
+            stamp = int(__import__('datetime').datetime.fromisoformat(c['completed_at']).replace(
+                tzinfo=__import__('datetime').timezone.utc).timestamp() * 1000)
+            run("INSERT INTO game_status(key,name,owners,since,status,released_at,released_by) VALUES(?,?,?,?,'released',?,?)",
+                key(t), t, c['user_id'], (c['created_at'] or '')[:10] or None, stamp, c['user_id'])
 
 
 # ---- the forum: posts, votes and tags ----
@@ -268,9 +277,11 @@ async def refresh_board():
         ch = c and await fetch_channel(c['channel_id'])
         if ch is None:
             return
+        from . import bounty
+        bounty.set_claims(live_claims())  # the embeds read the claims
         old = [c.get('top'), c.get('claims'), c.get('completed')]
         ids = []
-        for mid, embed in zip(old, board_embeds()):
+        for mid, embed in zip(old, await build_embeds()):
             try:
                 if mid:
                     try:
@@ -530,28 +541,7 @@ async def command_unclaim(i, opts):
     if await ensure_board(i):
         held = await held_claim(i, opts.get('post'), False)
         if held:
-            await release(i, *held, verb='Released')
-
-
-async def command_complete(i, opts):
-    if not await ensure_board(i):
-        return
-    held = await held_claim(i, opts.get('post'), False)
-    if not held:
-        return
-    p, c = held
-    run("UPDATE board_claims SET completed_at=CURRENT_TIMESTAMP WHERE id=? AND completed_at IS NULL", c['id'])
-    await _say(i, f"🎉 <@{c['user_id']}> completed {game_name(p, c)}.", allowed_mentions=NO_MENTIONS)
-    await refresh_board()
-    await reload_claims()
-
-
-async def command_uncomplete(i, opts):
-    if not await ensure_admin(i) or not await ensure_board(i):
-        return
-    held = await held_claim(i, opts.get('post'), True)
-    if held:
-        await release(i, *held, verb='Reopened')
+            await release(i, *held, verb='Dropped')
 
 
 async def command_assign(i, opts):
@@ -608,10 +598,8 @@ async def autocomplete(i, name, current):
         out = game_choices(current, False)
     elif name == 'assign':
         out = game_choices(current, True)
-    elif name in ('unclaim', 'complete'):
+    elif name == 'unclaim':
         out = claim_choices(i.user, current, False)
-    elif name == 'uncomplete':
-        out = claim_choices(i.user, current, True)
     elif name == 'exclude':
         out = post_choices([p for p in posts() if not p['excluded']], current)
     else:  # include
@@ -692,6 +680,7 @@ async def command_setup(i, opts):
                 except Exception:
                     pass
     lines = [f'Bounty board posted and pinned in {channel.mention}, ranking {forum.mention}. <@&{role}> can claim games.']
+    released_from_claims()
     if imported:
         lines.append(f'Took over {imported} claim(s) from the old board.')
     try:

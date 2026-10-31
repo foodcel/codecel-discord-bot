@@ -50,10 +50,7 @@ BOARD_COMMANDS = [
                autocomplete=True),
         option(STRING, 'link', 'Link to the original game (Steam page etc.), shown on the games board'),
     ]),
-    command('unclaim', 'Release a game you claimed', [option(STRING, 'post', 'The game', required=True, autocomplete=True)]),
-    command('complete', 'Mark a game you claimed as finished', [option(STRING, 'post', 'The game', required=True, autocomplete=True)]),
-    command('uncomplete', 'Reopen a completed game: it goes back to unclaimed (admins only)',
-            [option(STRING, 'post', 'The completed game', required=True, autocomplete=True)]),
+    command('unclaim', 'Drop a game you claimed: it goes back to Top suggestions', [option(STRING, 'post', 'The game', required=True, autocomplete=True)]),
     command('assign', 'Give a game to a dev, taking it from whoever holds it (admins only)', [
         option(STRING, 'post', "Type to search the forum's posts, or pick \"Custom game\" for one that has no post", required=True,
                autocomplete=True),
