@@ -2,7 +2,7 @@
 import os
 
 from .env import cfg
-from .ui import E, ZW, columns, describe, flat, head, section
+from .ui import E, ZW, columns, describe, flat, head, section, spacer
 
 
 def bot_news_embeds():
@@ -30,6 +30,7 @@ def bot_news_embeds():
             'After 3 fixes the bot drafts an update with the bug fixes. Post, Edit or Later. `/update` adds your own lines, and the bot rewrites them into clean patch notes.')
     section(e, head(E['warn'], 'Trolls'),
             f"Warning, 1-day mute, kick, 7-day ban, permanent ban. Kicks and bans wait for a dev's Confirm in {modlog}.")
+    spacer(e)  # an empty line between the sections above and the commands
     columns(e, [
         {'name': head('⌨️', 'Commands'), 'lines': [
             '`/pings` · choose your pings', '`/update` · post an update', '`/config set` · game link, icon, channel',
@@ -77,6 +78,7 @@ def board_news_embeds():
             'Every claimed game under its dev, with how far it is and whether the dev is working on it right now.')
     section(e, head('✅', 'Released games'),
             'Games that are out, with a link to play them.')
+    spacer(e)  # an empty line between the sections above and the commands
     columns(e, [
         {'name': head('⌨️', 'Commands'), 'lines': [
             '`/claim` · take a game, add its Steam page with `link:`', '`/unclaim` · drop a game you claimed',
@@ -85,6 +87,6 @@ def board_news_embeds():
         {'name': head(E['user'], 'Who can do what'), 'lines': [
             '**Devs** · only their own games', '**Admins** · everything, plus `/assign`, `/exclude` and `/include`']},
     ], '─' * 28)
-    if owner_id:
-        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    ps = ['Credits to <@1134858072989376644> for the original bounty board', owner_id and f'Report any bugs to <@{owner_id}>']
+    e.add_field(name=ZW, value='\n'.join(x for x in ps if x), inline=False)
     return [e]
