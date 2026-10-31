@@ -3,7 +3,7 @@ import { ctx } from './ctx.js';
 import { getGame } from './db.js';
 
 // Claims read from the pinned "Claimed games" embed on the bounty-board. Read only.
-let claims = []; // { name, owners: [userId] }
+let claims = []; // { name, owners: [userId], since: 'YYYY-MM-DD', votes }
 export const getClaims = () => claims;
 
 export function parseClaims(embed) {
@@ -13,7 +13,11 @@ export function parseClaims(embed) {
     if (!owners.length) continue;
     const named = line.match(/^\[(.+?)\]\(/) || line.match(/^\*\*(.+?)\*\*/);
     if (!named) continue;
-    out.push({ name: named[1], owners: [...new Set(owners)] });
+    out.push({
+      name: named[1], owners: [...new Set(owners)],
+      since: line.match(/since (\d{4}-\d{2}-\d{2})/)?.[1] ?? null,
+      votes: Number(line.match(/(\d+) votes?/)?.[1] ?? 0),
+    });
   }
   return out;
 }

@@ -1,4 +1,4 @@
-import { ctx, fetchChannel } from './ctx.js';
+import { ctx, fetchChannel, removeThreadNotice } from './ctx.js';
 import { db, now, bugById, bugByThread, updateBug } from './db.js';
 import { setTags } from './tags.js';
 import { scheduleBoards } from './devboard.js';
@@ -9,6 +9,7 @@ async function exec(t) {
     const bug = bugByThread(t.target);
     if (bug && !['fixed', 'duplicate'].includes(bug.status)) return; // reopened meanwhile
     const thread = await fetchChannel(t.target);
+    if (thread) await removeThreadNotice(thread);
     if (thread) await thread.delete('Fixed or duplicate bug, 24h passed').catch((e) => console.error('delete thread', e.message));
     if (bug) updateBug(bug.id, { deleted: 1 });
     scheduleBoards();

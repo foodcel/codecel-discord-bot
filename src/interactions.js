@@ -9,6 +9,7 @@ import { findDeviceTag, findGameTag, setTags } from './tags.js';
 import { getPrefs, setPrefs, updateBug } from './db.js';
 import { E, describe as describeEmbed } from './ui.js';
 import { ATTACH, commandBug, modalBug } from './tester.js';
+import { autocompleteGames, commandGames, commandRelease, gameCommandDefs } from './games.js';
 import { postPreviews } from './previews.js';
 import { bugById, getGame, upsertGame, getPending, setPending, createPending } from './db.js';
 import { getClaims, ownersFor, boardNameFor } from './bounty.js';
@@ -62,14 +63,16 @@ export const commandDefs = [
       { name: 'everything (clears the test channel)', value: 'all' }, { name: 'dev board', value: 'board' }, { name: 'bug page', value: 'bug' },
       { name: 'announcements', value: 'announcement' }, { name: 'fix log', value: 'fixlog' }, { name: 'rules', value: 'rules' },
       { name: 'mod cards', value: 'mod' }, { name: 'bot messages', value: 'messages' }, { name: 'transcript', value: 'transcript' },
-      { name: 'launch announcement draft', value: 'botnews' }, { name: 'tester report', value: 'tester' }, { name: 'tester announcement draft', value: 'testernews' })),
+      { name: 'launch announcement draft', value: 'botnews' }, { name: 'tester report', value: 'tester' }, { name: 'tester announcement draft', value: 'testernews' }, { name: 'games board', value: 'games' })),
   new SlashCommandBuilder().setName('botrules').setDescription('Post the bug report rules and strike ladder here'),
+  ...gameCommandDefs,
 ];
 
 const deny = (i, text = 'You do not have permission for that.') => i.reply({ content: text, flags: EPH });
 const ownerOf = (tagId) => ownersFor(tagId, tagName(tagId) || '');
 
 async function autocomplete(i) {
+  if (i.commandName === 'release' || i.commandName === 'unrelease') return autocompleteGames(i);
   const focused = i.options.getFocused(true);
   const q = String(focused.value).toLowerCase();
   let list;
@@ -349,6 +352,9 @@ export async function handleInteraction(i) {
         const n = await postPreviews(i.options.getString('what') || 'all');
         return i.editReply(`Posted ${n} preview message(s) in <#${cfg.testId}>.`);
       }
+      case 'release': return commandRelease(i);
+      case 'unrelease': return commandRelease(i, true);
+      case 'games': return commandGames(i);
       case 'botrules':
         if (level(i.member) !== 'admin') return deny(i);
         await i.channel.send({ embeds: [rulesEmbed()] });

@@ -32,6 +32,8 @@ Built with discord.js, SQLite and the Anthropic API (Claude Haiku by default, we
 | `/pings` | devs | choose whether you are pinged for new bugs and for exploit reports |
 | `/update` | game owner, admins | post an update with the pending bug fixes |
 | `/config set` / `show` | game owner, admins | per game: link, icon, announcement channel, ping role, owner |
+| `/release`, `/unrelease` | game owner, admins | move a game between the Released and Unreleased lists (`/release` takes an optional play link) |
+| `/games` | admins | post the Released / Unreleased games board in this channel. It updates itself |
 | `/strikes`, `/pardon` | devs | see or remove troll strikes |
 | `/botrules` | admins | post the rules and the strike ladder |
 | `/preview` | admins | post sample embeds in the test channel |
@@ -79,6 +81,13 @@ The second run installs and starts a `codecel-bot` service. Then:
 journalctl -u codecel-bot -f                       # logs
 sudo systemctl restart codecel-bot                 # restart
 git pull && npm ci --omit=dev && sudo systemctl restart codecel-bot   # update
+```
+
+**Option A2: no sudo password** (you can log in but cannot use sudo). Needs Node 22+ already on the VM:
+```bash
+git clone https://github.com/foodcel/codecel-discord-bot.git && cd codecel-discord-bot
+bash deploy/user-install.sh     # runs the bot as a systemd user service, no root needed
+journalctl --user -u codecel-bot -f
 ```
 
 **Option B: Docker**

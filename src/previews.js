@@ -11,6 +11,7 @@ import { liveMedia } from './media.js';
 import { logComponents, logEmbed, renderLog } from './fixlog.js';
 import { E } from './ui.js';
 import { botNewsEmbeds, testerNewsEmbeds } from './botnews.js';
+import { gameEmbeds, gameLists } from './games.js';
 import { testerReportEmbed } from './tester.js';
 
 const NONE = { parse: [] };
@@ -111,6 +112,12 @@ export async function postPreviews(what = 'all') {
     const form = { title: 'Car falls through the map', what: 'After the second checkpoint my car drops through the road and I fall forever', steps: '1. Start a race on Harbor\n2. Drive past checkpoint 2\n3. Car falls through', expected: 'The car stays on the road', device: 'PS5' };
     const bug = { id: 99, game_name: 'Example game', title: 'Car falls through the map after checkpoint 2', summary: 'The car drops through the road after the second checkpoint and falls forever.', severity: 'high', created_at: Date.now() };
     await send('**Tester report** · what /bug posts inside the thread in #testing (example)', { embeds: [testerReportEmbed(bug, form, ctx.client.user.id, {})] }); n++;
+  }
+  if (want('games')) {
+    // sample: the first three games are shown as released so both lists can be seen. Nothing is saved.
+    const live = gameLists();
+    const sampleReleased = live.unreleased.slice(0, 3).map((g, k) => ({ key: g.key, name: g.name, owners: g.owners.join(','), released_at: Date.now() - k * 86400000, link: k === 0 ? 'https://www.roblox.com/games/1' : null }));
+    await send('**Games board** · built from the bounty-board. SAMPLE: the first 3 games are shown as released. Post the real one with /games', { embeds: gameEmbeds({ released: sampleReleased, unreleased: live.unreleased.slice(3) }) }); n++;
   }
   if (what === 'testernews') { await send('**Tester announcement draft** · for the tester announcements channel. NOT posted there. Would ping: the Tester role only', { embeds: testerNewsEmbeds() }); n++; }
   if (want('botnews')) { await send('**Launch announcement draft** · for #📣┃announcements. NOT posted there, waiting for approval', { embeds: botNewsEmbeds() }); n++; }

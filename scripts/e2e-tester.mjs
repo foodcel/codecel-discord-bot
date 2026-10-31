@@ -2,7 +2,7 @@
 // and the bot itself as the "tester", then removes everything it created.
 import { Client, GatewayIntentBits as I } from 'discord.js';
 import { cfg } from '../src/env.js';
-import { ctx, fetchChannel } from '../src/ctx.js';
+import { ctx, fetchChannel, removeThreadNotice } from '../src/ctx.js';
 import { db, bugById, cancelTimers } from '../src/db.js';
 import { loadTags, gameTags } from '../src/tags.js';
 import { refreshClaims, ownersFor } from '../src/bounty.js';
@@ -41,7 +41,9 @@ await markFixed(bug, client.user.id);
 await new Promise((r) => setTimeout(r, 4000));
 console.log('after fix, status:', bugById(bug.id).status, '| thread archived:', (await fetchChannel(bug.thread_id))?.archived);
 // clean up
-await (await fetchChannel(bug.thread_id))?.delete('e2e test cleanup').catch(() => {});
+const th = await fetchChannel(bug.thread_id);
+if (th) await removeThreadNotice(th);
+await th?.delete('e2e test cleanup').catch(() => {});
 cancelTimers('delete_thread', bug.thread_id);
 db.prepare('DELETE FROM bugs WHERE id=?').run(bug.id);
 for (const ext of ['zip', 'md']) await unlink(new URL(`../data/archive/bug-${bug.id}.${ext}`, import.meta.url)).catch(() => {});
