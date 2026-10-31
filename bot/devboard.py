@@ -115,6 +115,13 @@ async def _display_name(user_id):
         return user_id
 
 
+async def board_name(key):
+    """The title of a dev's board post: the dev's name as it is now."""
+    kind, base = kind_of(key), base_key(key)
+    word = 'suggestions' if kind == 'suggestion' else 'bugs'
+    return ('Unclaimed games' if base == 'unclaimed' else f'{await _display_name(base)} — {word}')[:100]
+
+
 async def _dev_thread(key, create):
     tid = kv_get('devthread:' + key)
     t = await fetch_channel(tid) if tid else None
@@ -127,12 +134,11 @@ async def _dev_thread(key, create):
         return t
     if not create:
         return None
-    kind, base = kind_of(key), base_key(key)
+    kind = kind_of(key)
     forum = await fetch_channel(cfg.dev_suggestions_id if kind == 'suggestion' else cfg.dev_forum_id)
     if forum is None:
         return None
-    word = 'suggestions' if kind == 'suggestion' else 'bugs'
-    name = 'Unclaimed games' if base == 'unclaimed' else f'{await _display_name(base)} — {word}'
+    name = await board_name(key)
     made = await forum.create_thread(name=name[:100], embeds=[board_embed(key)], view=board_components(key))
     kv_set('devthread:' + key, made.thread.id)
     try:
@@ -150,6 +156,12 @@ async def refresh_board(key):
     t = await dev_thread(key, len(open_bugs_for(key)) > 0)
     if not t:
         return
+    want = await board_name(key)
+    if want and t.name != want:  # the dev changed their name: the post follows
+        try:
+            await t.edit(name=want)
+        except Exception as e:
+            print('board rename', e)
     try:
         starter = await t.fetch_message(t.id)
         await starter.edit(embeds=[board_embed(key)], view=board_components(key))

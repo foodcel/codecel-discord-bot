@@ -180,10 +180,18 @@ async def on_raw_thread_delete(p):
 
 @client.event
 async def on_member_update(before, after):
+    if before.display_name != after.display_name:  # a dev's board post carries their name
+        schedule_boards()
     try:
         await testers.on_member_update(before, after)
     except Exception:
         traceback.print_exc()
+
+
+@client.event
+async def on_user_update(before, after):
+    if (before.global_name, before.name) != (after.global_name, after.name):
+        schedule_boards()
 
 
 @client.event
