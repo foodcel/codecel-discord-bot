@@ -97,9 +97,10 @@ def _block(r, reports):
     return '\n'.join(lines)
 
 
-def roster_embed():
-    rows = everyone()
-    reports = report_counts()
+def roster_embed(rows=None, reports=None):
+    """The roster. `rows` and `reports` can be given to show an example."""
+    rows = everyone() if rows is None else rows
+    reports = report_counts() if reports is None else reports
     count = {st: sum(1 for r in rows if r['status'] == st) for st in MARK}
     e = flat()
     e.title = head('👥', 'Tester roster')
