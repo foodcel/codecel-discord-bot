@@ -9,8 +9,8 @@ import discord
 from .ai import draft_bug_fixes, draft_new_features, polish_updates
 from .bounty import owners_for
 from .components import NO_MENTIONS, allowed, button, make_view, select
-from .ctx import fetch_channel
-from .db import (create_pending, del_pending, get_game, get_pending, kv_del, kv_get, kv_set, now, run, set_pending,
+from .ctx import ctx, fetch_channel
+from .db import (bug_by_id, create_pending, del_pending, get_game, get_pending, kv_del, kv_get, kv_set, now, run, set_pending,
                  update_bug, upsert_game, all_)
 from .devboard import dev_thread, schedule_boards
 from .env import cfg
@@ -151,20 +151,51 @@ def chosen_ids(p):
     return bug_ids, new_ids
 
 
+def _ago(ms):
+    s = max(0, int(time.time() - ms / 1000))
+    return f'{s // 86400}d ago' if s >= 86400 else f'{s // 3600}h ago' if s >= 3600 else f'{max(1, s // 60)}m ago'
+
+
+def item_note(key):
+    """Under each item of the draft: who marked it as done and when, and if it is confirmed. A fix counts as confirmed once its 24 hours
+    have passed without the player saying it is still broken (a reopened bug leaves the draft by itself)."""
+    bug = bug_by_id(int(key[2:]))
+    if not bug or not bug['fixed_at']:
+        return None
+    m = ctx.guild.get_member(int(bug['fixed_by'])) if ctx.guild and (bug['fixed_by'] or '').isdigit() else None
+    who = m.display_name if m else 'a dev'
+    done = 'added' if bug['kind'] == 'suggestion' else 'fixed'
+    sure = '✅ confirmed' if time.time() * 1000 - bug['fixed_at'] > 86400000 else '⏳ can still be reopened'
+    return f"#{bug['id']} · {done} by {who} {_ago(bug['fixed_at'])} · {sure}"[:100]
+
+
 def draft_view(id_, p=None):
     rows = []
     its = items(p)[:25] if p else []
     if its:
         off = set(p.get('off', []))
         rows.append([select(f'ann:sel:{id_}', 'Choose what to post', [
-            {'label': (('🐛 ' if k[0] == 'b' else '✨ ') + l)[:100], 'value': k, 'default': k not in off} for k, l in its],
-            min_values=0, max_values=len(its))])
+            {'label': (('🐛 ' if k[0] == 'b' else '✨ ') + l)[:100], 'description': item_note(k), 'value': k, 'default': k not in off}
+            for k, l in its], min_values=0, max_values=len(its))])
     rows.append([
         button(f'ann:post:{id_}', 'Post', discord.ButtonStyle.success),
         button(f'ann:edit:{id_}', 'Edit', discord.ButtonStyle.primary),
         button(f'ann:later:{id_}', 'Later', discord.ButtonStyle.secondary),
     ])
     return make_view(rows)
+
+
+def ping_role(game):
+    """The role an announcement can ping: the game's own, or the updates role."""
+    return game.get('ping_role_id') or cfg.updates_role
+
+
+def confirm_view(id_):
+    return make_view([[
+        button(f'ann:go:{id_}:ping', 'Post and ping', discord.ButtonStyle.success),
+        button(f'ann:go:{id_}:quiet', 'Post without ping', discord.ButtonStyle.secondary),
+        button(f'ann:back:{id_}', 'Back', discord.ButtonStyle.secondary),
+    ]])
 
 
 def _no_channel_warning():
@@ -297,8 +328,9 @@ def all_updates(p):
     return list(p['updates']) + list(p.get('newLines', []))
 
 
-async def post_announcement(pending_id):
-    """Posts the draft in the game's announcement channel. Returns {'ok', 'url'} or {'ok': False, 'msg'}."""
+async def post_announcement(pending_id, ping=False):
+    """Posts the draft in the game's announcement channel, pinging the updates role only when `ping` is true.
+    Returns {'ok', 'url'} or {'ok': False, 'msg'}."""
     p = get_pending(pending_id)
     if not p:
         return {'ok': False, 'msg': 'This draft no longer exists.'}
@@ -309,7 +341,7 @@ async def post_announcement(pending_id):
     ch = await fetch_channel(game.get('announce_channel_id') or cfg.updates_id)
     if not ch:
         return {'ok': False, 'msg': 'Set an announcement channel first with `/config set`.'}
-    role = game.get('ping_role_id')
+    role = ping_role(game) if ping else None
     sent = await ch.send(
         content=f'<@&{role}>' if role else None,
         embeds=await build_embeds(game, bug_lines, list(p['updates']) + new_lines, p.get('version') or ''),

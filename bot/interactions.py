@@ -4,7 +4,8 @@ import discord
 from discord import app_commands
 
 from .ai import interpret_note
-from .announce import (chosen, chosen_ids, draft_payload, items, polish_dev_updates, polish_fixes, post_announcement, snooze, unannounced)
+from .announce import (chosen, chosen_ids, confirm_view, draft_payload, items, ping_role, polish_dev_updates, polish_fixes, post_announcement,
+                       snooze, unannounced)
 from . import board as bounty_board
 from . import testers
 from .bounty import board_name_for, get_claims, owners_for
@@ -175,7 +176,7 @@ def lines_of(s):
     return out
 
 
-async def button_ann(i, action, pid):
+async def button_ann(i, action, pid, extra=None):
     p = get_pending(pid)
     if not p:
         return await i.response.edit_message(content='This draft is gone.', embeds=[], view=None)
@@ -193,14 +194,25 @@ async def button_ann(i, action, pid):
         snooze(pid)
         await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'], 'Pressed Later.', final='No update posted (snoozed)')
         return await i.response.edit_message(content=f"{E['update']} **LATER**{EM}·{EM}I will offer this again after 3 more fixes.", embeds=[], view=None)
+    game = get_game(p['tagId'])
+    if action == 'back':
+        return await i.response.edit_message(**await draft_payload(pid))
+    role = ping_role(game)
+    if action == 'post' and role:  # ask first: ping the updates role or not
+        await devlog.update_step(pid, i.user, game['name'], 'Pressed Post: asked whether to ping the updates role.')
+        return await i.response.edit_message(
+            content=f"{E['update']} **POST {game['name'].upper()}?**\nPing <@&{role}> with this update?",
+            view=confirm_view(pid), allowed_mentions=NO_MENTIONS)
+    ping = action == 'go' and extra == 'ping'
     await i.response.defer()
-    r = await post_announcement(pid)
+    r = await post_announcement(pid, ping=ping)
     if not r['ok']:
         await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'], f"⛔ Pressed Post: refused. {r['msg']}")
         return await i.followup.send(r['msg'], ephemeral=True)
     bug_lines, new_lines = chosen(p)
     await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'],
-                             f"Pressed Post: {len(bug_lines)} bug fix(es), {len(p['updates']) + len(new_lines)} update(s).", final=f"Posted: {r['url']}")
+                             f"Posted {len(bug_lines)} bug fix(es) and {len(p['updates']) + len(new_lines)} update(s), {'pinging the updates role' if ping else 'without a ping'}.",
+                             final=f"Posted: {r['url']}" + (' (pinged)' if ping else ' (no ping)'))
     return await i.message.edit(content=f"{E['fixed']} **POSTED**{EM}·{EM}{r['url']}", embeds=[], view=None)
 
 
@@ -471,7 +483,7 @@ async def handle_component(i):
         if kind == 'bug':
             return await button_bug(i, a, b)
         if kind == 'ann':
-            return await button_ann(i, a, int(b))
+            return await button_ann(i, a, int(b), parts[3] if len(parts) > 3 else None)
         if kind == 'strike':
             return await button_strike(i, a, b)
         if kind == 'exp':
