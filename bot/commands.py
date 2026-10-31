@@ -103,7 +103,7 @@ COMMANDS = [
         option(STRING, 'link', 'Link players use to play it (optional)'),
     ]),
     command('unrelease', 'Move a released game back to unreleased', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
-    command('gamelink', 'Set the link of an unreleased game (the site it is ported from, e.g. Steam)', [
+    command('gamelink', "Set a game's link: its Steam page while unreleased, its Roblox link once released", [
         option(STRING, 'game', 'Game', required=True, autocomplete=True),
         option(STRING, 'link', 'Link to the original game', required=True),
     ]),

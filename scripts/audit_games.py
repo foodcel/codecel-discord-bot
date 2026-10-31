@@ -91,6 +91,10 @@ async def main():
     shown = [f.value for e in await game_embeds() for f in e.fields]
     if not any('](https://www.roblox.com/games/1)' in v for v in shown):
         problems.append('the Roblox link is not shown on the released board')
+    if 'LINKED' not in await link(admin, 'https://www.roblox.com/games/2'):
+        problems.append('/gamelink failed on a released game')
+    if not any(r['link'] == 'https://www.roblox.com/games/2' for r in game_lists()['released']):
+        problems.append('/gamelink did not change the Roblox link of a released game')
     await call(admin, True, c['name'])
     if game_lists()['unreleased'][0].get('source_link') is None and not any(g.get('source_link') for g in game_lists()['unreleased']):
         problems.append('the source link was lost after unrelease')

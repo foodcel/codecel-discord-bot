@@ -13,8 +13,19 @@ from .ctx import ctx, fetch_channel
 from .db import all_, kv_del, kv_get, kv_set, now, one, run
 from .devboard import on_boards_refreshed
 from .perms import can_manage, level
-from .ui import E, EM, ZW, columns, cut, describe, flat, head, lkey, RULE
+from .ui import E, EM, ZW, columns, cut, describe, flat, head, lkey, RULE, spacer
 
+FOOT_UNRELEASED = '\n'.join([
+    '/claim · take a game (add its Steam page with link:)',
+    '/progress · set how far it is and if you are working on it',
+    '/gamelink · change a game\'s link',
+    '/release · the game is out (add its Roblox link with link:)',
+    '/unclaim · drop a game you claimed',
+])
+FOOT_RELEASED = '\n'.join([
+    '/gamelink · change a released game\'s Roblox link',
+    '/unrelease · move a game back to unreleased',
+])
 NONE = '__none__'  # value of the "nothing here" autocomplete entry
 
 
@@ -127,21 +138,22 @@ GAP_ROW = object()  # marks the blank line between two devs
 
 
 def table(e, headings, rows):
-    """Three columns. Game names are cut to 19 characters so no column grows past its third of the embed: that is what keeps
+    """Columns of lines. Game names are cut so no column grows past its share of the embed: that is what keeps
     the columns in the same place in both embeds. A long list is split into several rows of columns (a field holds 1024 characters)."""
-    state = {'chunk': [], 'len': [0, 0, 0], 'first': True}
+    n = len(headings)
+    state = {'chunk': [], 'len': [0] * n, 'first': True}
 
     def flush():
         columns(e, [{'name': name if state['first'] else ZW, 'lines': [r[i] for r in state['chunk']]}
                     for i, name in enumerate(headings)], RULE if state['first'] else '')
         state['chunk'] = []
-        state['len'] = [0, 0, 0]
+        state['len'] = [0] * n
         state['first'] = False
 
     for r in rows:
         if r is GAP_ROW:
             if state['chunk']:  # an empty line between two devs (never at the top of a block)
-                r = [ZW, ZW, ZW]
+                r = [ZW] * n
             else:
                 continue
         if state['chunk'] and any(state['len'][i] + len(cell) + 1 > 960 for i, cell in enumerate(r)):
@@ -168,8 +180,9 @@ def progress_cell(r):
     return '▶ working' if w else '—'
 
 
-def tree_rows(rows):
-    """One block per dev: the dev, then the games branching under it (the ones being worked on first), with a blank line between devs."""
+def tree_rows(rows, second, counts=False):
+    """One block per dev: the dev, then the games branching under it (the ones being worked on first), with a blank line between devs.
+    `second` makes the text of the second column; `counts` adds "2/7 working" to the dev line."""
     groups = []
     for r in rows:
         if r['first']:
@@ -177,18 +190,18 @@ def tree_rows(rows):
         groups[-1].append(r)
     out = []
     for n, g in enumerate(groups):
-        g = sorted(g, key=lambda r: 0 if (r.get('working') or (r.get('working') is None and r.get('progress'))) else 1)
+        if counts:
+            g = sorted(g, key=lambda r: 0 if (r.get('working') or (r.get('working') is None and r.get('progress'))) else 1)
         if n:
             out.append(GAP_ROW)
         flagged = [r for r in g if r.get('working') is not None or r.get('progress') is not None]
         active = [r for r in flagged if r.get('working') != 0]
-        title = f"{g[0]['dev']} · {len(active)}/{len(g)} working" if flagged else g[0]['dev']
-        out.append([title, ZW, ZW])
+        title = f"{g[0]['dev']} · {len(active)}/{len(g)} working" if counts and flagged else g[0]['dev']
+        out.append([title, ZW])
         for k, r in enumerate(g):
             branch = '└─' if k == len(g) - 1 else '├─'
-            since = r['since'] if r.get('since') and _valid_date(r['since']) else '—'
             name = f"[**{cut(r['name'], 18)}**]({r['link']})" if http(r['link']) else f"**{cut(r['name'], 18)}**"
-            out.append([f'{branch} {name}', progress_cell(r), since])
+            out.append([f'{branch} {name}', second(r)])
     return out
 
 
@@ -227,20 +240,22 @@ async def game_embeds(lists=None):
     e1.title = head('✅', 'Released games')
     describe(e1, f"{E['fixed']} **{n_games(rel)}** released")
     if rel:
-        table(e1, [head(E['user'], 'Dev'), head(E['game'], 'Game'), head(E['date'], 'Released')], with_gaps(rel, lambda r: [
-            r['dev'], f"[**{cut(r['name'], 19)}**]({r['link']})" if http(r['link']) else f"**{cut(r['name'], 19)}**",
-            datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d')]))
+        table(e1, [head(E['game'], 'Games'), head(E['date'], 'Released')], tree_rows(
+            rel, lambda r: datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d')))
     else:
         e1.add_field(name=ZW, value='None yet.', inline=False)
+    spacer(e1)
+    e1.set_footer(text=FOOT_RELEASED)
 
     e2 = flat()
     e2.title = head('🛠️', 'Unreleased games')
-    e2.set_footer(text='Game owners: /progress to update a game, /release when it is out, /unrelease to move it back.')
     describe(e2, f'🛠️ **{n_games(dev)}** in development')
     if dev:
-        table(e2, [head(E['game'], 'Games'), head('📊', 'Progress'), head(E['date'], 'Since')], tree_rows(dev))
+        table(e2, [head(E['game'], 'Games'), head('📊', 'Progress')], tree_rows(dev, progress_cell, counts=True))
     else:
         e2.add_field(name=ZW, value='None yet.', inline=False)
+    spacer(e2)
+    e2.set_footer(text=FOOT_UNRELEASED)
     return [e1, e2]
 
 
@@ -282,7 +297,7 @@ async def autocomplete_games(i, command, focused):
     """Shows the proper name, answers with the typed name (that is what the lists are keyed on)."""
     q = str(focused or '').lower()
     lists = game_lists()
-    if command in ('release', 'gamelink', 'progress'):
+    if command in ('release', 'progress'):
         pool = lists['unreleased']
     elif command == 'unrelease':
         pool = lists['released']
@@ -345,20 +360,24 @@ def set_source_link(name, owners, since, link):
 
 
 async def command_gamelink(i, opts):
-    """Sets the link shown on an unreleased game (the site it is ported from, e.g. its Steam page)."""
+    """Sets the link shown on a game: the site it is ported from (Steam etc.) while unreleased, its Roblox link once released."""
     reply = i.response.send_message
     name = opts.get('game')
     if name == NONE:
-        return await reply('No games are waiting to be released.', ephemeral=True)
-    k, _, g = _find(name)
+        return await reply('There are no games yet.', ephemeral=True)
+    k, rel, dev = _find(name)
+    g = dev or rel
     if not g:
-        return await reply('That game is not in the unreleased list. Claim it on the bounty-board first.', ephemeral=True)
+        return await reply('I do not know that game. Claim it on the bounty-board first.', ephemeral=True)
     if not can_manage(i.user, owner_ids(g)):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
     link = (opts.get('link') or '').strip()
     if not http(link):
         return await reply('The link must start with http:// or https://', ephemeral=True)
-    set_source_link(g['name'], owner_ids(g), g.get('since'), link)
+    if dev:
+        set_source_link(g['name'], owner_ids(g), g.get('since'), link)
+    else:
+        run('UPDATE game_status SET link=? WHERE key=?', link, k)
     await refresh_game_board()
     return await reply(f"{E['fixed']} **LINKED**{EM}·{EM}{clean_name(g['name'])} now links to {link}", ephemeral=True)
 

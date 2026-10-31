@@ -12,7 +12,7 @@ from .components import NO_MENTIONS
 from .ctx import ctx, fetch_channel
 from .db import all_, kv_get, kv_set, one, run
 from .perms import level
-from .ui import E, EN, SEP, cut, describe, flat, head
+from .ui import E, EN, SEP, cut, describe, flat, head, spacer
 
 TOP_LIMIT = 25  # posts listed in the top suggestions message
 DESCRIPTION_LIMIT = 3800  # embed descriptions cap at 4096
@@ -25,6 +25,11 @@ BOARD_REFRESH_DELAY = 5  # seconds; a burst of votes becomes one edit of the pin
 CUSTOM = 'custom:'  # autocomplete value of a game with no forum post, followed by its name
 CLAIM = 'claim:'  # autocomplete value of an existing claim, followed by its id
 MAX_CUSTOM_GAME = 60
+FOOT_TOP = '\n'.join([
+    '/claim · take a game from the list, or your own (add its Steam page with link:)',
+    '/unclaim · drop a game you claimed, it comes back here',
+    'Admins: /assign gives a game to a dev · /exclude hides a post · /include brings it back',
+])
 
 _lock = asyncio.Lock()
 _refresh_task = None
@@ -130,13 +135,14 @@ def top_embed():
     ranked = sorted((p for p in ps if p['post_id'] not in taken and not p['excluded']), key=lambda p: (-p['votes'], p['title'].lower()))
     e = flat()
     e.title = head('🏆', 'Top suggestions')
-    e.set_footer(text='Ranked by votes in the suggestions forum. Working on one? /claim it.')
     lines = []
     for n, p in enumerate(ranked[:TOP_LIMIT], 1):
         title = cut(p['title'], 38).replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
         lines.append(f"**{n}**{EN}[{title}](https://discord.com/channels/{ctx.guild.id}/{p['post_id']}){SEP}🔥 {p['votes']}")
     summary = f"{E['open']} **{len(ranked)}** open suggestions" if ranked else 'No open suggestions.'
     describe(e, summary + ('\n\n' + fit(lines) if lines else ''))
+    spacer(e)
+    e.set_footer(text=FOOT_TOP)
     return e
 
 
