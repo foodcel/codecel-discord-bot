@@ -1,0 +1,9 @@
+services:
+  bot:
+    build: .
+    container_name: codecel-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    # The bot only makes outgoing connections (Discord, Anthropic). No ports need to be opened.
