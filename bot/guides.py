@@ -8,8 +8,8 @@ UPDATES = '1562726333828702249'
 NEW_GAMES = '1562961976387174452'  # whole new game ideas go here
 
 
-def _steps(command):
-    return (f'1. Type `{command}` in <#{COMMANDS_CHANNEL}>\n'
+def _steps(command, forum_id):
+    return (f'1. Type `{command}` in <#{COMMANDS_CHANNEL}> or in this forum\n'
             '2. Pick the game, and add screenshots or videos if you have them\n'
             '3. Fill in the short form and send it\n'
             'Your post appears here, already tagged.')
@@ -18,12 +18,13 @@ def _steps(command):
 def bugs_guide_embed():
     e = flat()
     e.title = head('🐛', 'Report a bug')
-    describe(e, f'The easiest way: type **`/bug`** in <#{COMMANDS_CHANNEL}>.\nThe bot makes the post for you and sends it to the right developer.')
-    section(e, head('⌨️', 'How it works'), _steps('/bug'))
+    describe(e, f'The easiest way: type **`/bug`** in <#{COMMANDS_CHANNEL}> or in any post here.\nThe bot makes the post for you and sends it to the right developer.')
+    section(e, head('⌨️', 'How it works'), _steps('/bug', cfg.bugs_id))
     section(e, head('📝', 'What to write'),
             '• **Title** · the problem in a few words\n• **What happened** · and what you expected\n'
             '• **Steps** · how can we make it happen again?\n• **Device** · PC, mobile, PS5...\n'
-            'Clear steps get fixed faster.')
+            'Clear steps get fixed faster.\n'
+            '✍️ **Posting by hand?** Start the title with the game, like **[PaRappa] Notes stop responding**, and cover the same points.')
     section(e, head('🤖', 'After you send it'),
             '• Your post gets a number, like **#12**\n'
             '• Something missing? The bot asks up to 3 short questions. **Reply in your post.**\n'
@@ -34,8 +35,6 @@ def bugs_guide_embed():
             '• Hide personal information in screenshots\n'
             '• Found an exploit? Use `/bug` as usual. The bot hides it and tells the developers\n'
             f'• Just an idea? Use `/improvement` and <#{cfg.suggestions_id}>')
-    section(e, head('✍️', 'Posting by hand?'),
-            'Start the title with the game, like **[PaRappa] Notes stop responding**, and answer the same four points.')
     gap(e)
     e.set_footer(text='Thank you for helping improve every session.')
     return e
@@ -44,11 +43,12 @@ def bugs_guide_embed():
 def suggestions_guide_embed():
     e = flat()
     e.title = head('💡', 'Suggest an improvement')
-    describe(e, f'The easiest way: type **`/improvement`** in <#{COMMANDS_CHANNEL}>.\nThe bot makes the post for you and sends it to the right developer.')
-    section(e, head('⌨️', 'How it works'), _steps('/improvement'))
+    describe(e, f'The easiest way: type **`/improvement`** in <#{COMMANDS_CHANNEL}> or in any post here.\nThe bot makes the post for you and sends it to the right developer.')
+    section(e, head('⌨️', 'How it works'), _steps('/improvement', cfg.suggestions_id))
     section(e, head('📝', 'What to write'),
             '• **Title** · your idea in a few words\n• **What should be added or changed?**\n'
-            '• **Why** · optional, but it helps us understand\nScreenshots and videos are welcome.')
+            '• **Why** · optional, but it helps us understand\nScreenshots and videos are welcome.\n'
+            '✍️ **Posting by hand?** Start the title with the game, like **[PaRappa] Improve the timing**, and cover the same points.')
     section(e, head('🤖', 'After you send it'),
             '• Your post gets a number, like **#12**\n'
             '• Too vague? The bot asks up to 3 short questions. **Reply in your post.**\n'
@@ -61,8 +61,6 @@ def suggestions_guide_embed():
             '• One idea per post, and be respectful\n'
             f'• A whole new game? Use <#{NEW_GAMES}>\n'
             f'• Is it a bug? Use <#{cfg.bugs_id}> (or `/bug`)')
-    section(e, head('✍️', 'Posting by hand?'),
-            'Start the title with the game, like **[PaRappa] Improve the timing**, and answer the same three points.')
     gap(e)
     e.set_footer(text='Your feedback shapes what we build next.')
     return e

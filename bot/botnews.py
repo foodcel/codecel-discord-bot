@@ -49,7 +49,7 @@ def tester_news_embeds():
     testing = f'<#{cfg.testing_id}>'
     e = flat()
     e.title = head(E['update'], 'New · report bugs with /bug')
-    e.set_footer(text='Only testers can use /bug, and only in the testing channel.')
+    e.set_footer(text='Testers send reports here with /bug. Everyone else can use /bug too, in the commands channel.')
     describe(e, f'You can now send bugs straight to the developers from {testing}. Your report goes to the dev who owns the game, with your screenshots and videos.')
     section(e, head('🧪', 'How to report'),
             f'1. Go to {testing} and type `/bug`\n2. Pick the game\n3. Attach up to **10 screenshots** and **5 videos** if you have them\n4. Fill in the form and send it')
