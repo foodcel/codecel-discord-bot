@@ -103,7 +103,7 @@ def suggestion_news_embeds():
     e.set_footer(text='The 🙏 votes show devs what players want most.')
     describe(e, f'Posts in {suggestions} are now handled like bug reports: checked, tagged with their game and sent to the dev who owns it.')
     section(e, head('💡', 'Your suggestion board'),
-            f'Every dev has a post in {board} with their open suggestions and their 🙏 votes. Pick a game in the dropdown to browse them one by one. A new suggestion gives you a quick ping.')
+            f'Every dev has a post in {board} with their open suggestions, ranked by 🙏 votes: the most wanted at the top, the least at the bottom. Pick a game in the dropdown to browse them one by one, in the same order. A new suggestion gives you a quick ping.')
     section(e, head(E['fixed'], 'Added or declined'),
             'Press **Added** or **Declined**, or type `12 added` or `7 declined`. The player is pinged and the post is deleted after 24 hours. Added suggestions go into the update announcements next to the bug fixes.')
     section(e, head(E['update'], 'Bugs posted there'),

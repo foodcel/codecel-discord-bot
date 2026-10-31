@@ -37,7 +37,8 @@ def base_key(key):
 def open_bugs_for(key):
     kind, base = kind_of(key), base_key(key)
     statuses = "('new','investigating','fixing')" if kind == 'bug' else "('new')"
-    rows = all_(f"SELECT * FROM bugs WHERE kind=? AND routed=1 AND deleted=0 AND status IN {statuses} ORDER BY id", kind)
+    order = 'votes DESC, id' if kind == 'suggestion' else 'id'  # suggestions: the most voted first
+    rows = all_(f"SELECT * FROM bugs WHERE kind=? AND routed=1 AND deleted=0 AND status IN {statuses} ORDER BY {order}", kind)
     out = []
     for b in rows:
         owners = owners_for(b['game_tag_id'], b['game_name'])
@@ -55,7 +56,7 @@ def board_embed(key):
         e.set_footer(text='Pick a game below to browse its suggestions. You can also type "12 added", "1-5 added", "7 declined" here.')
         if not bugs:
             return describe(e, 'No open suggestions 🎉')
-        ordered = sorted(bugs, key=lambda b: (lkey(b['game_name'] or ''), -b['votes'], b['id']))
+        ordered = sorted(bugs, key=lambda b: (-b['votes'], b['id']))  # most votes at the top
         describe(e, f"{E['new']} **{len(bugs)}** open{GAP}🙏 **{sum(b['votes'] for b in bugs)}** votes")
         lst = ordered[:15]
         columns(e, [
