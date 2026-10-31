@@ -57,6 +57,8 @@ async def bug_embeds(bug):
             {'name': head(E['severity'], 'Severity'), 'lines': [SEVERITY.get(bug['severity']) or '?', ZW]},
             {'name': head(E['device'], 'Device'), 'lines': [', '.join(devices) or 'Not given', ZW]},
         ], '')  # no rule lines on this page
+    if bug.get('low_info'):
+        plain(embed, head('⚠️', 'Low info'), 'The player did not give enough details after 3 questions. Look into it yourself, or talk to them in the post.')
     if reporter:
         embed.set_author(name=reporter.display_name, icon_url=reporter.display_avatar.url)
     if media['videos']:

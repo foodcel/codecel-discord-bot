@@ -14,6 +14,7 @@ from .tags import applied_ids, find_device_tag, find_game_tag, game_tags, set_ta
 from .ui import E, EM
 
 DAY = 86400000
+MAX_ASKS = 3  # questions to the player; after that the report is logged anyway and a dev is told to look into it
 CONFIDENT = 0.85
 _IMG = re.compile(r'^image/(png|jpe?g|gif|webp)')
 
@@ -60,7 +61,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         ORDER BY id DESC LIMIT 40""", bug['id'])
     try:
         a = await analyze_report(re.sub(r'^#\d+\s+', '', thread.name), report['text'], picked, games,
-                                 report['images'], report['videos'], known)
+                                 report['images'], report['videos'], known, bug['asks'])
     except Exception as e:
         print('analyze failed:', e)
         return  # stays status=new, routed=0; catch-up retries later
@@ -134,7 +135,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 
     # 4. Missing info.
     incomplete = (not a['complete']) or not (game_tag or a.get('game'))
-    if incomplete and not silent:
+    if incomplete and not silent and bug['asks'] < MAX_ASKS:
         asks = bug['asks'] + 1
         update_bug(bug['id'], {'status': 'needs_info', 'asks': asks})
         await set_tags(thread, game=gid, device=did, status='needs_info')
@@ -158,8 +159,9 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 
     # 5. Complete (or silent import).
     was_asked = bug['status'] == 'needs_info'
+    low_info = incomplete and not silent  # asked MAX_ASKS times and still not enough: logged anyway, the dev is told
     cancel_timers('stale', thread.id)
-    update_bug(bug['id'], {'status': 'new'})
+    update_bug(bug['id'], {'status': 'new', 'low_info': 1 if low_info else 0})
     if not silent:
         await set_tags(thread, game=gid, device=did, status=None)
         if not re.match(r'^#\d+\s', thread.name):
@@ -167,7 +169,11 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
                 await thread.edit(name=f"#{bug['id']} {thread.name}"[:100])
             except Exception:
                 pass
-        msg = f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} is sent to the developer. {'Thanks, that covers it.' if was_asked else 'Thanks for the report!'}"
+        if low_info:
+            msg = (f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} Thanks! Some details are still missing, so a developer will come and check this out "
+                   'themselves, or ask you here.')
+        else:
+            msg = f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} is sent to the developer. {'Thanks, that covers it.' if was_asked else 'Thanks for the report!'}"
         if a['personal_info']:
             msg += f"\n{E['warn']} Your screenshot may show personal information. Please hide it."
         try:

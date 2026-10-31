@@ -11,7 +11,7 @@ from .ctx import fetch_channel, get_member, thread_link
 from .db import add_timer, all_, bug_by_id, bug_by_thread, cancel_timers, now, run, update_bug
 from .devboard import route_bug, schedule_boards
 from .env import cfg
-from .intake import CONFIDENT, DAY, fetch_starter, gather
+from .intake import CONFIDENT, DAY, MAX_ASKS, fetch_starter, gather
 from .perms import is_staff
 from .strikes import strike_user
 from .tags import canonical_game, find_game_tag, game_tags, set_tags, tag_name, thread_game_tag, applied_ids
@@ -55,7 +55,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         WHERE kind='suggestion' AND id<>? AND status IN ('new','needs_info','fixed','declined') AND deleted IN (0,1)
         ORDER BY id DESC LIMIT 40""", bug['id'])
     try:
-        a = await analyze_suggestion(re.sub(r'^#\d+\s+', '', thread.name), report['text'], picked, games, report['images'], known)
+        a = await analyze_suggestion(re.sub(r'^#\d+\s+', '', thread.name), report['text'], picked, games, report['images'], known, bug['asks'])
     except Exception as e:
         print('analyze suggestion failed:', e)
         return  # stays status=new, routed=0; catch-up retries later
@@ -127,7 +127,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 
     # 4. Missing info.
     incomplete = (not a['complete']) or not (game_tag or a.get('game'))
-    if incomplete and not silent:
+    if incomplete and not silent and bug['asks'] < MAX_ASKS:
         update_bug(bug['id'], {'status': 'needs_info', 'asks': bug['asks'] + 1})
         await set_tags(thread, game=gid, status='needs_info', kind='suggestion')
         missing = a['missing'] if a['missing'] else ['A bit more detail about what you would like']
@@ -146,8 +146,9 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 
     # 5. Complete (or silent import).
     was_asked = bug['status'] == 'needs_info'
+    low_info = incomplete and not silent
     cancel_timers('stale', thread.id)
-    update_bug(bug['id'], {'status': 'new'})
+    update_bug(bug['id'], {'status': 'new', 'low_info': 1 if low_info else 0})
     if not silent:
         await set_tags(thread, game=gid, status=None, kind='suggestion')
         if not re.match(r'^#\d+\s', thread.name):
@@ -156,8 +157,12 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
             except Exception:
                 pass
         try:
-            await thread.send(f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} is sent to the developer. "
-                              f"{'Thanks, that covers it.' if was_asked else 'Thanks for the idea!'} Votes help it get noticed.")
+            if low_info:
+                await thread.send(f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} Thanks! Some details are still missing, so a developer "
+                                  'will come and look at it themselves, or ask you here.')
+            else:
+                await thread.send(f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} is sent to the developer. "
+                                  f"{'Thanks, that covers it.' if was_asked else 'Thanks for the idea!'} Votes help it get noticed.")
         except Exception:
             pass
     await route_bug(bug_by_id(bug['id']), silent=silent)

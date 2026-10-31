@@ -60,7 +60,7 @@ def board_embed(key):
         describe(e, f"{E['new']} **{len(bugs)}** open{GAP}🙏 **{sum(b['votes'] for b in bugs)}** votes")
         lst = ordered[:15]
         columns(e, [
-            {'name': head('💡', 'Suggestion'), 'lines': [f"**#{b['id']}**{EN}{cut(b['title'], 26)}" for b in lst]},
+            {'name': head('💡', 'Suggestion'), 'lines': [f"**#{b['id']}**{EN}{'⚠️ ' if b['low_info'] else ''}{cut(b['title'], 24 if b['low_info'] else 26)}" for b in lst]},
             {'name': head(E['game'], 'Game'), 'lines': [cut(b['game_name'] or 'Unknown', 18) for b in lst]},
             {'name': head('🙏', 'Votes'), 'lines': [str(b['votes']) for b in lst]},
         ])
@@ -80,7 +80,7 @@ def board_embed(key):
     describe(e, f"{E['open']} **{n('new')}** open{GAP}{E['investigating']} **{n('investigating')}** investigating{GAP}{E['fixing']} **{n('fixing')}** fixing")
     lst = ordered[:15]
     columns(e, [
-        {'name': head(E['open'], 'Bug'), 'lines': [f"**#{b['id']}**{EN}{cut(b['title'], 26)}" for b in lst]},
+        {'name': head(E['open'], 'Bug'), 'lines': [f"**#{b['id']}**{EN}{'⚠️ ' if b['low_info'] else ''}{cut(b['title'], 24 if b['low_info'] else 26)}" for b in lst]},
         {'name': head(E['game'], 'Game'), 'lines': [cut(b['game_name'] or 'Unknown', 18) for b in lst]},
         {'name': head(E['status'], 'Status'), 'lines': [STATUS.get(b['status'], b['status']) for b in lst]},
     ])
@@ -231,7 +231,8 @@ async def route_bug(bug, silent=False):
             continue  # devs can turn this ping off with /pings
         try:
             m = await t.send(
-                content=f"<@{base}> {E['new']} **{'NEW SUGGESTION' if suggestion else 'NEW BUG'}**{EM}·{EM}#{bug['id']}{EM}·{EM}{bug['game_name'] or 'Unknown game'}",
+                content=f"<@{base}> {E['new']} **{'NEW SUGGESTION' if suggestion else 'NEW BUG'}**{EM}·{EM}#{bug['id']}{EM}·{EM}{bug['game_name'] or 'Unknown game'}"
+                        f"{f'{EM}·{EM}⚠️ low info' if bug.get('low_info') else ''}",
                 allowed_mentions=allowed(users=[base]))
         except Exception as e:
             print('ping', e)
