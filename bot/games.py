@@ -116,7 +116,7 @@ async def rows_by_dev(entries):
     out = []
     for n, d in enumerate(devs):
         for k, g in enumerate(sorted(d['list'], key=lambda g: lkey(g['name']))):
-            out.append({'dev': '—' if d['id'] == 'none' else f"<@{d['id']}>", 'gap': n > 0 and k == 0, **g})
+            out.append({'dev': '—' if d['id'] == 'none' else f"<@{d['id']}>", 'gap': n > 0 and k == 0, 'first': k == 0, **g})
     return out
 
 
@@ -156,7 +156,10 @@ def with_gaps(rows, cells):
     for r in rows:
         if r['gap']:
             out.append(GAP_ROW)
-        out.append(cells(r))
+        row = cells(r)
+        if not r['first']:  # one mention per dev: a mention is taller than plain text, so one on every row pushes the columns out of line
+            row[0] = ZW
+        out.append(row)
     return out
 
 
