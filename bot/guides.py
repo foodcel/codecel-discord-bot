@@ -62,3 +62,34 @@ def suggestions_guide_embed():
     gap(e)
     e.set_footer(text='Your feedback shapes what we build next.')
     return e
+
+
+def games_guide_embed():
+    """The guide of the game-suggestions forum (ideas for whole new games). It has no commands: players post and vote by hand."""
+    e = flat()
+    e.title = head('🎮', 'Suggest a new game')
+    describe(e, 'Want your favorite game on our **Roblox PlayStation Experience**? Suggest it here!\n'
+                'Games from PlayStation, Xbox, Steam, PC, Nintendo, mobile and more are welcome.')
+    section(e, head('✍️', 'How to suggest'),
+            '• **Title** · the name of the game\n'
+            '• **One game per post.**\n'
+            '• **Pick the platform tag**: PlayStation (PS1 to PS5, PSP), PC / Steam, or Xbox (Xbox, 360, One, Series)\n'
+            '• **Search first.** Already suggested? Vote on it instead. Duplicates are removed.')
+    section(e, head('🔥', 'Voting'),
+            '• **React 🔥** on the games you want. Developers look at the most voted first.\n'
+            '• Talk about an idea in its post.\n'
+            '• More votes means more interest. It is **not** a promise.')
+    section(e, head('🏷️', 'Status tags'),
+            '🔥 **Highly Requested** · lots of support\n👀 **Under Review** · developers are looking at it\n'
+            '✅ **Approved** · accepted for the future, if permissions allow\n🛠️ **In Development** · someone is building it\n'
+            '❌ **Declined** · not planned or not possible\n'
+            'Staff and the bot set these. Please do not ask for a change.')
+    section(e, head('💡', 'Good to know'),
+            '• Please do not spam, beg, ping developers, or vote with extra accounts\n'
+            "• Follow Roblox's Terms of Use and Community Standards: nothing NSFW, hateful or prohibited\n"
+            '• Be respectful. Developers make the final decision, and may approve, decline or postpone any idea\n'
+            '• Some games are impossible or protected by copyright. Crediting the creator does not replace permission\n'
+            f'• An improvement for a game we already have? Post it in <#{cfg.suggestions_id}>')
+    gap(e)
+    e.set_footer(text='Suggest. Vote. Play.')
+    return e
