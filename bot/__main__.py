@@ -104,6 +104,8 @@ async def on_ready():
     try:
         if await testers.import_old():
             print('tester roster imported')
+        if n := await testers.sync_members():
+            print(f'{n} tester(s) with a tester role added to the roster')
         await testers.refresh_roster()
     except Exception:
         traceback.print_exc()

@@ -51,7 +51,7 @@ def guide_embed():
         '✅ Provide screenshots or recordings when possible',
         '✅ Communicate regularly with the development team',
         '✅ Remain active and complete assigned testing tasks',
-        '✅ Be patient with difficult or unfinished games']))
+        '✅ Be patient with difficult or unfinished games']), WIDTH)  # the same width as the roster
     section(e, head(E['warn'], 'Important'),
             "We expect consistent effort, honesty and communication. If you're unavailable or unable to finish a test, please notify the developer(s).")
     where = f'<#{cfg.testing_id}>' if cfg.testing_id else 'the testing channel'
@@ -78,10 +78,18 @@ def _name(uid):
     return m.display_name if m else 'a dev'
 
 
+def role_name(uid):
+    """The highest tester role of a member (Tester-Lead, Tester, Trial-Tester...), or None."""
+    m = ctx.guild.get_member(int(uid)) if ctx.guild else None
+    mine = [r for r in (m.roles if m else []) if str(r.id) in cfg.tester_roles]
+    return max(mine, key=lambda r: r.position).name if mine else None
+
+
 def _block(r, reports):
     """One tester: the mention, then its details branching under it, one short line each (no columns, so a phone shows it whole)."""
     n = reports.get(r['user_id'], 0)
-    lines = [f"<@{r['user_id']}>" + (f' · 📝 {n} report{"" if n == 1 else "s"}' if n else '')]
+    role = role_name(r['user_id'])
+    lines = [f"<@{r['user_id']}>" + (f' · {role}' if role else '') + (f' · 📝 {n} report{"" if n == 1 else "s"}' if n else '')]
     if r['status'] == 'pending' and not r['devices']:
         kids = ['⏳ No response yet']
     elif r['status'] == 'inactive':
@@ -164,6 +172,7 @@ async def post_board(ch):
     """Posts the guide and the roster in a channel and keeps them up to date from now on. The earlier copy is removed. In the
     tester-information channel the two old messages are replaced too. Returns how many old messages were removed."""
     await import_old()  # the old roster message is read before it is replaced
+    await sync_members()
     old = _board()
     g = await ch.send(embed=guide_embed())
     r = await ch.send(embed=roster_embed())
@@ -250,6 +259,17 @@ async def take_roles(uid):
         return None
     except Exception as e:
         return f"could not remove the Tester role ({e})"
+
+
+async def sync_members():
+    """Everyone who has any of the tester roles (Tester, Tester-Lead, Trial-Tester...) is on the roster. Returns how many were added."""
+    roles = set(_tester_role_ids())
+    n = 0
+    for m in (ctx.guild.members if ctx.guild else []):
+        if not m.bot and roles & {r.id for r in m.roles} and not get(m.id):
+            save(m.id)
+            n += 1
+    return n
 
 
 async def on_member_update(before, after):
