@@ -72,7 +72,7 @@ PREVIEW_CHOICES = [
     ('announcements', 'announcement'), ('fix log', 'fixlog'), ('rules', 'rules'),
     ('mod cards', 'mod'), ('bot messages', 'messages'), ('transcript', 'transcript'),
     ('launch announcement draft', 'botnews'), ('tester report', 'tester'), ('tester announcement draft', 'testernews'),
-    ('games board', 'games'), ('bounty board announcement draft', 'boardnews'), ('suggestion boards announcement draft', 'suggestionnews'),
+    ('games board', 'games'), ('bounty board announcement draft', 'boardnews'), ('suggestion boards announcement draft', 'suggestionnews'), ('tester roster announcements (testers and devs)', 'rosternews'),
 ]
 
 COMMANDS = [

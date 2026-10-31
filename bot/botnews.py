@@ -122,3 +122,38 @@ def suggestion_news_embeds():
     if owner_id:
         e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
     return [e]
+
+
+def roster_news_testers_embeds():
+    """The announcement of the tester roster for the testers. One embed."""
+    where = f'<#{cfg.tester_info_id}>' if cfg.tester_info_id else 'the tester-information channel'
+    e = flat()
+    e.title = head(E['update'], 'New · the tester roster')
+    e.set_footer(text='Fill in your profile to show up as active.')
+    describe(e, f'The tester list in {where} is now run by the bot. Everyone on it is shown with what they test on and when they are free.')
+    section(e, head('👤', 'Your profile'),
+            'Type `/tester profile` and fill in what you test on, how you record, when you are free and what you are best for. A complete profile moves you from 🟡 waiting to 🟢 active.')
+    section(e, head('🟢', 'What the marks mean'),
+            '🟢 open to every dev · 🟡 waiting for a reply · 🔒 only tests one dev\'s games · 💤 on a break.')
+    section(e, head('📝', 'Your reports'), 'The roster shows how many bugs each tester has reported with `/bug`.')
+    section(e, head('💤', 'Need a break?'), 'Tell an admin and you are put on a break, so devs do not ask you to test until you are back.')
+    return [e]
+
+
+def roster_news_devs_embeds():
+    """The announcement of the tester roster for the devs. One embed."""
+    owner_id = os.environ.get('OWNER_ID') or ''
+    where = f'<#{cfg.tester_info_id}>' if cfg.tester_info_id else 'the tester-information channel'
+    e = flat()
+    e.title = head(E['update'], 'New · the tester roster')
+    e.set_footer(text='The roster updates by itself.')
+    describe(e, f'Need a tester? The list in {where} now shows every tester with their devices, recording tool and when they are free.')
+    section(e, head('🔍', 'Find a tester'), '`/tester find device:Xbox` lists the testers who are open for testing on that device.')
+    section(e, head('🔒', 'Private and on a break'),
+            'Some testers only test one dev\'s games (🔒 private) and some are on a break (💤). They are never offered to other devs, so please do not ask them to test your game.')
+    section(e, head('🟡', 'New testers'), 'A new tester starts as waiting until they fill in `/tester profile`. Do not count on them yet.')
+    section(e, head(E['user'], 'Admins'),
+            '`/tester add`, `remove`, `status` and `edit` manage the list. The bot gives and removes the Tester role by itself.')
+    if owner_id:
+        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    return [e]
