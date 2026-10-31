@@ -1,24 +1,22 @@
 #!/usr/bin/env bash
 # No-root install: runs the bot as a systemd USER service (no sudo needed).
-# Use this when sudo asks for a password you do not have. Needs Node 22+ already installed (ffmpeg is optional,
-# it is only used for video frames in transcripts).
+# Use this when sudo asks for a password you do not have. Needs Python 3.12+ with the venv module already installed
+# (ffmpeg is optional, it is only used for video frames in transcripts).
 #     git clone https://github.com/foodcel/codecel-discord-bot.git && cd codecel-discord-bot
 #     bash deploy/user-install.sh      # first run creates .env, fill it in, then run it again
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 DIR="$(pwd)"
-NODE_BIN="$(command -v node || true)"
-[ -n "$NODE_BIN" ] || { echo "ERROR: node is not installed"; exit 1; }
-[ "$(node -p 'process.versions.node.split(".")[0]')" -ge 22 ] || { echo "ERROR: Node 22+ is needed, found $(node -v)"; exit 1; }
+PY="$(command -v python3 || true)"
+[ -n "$PY" ] || { echo "ERROR: python3 is not installed"; exit 1; }
+"$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 12) else 1)' || { echo "ERROR: Python 3.12+ is needed, found $("$PY" -V)"; exit 1; }
 command -v ffmpeg >/dev/null 2>&1 || echo "note: ffmpeg is not installed, transcripts will have no video frames"
 
 echo "==> Installing dependencies"
-npm ci --omit=dev
-if ! node -e "import('better-sqlite3').then(() => process.exit(0), () => process.exit(1))"; then
-  echo "==> Building better-sqlite3 (needs a compiler: build-essential and python3)"
-  npm rebuild better-sqlite3
-fi
+[ -x .venv/bin/python ] || "$PY" -m venv .venv
+.venv/bin/pip install -q --upgrade pip
+.venv/bin/pip install -q -r requirements.txt
 mkdir -p data
 
 echo "==> Installing the user service"
@@ -31,7 +29,7 @@ Wants=network-online.target
 
 [Service]
 WorkingDirectory=$DIR
-ExecStart=$NODE_BIN src/index.js
+ExecStart=$DIR/.venv/bin/python -u -m bot
 Restart=always
 RestartSec=10
 
@@ -62,4 +60,4 @@ systemctl --user --no-pager status codecel-bot | head -10
 echo
 echo "Logs:     journalctl --user -u codecel-bot -f"
 echo "Restart:  systemctl --user restart codecel-bot"
-echo "Update:   git pull && npm ci --omit=dev && systemctl --user restart codecel-bot"
+echo "Update:   git pull && .venv/bin/pip install -q -r requirements.txt && systemctl --user restart codecel-bot"

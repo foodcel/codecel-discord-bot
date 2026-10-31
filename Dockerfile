@@ -1,20 +1,20 @@
 # Works on x86-64 and on the ARM (Ampere) VMs of Oracle Cloud.
-FROM node:24-bookworm-slim
+FROM python:3.12-slim-bookworm
 
-# ffmpeg: video frames for transcripts. python3/make/g++: only used if better-sqlite3 has no prebuilt binary for the CPU.
+# ffmpeg: video frames for transcripts.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg python3 make g++ ca-certificates \
+ && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src ./src
+COPY bot ./bot
 COPY scripts ./scripts
 
-ENV NODE_ENV=production
+ENV PYTHONUNBUFFERED=1
 # bot.db and the fix archive live here: mount a volume so they survive updates
 VOLUME ["/app/data"]
 
-CMD ["node", "src/index.js"]
+CMD ["python", "-m", "bot"]

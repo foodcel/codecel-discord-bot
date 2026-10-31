@@ -16,14 +16,15 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 
 echo "==> Syntax check"
-for f in src/*.js; do node --check "$f"; done
+PYBIN="$(command -v python3 || command -v python)"
+"$PYBIN" -m compileall -q bot scripts
 
 echo "==> Pushing to GitHub"
 git push
 
 SSH=(ssh -i "$VM_KEY" -o BatchMode=yes "$VM_USER@$VM_HOST")
 echo "==> Updating the VM and restarting the bot"
-"${SSH[@]}" "cd $VM_DIR && git pull -q && npm ci --omit=dev --silent && systemctl --user restart codecel-bot"
+"${SSH[@]}" "cd $VM_DIR && git pull -q && .venv/bin/pip install -q -r requirements.txt && systemctl --user restart codecel-bot"
 
 echo "==> Waiting for the bot to log in"
 for _ in $(seq 1 20); do

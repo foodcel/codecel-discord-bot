@@ -2,7 +2,7 @@
 
 A Discord bot that runs bug reports for a community that ships games. Players report bugs in a forum channel, Claude checks each report, and the bot sends it to the developer who owns that game. Developers work from one board: browse, mark fixed, grab a transcript for their AI agent, and post update notes.
 
-Built with discord.js, SQLite and the Anthropic API (Claude Haiku by default, well under a cent per report).
+Built with Python (discord.py), SQLite and the Anthropic API (Claude Haiku by default, well under a cent per report).
 
 ## What it does
 
@@ -61,10 +61,11 @@ Turn on Developer Mode in Discord to copy channel, role and server IDs.
 
 ### 4. Run it
 ```bash
-npm ci
-npm start
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt      # Windows: .venv\Scripts\pip
+.venv/bin/python -m bot                        # Windows: .venv\Scripts\python
 ```
-Needs **Node 22+** and **ffmpeg** on the PATH (ffmpeg is only used for video frames in transcripts). On Windows `start.cmd` restarts the bot if it crashes.
+Needs **Python 3.12+** and **ffmpeg** on the PATH (ffmpeg is only used for video frames in transcripts). On Windows `start.cmd` restarts the bot if it crashes.
 
 ## Hosting on Oracle Cloud (or any Ubuntu VPS)
 
@@ -74,16 +75,16 @@ The bot only makes outgoing connections, so no ports or firewall rules are neede
 ```bash
 git clone https://github.com/foodcel/codecel-discord-bot.git
 cd codecel-discord-bot
-bash deploy/oracle-setup.sh     # installs Node 24 + ffmpeg, creates .env, run it again after filling .env
+bash deploy/oracle-setup.sh     # installs Python + ffmpeg + a virtualenv, creates .env, run it again after filling .env
 ```
 The second run installs and starts a `codecel-bot` service. Then:
 ```bash
 journalctl -u codecel-bot -f                       # logs
 sudo systemctl restart codecel-bot                 # restart
-git pull && npm ci --omit=dev && sudo systemctl restart codecel-bot   # update
+git pull && .venv/bin/pip install -q -r requirements.txt && sudo systemctl restart codecel-bot   # update
 ```
 
-**Option A2: no sudo password** (you can log in but cannot use sudo). Needs Node 22+ already on the VM:
+**Option A2: no sudo password** (you can log in but cannot use sudo). Needs Python 3.12+ (with the venv module) already on the VM:
 ```bash
 git clone https://github.com/foodcel/codecel-discord-bot.git && cd codecel-discord-bot
 bash deploy/user-install.sh     # runs the bot as a systemd user service, no root needed
@@ -99,6 +100,8 @@ docker compose logs -f
 
 **Deploying changes from your PC**: copy `deploy/vm.env.example` to `deploy/vm.env`, fill it in, commit, then run `bash deploy/deploy.sh`. It pushes, updates the VM, restarts the bot and waits until it logs in.
 
+**The old JavaScript version**: the bot used to be written in JavaScript. That version is the git tag `js-final`. `bash deploy/rollback-js.sh` puts it back on the VM (same database). To return to Python afterwards run `git checkout main` on the VM and then `bash deploy/user-install.sh` there.
+
 **Moving an existing bot** (keeps your reports, strikes and archive): stop the old bot, copy `.env` and the whole `data/` folder to the VM (`scp -r data .env user@vm:codecel-discord-bot/`), then start it there. Never run two copies with the same token at once, they would both answer.
 
 Oracle notes:
@@ -109,20 +112,24 @@ Oracle notes:
 ## Project layout
 
 ```
-src/index.js        startup, events, catch-up
-src/intake.js       checks reports (Claude), tags, duplicates, exploits, strikes
-src/devboard.js     dev boards, exploit cards, ghost pings
-src/bugview.js      the private bug page (prev/next, status buttons)
-src/fixes.js        marking fixed / reopening / statuses
-src/fixlog.js       the fix log and stored transcripts
-src/transcript.js   zip builder (conversation, screenshots, videos, frames)
-src/announce.js     update drafts and announcements
-src/tester.js       /bug for testers
-src/strikes.js      troll ladder
-src/ui.js           one shared look for every embed
-src/ai.js           all Claude calls (forced tool output, never free text)
+bot/__main__.py     startup and events (python -m bot)
+bot/catchup.py      everything missed while the bot was off
+bot/interactions.py slash commands, buttons, dropdowns and forms
+bot/commands.py     the slash command definitions
+bot/intake.py       checks reports (Claude), tags, duplicates, exploits, strikes
+bot/devboard.py     dev boards, exploit cards, ghost pings
+bot/bugview.py      the private bug page (prev/next, status buttons)
+bot/fixes.py        marking fixed / reopening / statuses
+bot/fixlog.py       the fix log and stored transcripts
+bot/transcript.py   zip builder (conversation, screenshots, videos, frames)
+bot/announce.py     update drafts and announcements
+bot/tester.py       /bug for testers
+bot/games.py        released / unreleased games board
+bot/strikes.py      troll ladder
+bot/ui.py           one shared look for every embed
+bot/ai.py           all Claude calls (forced tool output, never free text)
 scripts/            preview and helper scripts
-deploy/             systemd unit and Oracle setup script
+deploy/             systemd unit, Oracle setup, deploy and rollback scripts
 ```
 
 ## Safety notes
