@@ -1,7 +1,7 @@
 """The pinned "how to post" guides of the bug forum and the suggestions forum. Both follow the same layout, so a player who read one knows
 the other: the command first (it is the easiest way), what to write, what the bot does afterwards, and a short list of good habits."""
 from .env import cfg
-from .ui import E, describe, flat, gap, head, section
+from .ui import describe, flat, gap, head, section
 
 COMMANDS_CHANNEL = '1563090099774816286'  # where players can use commands
 UPDATES = '1562726333828702249'
