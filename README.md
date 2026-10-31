@@ -97,6 +97,8 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
+**Deploying changes from your PC**: copy `deploy/vm.env.example` to `deploy/vm.env`, fill it in, commit, then run `bash deploy/deploy.sh`. It pushes, updates the VM, restarts the bot and waits until it logs in.
+
 **Moving an existing bot** (keeps your reports, strikes and archive): stop the old bot, copy `.env` and the whole `data/` folder to the VM (`scp -r data .env user@vm:codecel-discord-bot/`), then start it there. Never run two copies with the same token at once, they would both answer.
 
 Oracle notes:
