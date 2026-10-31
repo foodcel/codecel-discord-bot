@@ -129,7 +129,7 @@ COMMANDS = [
         sub('add', 'Add a tester to the roster (admins)', [
             option(USER, 'user', 'The tester', required=True),
             option(STRING, 'status', 'Default: waiting for a reply', choices=STATUS_CHOICES),
-            option(USER, 'only_for', 'For a private tester: the dev whose games they test'),
+            option(USER, 'only_for', 'For a private tester: the dev whose games they test (default: you)'),
             option(STRING, 'devices', 'What they test on', max_length=120),
             option(STRING, 'recording', 'How they record', max_length=120),
             option(STRING, 'availability', 'When they are free', max_length=120),
@@ -139,7 +139,7 @@ COMMANDS = [
         sub('status', 'Open to all devs, waiting, private (one dev only) or on a break (admins)', [
             option(USER, 'user', 'The tester', required=True),
             option(STRING, 'status', 'New status', required=True, choices=STATUS_CHOICES),
-            option(USER, 'only_for', 'Private only: the dev whose games they test'),
+            option(USER, 'only_for', 'Private only: the dev whose games they test (default: you)'),
         ]),
         sub('edit', "Change a tester's details (admins)", [
             option(USER, 'user', 'The tester', required=True),

@@ -335,7 +335,7 @@ async def command_tester(i, sub, opts):
     if sub == 'add':
         status = opts.get('status') or 'pending'
         if status == 'private' and not opts.get('only_for'):
-            return await reply('A private tester needs `only_for`: the dev whose games they test.', ephemeral=True)
+            opts['only_for'] = str(i.user.id)  # most often the admin's own friend: it defaults to whoever runs the command
         row = save(uid, status=status, only_for=str(opts['only_for']) if opts.get('only_for') else None,
                    **{k: _text(opts.get(k)) for k in FIELDS if opts.get(k)})
         problem = await give_role(uid)
@@ -352,7 +352,7 @@ async def command_tester(i, sub, opts):
     if sub == 'status':
         status = opts['status']
         if status == 'private' and not opts.get('only_for'):
-            return await reply('A private tester needs `only_for`: the dev whose games they test.', ephemeral=True)
+            opts['only_for'] = str(i.user.id)  # defaults to whoever runs the command: pass only_for for another dev
         row = save(uid, status=status, only_for=str(opts['only_for']) if status == 'private' else None)
         await refresh_roster()
         extra = f" They only test <@{row['only_for']}>'s games and are never offered to other devs." if status == 'private' else \
