@@ -20,11 +20,11 @@ def bugs_guide_embed():
     e.title = head('🐛', 'Report a bug')
     describe(e, f'The easiest way: type **`/bug`** in <#{COMMANDS_CHANNEL}> or in any post here.\nThe bot makes the post for you and sends it to the right developer.')
     section(e, head('⌨️', 'How it works'), _steps('/bug', cfg.bugs_id))
-    section(e, head('📝', 'What to write'),
+    section(e, head('✍️', 'Posting by hand? · What to write'),
             '• **Title** · the problem in a few words\n• **What happened** · and what you expected\n'
             '• **Steps** · how can we make it happen again?\n• **Device** · PC, mobile, PS5...\n'
             'Clear steps get fixed faster.\n'
-            '✍️ **Posting by hand?** Start the title with the game, like **[PaRappa] Notes stop responding**, and cover the same points.')
+            'Posting by hand? Start the title with the game, like **[PaRappa] Notes stop responding**, and cover the same points.')
     section(e, head('🤖', 'After you send it'),
             '• Your post gets a number, like **#12**\n'
             '• Something missing? The bot asks up to 3 short questions. **Reply in your post.**\n'
@@ -45,10 +45,10 @@ def suggestions_guide_embed():
     e.title = head('💡', 'Suggest an improvement')
     describe(e, f'The easiest way: type **`/improvement`** in <#{COMMANDS_CHANNEL}> or in any post here.\nThe bot makes the post for you and sends it to the right developer.')
     section(e, head('⌨️', 'How it works'), _steps('/improvement', cfg.suggestions_id))
-    section(e, head('📝', 'What to write'),
+    section(e, head('✍️', 'Posting by hand? · What to write'),
             '• **Title** · your idea in a few words\n• **What should be added or changed?**\n'
             '• **Why** · optional, but it helps us understand\nScreenshots and videos are welcome.\n'
-            '✍️ **Posting by hand?** Start the title with the game, like **[PaRappa] Improve the timing**, and cover the same points.')
+            'Posting by hand? Start the title with the game, like **[PaRappa] Improve the timing**, and cover the same points.')
     section(e, head('🤖', 'After you send it'),
             '• Your post gets a number, like **#12**\n'
             '• Too vague? The bot asks up to 3 short questions. **Reply in your post.**\n'
