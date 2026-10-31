@@ -60,7 +60,7 @@ def suggestions_guide_embed():
             f'• It may already exist: check <#{UPDATES}> first\n'
             '• One idea per post, and be respectful\n'
             f'• A whole new game? Use <#{NEW_GAMES}>\n'
-            '• Something is broken? Use `/bug`')
+            f'• Is it a bug? Use <#{cfg.bugs_id}> (or `/bug`)')
     section(e, head('✍️', 'Posting by hand?'),
             'Start the title with the game, like **[PaRappa] Improve the timing**, and answer the same three points.')
     gap(e)
