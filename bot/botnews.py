@@ -60,7 +60,8 @@ def tester_news_embeds():
     section(e, head(E['video'], 'Big files'),
             'Files too big for Discord show up as download links on your report. Post them in your thread instead.')
     section(e, head(E['lock'], 'Found an exploit?'),
-            'If a bug lets players cheat or crash servers, do not post the details. Message a developer directly.')
+            'Report it here like any other bug, with all the details. Testers can read each other\'s reports, so others can reproduce it. '
+            'Nothing is hidden or deleted, and you do not need to message a developer.')
     return [e]
 
 

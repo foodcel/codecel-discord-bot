@@ -9,7 +9,7 @@ Built with Python (discord.py), SQLite and the Anthropic API (Claude Haiku by de
 **Reports**
 - Checks every new post in your bug forum against your template. Missing info gets a friendly list and the **Needs Info** tag, and the bot re-checks when the reporter answers. Posts left unanswered for 3 days are closed.
 - Sets the game and device tags, numbers the post (`#12 title`), spots duplicates (and bugs that were already fixed), and warns about personal info in screenshots.
-- Exploit write-ups are removed from the public channel at once and appear as a **high priority** card on the owner's board. The reporter is told by DM and gets a DM on every status change.
+- Exploit write-ups posted in the public bug forum are removed at once (testers are different: an exploit sent with `/bug` in the testing channel is kept and shown like any bug, so other testers can reproduce it) and appear as a **high priority** card on the owner's board. The reporter is told by DM and gets a DM on every status change.
 - Trolling gets a strike ladder: warning, 1-day mute, kick, 7-day ban, permanent ban. Kicks and bans need a developer's confirmation. Staff are never struck.
 
 **Dev boards** (one forum post per dev)
