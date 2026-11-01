@@ -138,6 +138,12 @@ async def on_thread_create(thread):
 async def on_message(m):
     if str(m.channel.id) == cfg.bounty_id and not board.is_live():
         return schedule_claims()
+    if m.type == discord.MessageType.pins_add and cards.in_library_channel(m.channel.id):  # the "pinned a message" line of the library
+        try:
+            await m.delete()
+        except Exception:
+            pass
+        return
     if cards.in_library_channel(m.channel.id) and await cards.purge_rivals(m):  # another bot posting in the library channel: gone
         return
     try:

@@ -424,12 +424,54 @@ async def restore_cards(ch):
     kv_set('library_cards', json.dumps(out))
 
 
+def expected_ids():
+    """Every message that has to be in the channel and pinned: the library and the live new-game cards."""
+    conf = library_config()
+    ids = [str(x) for x in conf['messages']] if conf else []
+    return ids + [c['msg'] for c in _cards_conf() if c['leave_at'] > now()]
+
+
+async def ensure_pins(ch):
+    """Pins every library and card message that is not pinned yet."""
+    pinned = {str(m.id) async for m in ch.pins(limit=50)}
+    for mid in expected_ids():
+        if mid not in pinned:
+            try:
+                await (await ch.fetch_message(int(mid))).pin(reason='Game library')
+            except Exception as e:
+                print('pin', mid, repr(e))
+
+
+async def guard_tick():
+    """Once a second: everything is there and pinned, or it is put back at once."""
+    conf = library_config()
+    if not conf:
+        return
+    ch = ctx.client.get_channel(int(conf['channel'])) or await fetch_channel(conf['channel'])
+    if not ch:
+        return
+    pinned = {str(m.id) async for m in ch.pins(limit=50)}
+    if all(mid in pinned for mid in expected_ids()) and conf['messages']:
+        return
+    await refresh_library()
+    await ensure_pins(ch)
+
+
 async def guard_loop():
-    """Every 90 seconds: the library and the cards are all there, nothing of a rival bot is, and there is no second copy."""
+    """A once-a-second watch over the library channel. A full refresh (doubles, rival bots, edits) also runs every 90 seconds."""
+    n = 0
     while True:
         try:
-            await refresh_library()
+            n += 1
+            if n % 90 == 0:
+                await refresh_library()
+                ch = await fetch_channel((library_config() or {}).get('channel'))
+                if ch:
+                    await ensure_pins(ch)
+            else:
+                await guard_tick()
         except Exception as e:
             print('library guard', repr(e))
-        await asyncio.sleep(90)
+            await asyncio.sleep(4)
+        await asyncio.sleep(1)
 
