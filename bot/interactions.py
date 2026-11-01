@@ -468,7 +468,9 @@ async def handle_command(i):
         n = await post_previews(opts.get('what') or 'all')
         return await i.edit_original_response(content=f'Posted {n} preview message(s) in <#{cfg.test_id}>.')
     if name == 'release':
-        return await (command_release_edit(i, opts) if sub == 'edit' else command_release_new(i, opts))
+        if sub == 'edit':
+            return await command_release_edit(i, opts)
+        return await command_release_new(i, opts, quiet=(sub == 'quiet'))
     if name == 'unrelease':
         return await command_release(i, opts, True)
     if name == 'progress':

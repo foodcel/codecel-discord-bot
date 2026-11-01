@@ -146,8 +146,9 @@ def summary(row, shown):
     return NL.join(f'{EM}{ln}' if n else ln for n, ln in enumerate(lines))
 
 
-async def command_release_new(i, opts):
-    """/release new game link [image] [studio] [original]"""
+async def command_release_new(i, opts, quiet=False):
+    """/release new game link [image] [studio] [original] [ping]. quiet (/release quiet): the same, but nothing is announced:
+    no card, no ping, and the game can never get a card later. It is only added to the library and the boards."""
     reply = i.response.send_message
     name = opts.get('game')
     if name == NONE:
@@ -161,12 +162,12 @@ async def command_release_new(i, opts):
     link = (opts.get('link') or '').strip()
     if not ROBLOX_GAME.search(link):
         return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
-    ping = opts.get('ping') or 'everyone'
+    ping = 'none' if quiet else (opts.get('ping') or 'everyone')
     if (ping == 'releases' and not cfg.releases_role) or (ping == 'updates' and not cfg.updates_role):
         return await reply(f'The {ping.title()} role is not set up yet, so I cannot ping it. Pick another ping, or ask an admin.', ephemeral=True)
     from .guard import card_limit_reason, check_release, cooldown_left, note
     admin = level(i.user) == 'admin'
-    wait = 0 if (admin or in_test_channel(i)) else cooldown_left(i.user.id)
+    wait = 0 if (admin or in_test_channel(i) or quiet) else cooldown_left(i.user.id)
     if wait:
         return await reply(f'Slow down: wait {wait // 60 + 1} more minute(s) before the next `/release new`.', ephemeral=True)
     await i.response.defer(ephemeral=True, thinking=True)
@@ -199,7 +200,7 @@ async def command_release_new(i, opts):
         row = {'key': k, 'name': dev['name'], 'owners': ','.join(owner_ids(dev)), 'link': link, 'place_id': info.get('place_id'), 'roblox_name': info.get('name'),
                'creator': info.get('creator'), 'hero_url': mine or info.get('hero_url'), 'icon_url': info.get('icon_url'), 'hero_file': None,
                'studio': studio, 'original_name': original, 'art_url': None if mine else art['art_url'], 'art_hero_url': None if mine else art['art_hero_url'], 'title': None}
-        return await preview(i, row, clean_name(dev['name']), '/release new', blocked or (card_limit_reason(i.user.id, admin) if ping != 'none' else None) or '', ping)
+        return await preview(i, row, clean_name(dev['name']), '/release new', blocked or (card_limit_reason(i.user.id, admin) if ping != 'none' else None) or '', ping, quiet)
     run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name)
         VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by, link=excluded.link,
@@ -224,6 +225,9 @@ async def command_release_new(i, opts):
         warn += ''.join(chr(10) + '⚠️ ' + p for p in problems)
     except Exception as e:
         print('game tags', repr(e))
+    if quiet:  # nothing is announced, and it can never get a card later
+        run('UPDATE game_status SET card_at=? WHERE key=?', now(), k)
+        return await i.edit_original_response(content=f"🔇 **ADDED QUIETLY**{EM}·{EM}{summary(row, clean_name(dev['name']))}{warn}{(chr(10) + blocked) if blocked else ''}\nNo card and no ping: it is only in the library and on the boards.")
     note(i.user.id, 'release')
     why_not = blocked or (card_limit_reason(i.user.id, admin) if ping != 'none' else None) or ('this game already had its new-game card' if row.get('card_at') else None)
     if why_not and not blocked:
@@ -246,15 +250,16 @@ def in_test_channel(i):
     return str(getattr(i, 'channel_id', None) or getattr(getattr(i, 'channel', None), 'id', '')) == str(cfg.test_id)
 
 
-async def preview(i, row, shown, what, note='', ping='everyone'):
+async def preview(i, row, shown, what, note='', ping='everyone', quiet=False):
     """Test channel: nothing is saved and nothing goes to the real boards or #games. The card and the library row are drawn here instead."""
     import discord
     from .cards import games_page, new_game_card
     ch = await fetch_channel(cfg.test_id)
     none = discord.AllowedMentions.none()
     from .cards import ping_target
-    view, files = new_game_card(row, ping_target(ping)[0])
-    await ch.send(view=view, files=files, allowed_mentions=none)
+    if not quiet:  # a quiet release has no card
+        view, files = new_game_card(row, ping_target(ping)[0])
+        await ch.send(view=view, files=files, allowed_mentions=none)
     view2, files2 = games_page([row], False, False)
     await ch.send(view=view2, files=files2, allowed_mentions=none)
     return await i.edit_original_response(content=f"🧪 **TEST**{EM}·{EM}{what}. Nothing was saved, and nothing was posted in #games. Here is what it would look like in <#{cfg.test_id}>:\n{summary(row, shown)}" + (chr(10) + '🛡️ In a real release: ' + note if note else ''))

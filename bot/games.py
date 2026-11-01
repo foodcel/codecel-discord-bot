@@ -20,6 +20,7 @@ FOOT_UNRELEASED = '\n'.join([
     '/progress · set how far it is and if you are working on it',
     '/gamelink · change a game\'s link',
     '/release new · the game is out (paste its Roblox link)',
+    '/release quiet · add it without announcing it',
     '/unclaim · drop a game you claimed',
 ])
 FOOT_RELEASED = '\n'.join([

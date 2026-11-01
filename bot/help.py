@@ -14,7 +14,7 @@ PAGES = {
         'assign', 'exclude', 'include', 'bounty-board', 'games', 'tester add', 'tester remove', 'tester status', 'tester edit', 'tester post',
         'strikes', 'pardon', 'botrules', 'preview']),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
-        'claim', 'unclaim', 'release new', 'release edit', 'unrelease', 'gamelink', 'progress', 'update', 'config', 'pings', 'tester find',
+        'claim', 'unclaim', 'release new', 'release quiet', 'release edit', 'unrelease', 'gamelink', 'progress', 'update', 'config', 'pings', 'tester find',
         ('12 fixed', 'Type this in your bug board to mark a bug: fixed, investigating, fixing, declined…'),
         ('1-5 fixed', 'The same for a range of bugs'),
         ('7 added', 'Mark a suggestion as added (or declined)'),

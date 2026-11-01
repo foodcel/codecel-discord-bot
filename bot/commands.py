@@ -122,6 +122,13 @@ COMMANDS = [
             option(STRING, 'original', 'Original game name (otherwise the name on the board)'),
             option(STRING, 'ping', 'Who the new-game card pings (default: everyone)', choices=RELEASE_PING),
         ]),
+        sub('quiet', 'Add a finished game to the library without announcing it (no card, no ping)', [
+            option(STRING, 'game', 'Game', required=True, autocomplete=True),
+            option(STRING, 'link', 'Roblox game link', required=True),
+            option(ATTACHMENT, 'image', 'Your own picture (otherwise the one from Roblox)'),
+            option(STRING, 'studio', 'Original studio (otherwise taken from the Steam page)'),
+            option(STRING, 'original', 'Original game name (otherwise the name on the board)'),
+        ]),
         sub('edit', 'Fix a released game', [
             option(STRING, 'game', 'Released game', required=True, autocomplete=True),
             option(STRING, 'title', 'The title to show'),
