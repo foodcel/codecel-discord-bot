@@ -157,3 +157,67 @@ def roster_news_devs_embeds():
     if owner_id:
         e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
     return [e]
+
+
+GAMES_CHANNEL = 1562940878685872149  # #games
+
+
+def release_news_devs_embeds():
+    """The announcement for devs: the game library, /release, update cards, new info on logged bugs. One embed."""
+    owner_id = os.environ.get('OWNER_ID') or ''
+    games = f'<#{GAMES_CHANNEL}>'
+    e = flat()
+    e.title = head(E['update'], 'New · game library and releases')
+    e.set_footer(text='Type /help to see every command you can use.')
+    describe(e, f'The game library in {games} is rebuilt, and putting a game out is now one command.')
+    section(e, head('🎮', 'Game library'),
+            f'Every released game is its own card in {games}: its cover, a **Play now** button, the original studio and who ported it. The console hubs sit on top.')
+    section(e, head('🚀', 'Releasing a game'),
+            'Run `/release new`, pick your game and paste its Roblox link. The bot fetches the name, creator and picture, credits you, takes the studio from the Steam page, makes the game\'s tags in bugs and improvements, and posts a new-game card for 3 days. '
+            'You choose who it pings: **@everyone**, **@Updates** or **@Releases**, or nobody. You can add your own picture, studio or original name.')
+    section(e, head('🔇', 'Quietly, and fixing mistakes'),
+            '`/release quiet` adds a game with no card and no ping. `/release edit` fixes a title, link, picture, studio or original name of a released game.')
+    section(e, head('🛡️', 'Limits'),
+            'A 5 minute wait between releases, 2 pings per dev and 6 per server per day, and one card per game. Pictures are checked for nudity and gore before anything pings, and a flagged picture is removed.')
+    section(e, head(E['update'], 'Update cards'),
+            'Updates now come as a card: the title, **Fixes**, **Changes** and **New**, the game\'s cover, a **Play now** button and who posted it.')
+    section(e, head('📎', 'New info on a logged bug'),
+            'Anything a player adds after **LOGGED** (words, logs, videos) is added to the report and marked with a 📎. You get a quiet **NEW INFO** ping, at most every 10 minutes per bug. `/pings bugs:off` turns it off.')
+    section(e, head('🏷️', 'Posts and tags'),
+            'Older posts now have their number and a LOGGED reply. The bugs forum tags are only games now: statuses live on your board.')
+    gap(e)
+    columns(e, [
+        {'name': head('⌨️', 'Commands'), 'lines': [
+            '`/release new` · the game is out', '`/release quiet` · add it without announcing', '`/release edit` · fix a released game',
+            '`/help` · the commands you can use', '`!bug` or `!improve` · reply to a message to report it']},
+        {'name': head(E['user'], 'Who can do what'), 'lines': [
+            '**Devs** · only their own games', '**Admins** · everything']},
+    ], '─' * 28)
+    if owner_id:
+        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    return [e]
+
+
+def release_news_testers_embeds():
+    """The announcement for testers. One embed."""
+    owner_id = os.environ.get('OWNER_ID') or ''
+    games = f'<#{GAMES_CHANNEL}>'
+    testing = f'<#{cfg.testing_id}>' if cfg.testing_id else 'the testing channel'
+    e = flat()
+    e.title = head(E['update'], 'New · for testers')
+    e.set_footer(text='Type /help to see the commands you can use.')
+    describe(e, 'A few things got easier when you test.')
+    section(e, head('💬', 'Report a message'),
+            f'Reply to any message with `!bug` and the game, like `!bug Peggle`, and it becomes a report in {testing} with its text and files. `!improve` does the same for ideas.')
+    section(e, head('📎', 'Add more later'),
+            'Once a report says **LOGGED**, anything you add to it (words, logs, videos) is added to the report and marked with a 📎. The dev is told.')
+    section(e, head('🔢', 'Numbers'),
+            'Every report now has its number in the title, like **#38**, and a LOGGED reply.')
+    section(e, head('🎮', 'New games'),
+            f'Every released game is in {games} with a **Play now** button, and a new game gets its own card for 3 days.')
+    section(e, head('❓', 'Help'),
+            '`/help` shows the commands you can use, one page per role.')
+    if owner_id:
+        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    return [e]
+
