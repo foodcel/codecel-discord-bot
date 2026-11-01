@@ -291,11 +291,13 @@ async def command_release_edit(i, opts):
         v = (opts.get(field) or '').strip()
         if v:
             changes['original_name' if field == 'original' else 'studio'] = v[:100]
+    if opts.get('online') in ('online', 'offline'):
+        changes['online'] = 1 if opts['online'] == 'online' else 0
     link = (opts.get('link') or '').strip()
     if link and not ROBLOX_GAME.search(link):
         return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
     if not changes and not link and not opts.get('image'):
-        return await reply('Nothing to change. Give a title, link, image, studio or original.', ephemeral=True)
+        return await reply('Nothing to change. Give a title, link, image, studio, original or online.', ephemeral=True)
     await i.response.defer(ephemeral=True, thinking=True)
     if link:
         info = await roblox_info(link) or {}

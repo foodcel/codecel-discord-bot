@@ -61,6 +61,11 @@ def _name_line(row, big=False):
     return f'{pre}**[{title}]({link})**' if link and not big else (f'# {title}' if big else f'**{title}**')
 
 
+def _offline(label):
+    """A grey button that does nothing: the game is down for now."""
+    return ui.Button(style=discord.ButtonStyle.link, label=label, url='https://www.roblox.com', emoji='⏸️', disabled=True)
+
+
 def _play(url, label='Play'):
     return ui.Button(style=discord.ButtonStyle.link, label=label, url=url, emoji='▶️')
 
@@ -96,7 +101,9 @@ def game_row(row):
     icon, f = _icon(row)
     text = NL.join(x for x in [_name_line(row), PLATFORMS, _credits(row)] if x)
     items = [ui.Section(text, accessory=icon)] if icon else [ui.TextDisplay(text)]
-    if row.get('link'):
+    if row.get('online') == 0:
+        items.append(ui.ActionRow(_offline('Offline for now')))
+    elif row.get('link'):
         items.append(ui.ActionRow(_play(row['link'], 'Play now')))
     return items, [f] if f else []
 
@@ -133,12 +140,15 @@ def hubs_page(rows):
         children += [ui.Separator(visible=True, spacing=LONG), ui.TextDisplay('### 🕹️ Console hubs')]
     for r in rows:
         emoji, name, blurb = HUBS[hub_of(r)]
-        text = NL.join([f'**{emoji} {name}**', blurb, PLATFORMS])
+        down = r.get('online') == 0
+        text = NL.join([f'**{emoji} {name}** · 🔴 Offline' if down else f'**{emoji} {name}**', 'Offline for now. It will be back.' if down else blurb, PLATFORMS])
         icon, f = _icon(r)
         if f:
             files.append(f)
         children.append(ui.Section(text, accessory=icon) if icon else ui.TextDisplay(text))
-        if r.get('link'):
+        if down:
+            buttons.append(_offline(f'{name} · Offline'))
+        elif r.get('link'):
             buttons.append(_play(r['link'], f'Play {name}'))
     if buttons:
         children.append(ui.ActionRow(*buttons))

@@ -76,6 +76,7 @@ BOARD_NAMES = {c['name'] for c in BOARD_COMMANDS}
 STATUS_CHOICES = [('🟢 Active (open to every dev)', 'active'), ('🟡 Waiting for a reply', 'pending'),
                   ('🔒 Private (one dev only)', 'private'), ('💤 On a break', 'inactive')]
 ON_OFF = [('On', 'on'), ('Off', 'off')]
+ONLINE = [('Online', 'online'), ('Offline for now', 'offline')]
 RELEASE_PING = [('@everyone', 'everyone'), ('@Updates', 'updates'), ('@Releases', 'releases'), ('No ping', 'none')]
 
 PREVIEW_CHOICES = [
@@ -136,6 +137,7 @@ COMMANDS = [
             option(ATTACHMENT, 'image', 'Your own hero image'),
             option(STRING, 'studio', 'Original studio'),
             option(STRING, 'original', 'Original game name'),
+            option(STRING, 'online', 'Is the game up? Offline shows a grey Offline button instead of Play', choices=ONLINE),
         ]),
     ]),
     command('unrelease', 'Move a released game back to unreleased', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
