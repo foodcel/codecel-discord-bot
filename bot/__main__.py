@@ -68,6 +68,7 @@ async def on_ready():
     _started = True
     ctx.guild = client.get_guild(int(cfg.guild_id)) or await client.fetch_guild(int(cfg.guild_id))
     print(f'Logged in as {client.user}')
+    asyncio.ensure_future(cards.guard_loop())  # first thing: the library and its cards are always there, a rival bot's posts never
     await load_tags()
     await ensure_suggest_tags()
     await register_commands()
@@ -111,7 +112,6 @@ async def on_ready():
         traceback.print_exc()
     asyncio.ensure_future(timer_loop())
     asyncio.ensure_future(board.sync_loop())
-    asyncio.ensure_future(cards.guard_loop())  # the library and its cards are always there, a rival bot's posts never
     print('Ready. Catch-up finished.')
 
 
