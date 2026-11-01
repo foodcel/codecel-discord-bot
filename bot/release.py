@@ -2,6 +2,7 @@
 from Roblox, credits the dev who owns it, and takes the original studio from the Steam page given on /claim (or the dev's own words).
 Only text and the Roblox hero image are used: nothing is taken from Steam but the studio name."""
 import re
+import socket
 from pathlib import Path
 
 import aiohttp
@@ -18,12 +19,17 @@ MAX_IMAGE = 8 * 1024 * 1024
 NL = chr(10)
 
 
+def session():
+    """IPv4 only: the VM has no working IPv6 route, which made these requests hang."""
+    return aiohttp.ClientSession(connector=aiohttp.TCPConnector(family=socket.AF_INET))
+
+
 async def _json(session, url):
     try:
         async with session.get(url, timeout=aiohttp.ClientTimeout(total=15), headers={'User-Agent': 'codecel-bot'}) as r:
             return await r.json(content_type=None) if r.status == 200 else None
     except Exception as e:
-        print('release fetch', url[:60], e)
+        print('release fetch', url[:60], repr(e))
         return None
 
 
@@ -33,7 +39,7 @@ async def roblox_info(link):
     if not m:
         return None
     out = {'place_id': m.group(1), 'name': None, 'creator': None, 'hero_url': None}
-    async with aiohttp.ClientSession() as s:
+    async with session() as s:
         u = await _json(s, f'https://apis.roblox.com/universes/v1/places/{out["place_id"]}/universe')
         uid = (u or {}).get('universeId')
         if not uid:
@@ -59,7 +65,7 @@ async def steam_studio(link):
     m = STEAM_APP.search(link or '')
     if not m:
         return None
-    async with aiohttp.ClientSession() as s:
+    async with session() as s:
         d = await _json(s, f'https://store.steampowered.com/api/appdetails?appids={m.group(1)}&filters=developers')
     devs = (((d or {}).get(m.group(1)) or {}).get('data') or {}).get('developers') or []
     return ' / '.join(devs[:2]) or None
@@ -78,7 +84,7 @@ async def save_hero(k, att):
     for old in HERO_DIR.glob(f'{safe}.*'):
         old.unlink(missing_ok=True)
     try:
-        async with aiohttp.ClientSession() as s, s.get(att['url'], timeout=aiohttp.ClientTimeout(total=30)) as r:
+        async with session() as s, s.get(att['url'], timeout=aiohttp.ClientTimeout(total=30)) as r:
             if r.status != 200:
                 return '!I could not download that picture.'
             path.write_bytes(await r.read())
