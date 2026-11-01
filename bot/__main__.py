@@ -188,7 +188,6 @@ async def on_raw_reaction_clear_emoji(p):
 async def on_raw_message_delete(p):
     conf = cards.library_config()
     if conf and str(p.channel_id) == str(conf['channel']) and str(p.message_id) in [str(i) for i in conf['messages']]:
-        await asyncio.sleep(1)  # a message of the library was deleted: put it back
         try:
             await cards.keep_library()
         except Exception:
@@ -198,7 +197,6 @@ async def on_raw_message_delete(p):
 @client.event
 async def on_raw_bulk_message_delete(p):
     if cards.in_library_channel(p.channel_id):
-        await asyncio.sleep(1)
         try:
             await cards.keep_library()
         except Exception:

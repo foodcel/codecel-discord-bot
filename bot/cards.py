@@ -306,10 +306,16 @@ async def refresh_library(force=False):
         ids, digests = conf['messages'], conf.get('digests', [])
         shown = [json.dumps([p['kind'], p.get('footer'), p['rows']], default=str) for p in library_plan(rows)]
         new_ids, new_digests = [], []
+        reposted = False  # once one message of the library had to be sent again, the ones after it are sent again too, so the order stays right
         for n, (view, files) in enumerate(pages):
             digest = hashlib.md5((shown[n] + str(n) + str(len(pages))).encode()).hexdigest()
             msg = None
-            if n < len(ids):
+            if n < len(ids) and reposted:
+                try:
+                    await (await ch.fetch_message(int(ids[n]))).delete()
+                except Exception:
+                    pass
+            elif n < len(ids):
                 try:
                     msg = await ch.fetch_message(int(ids[n]))
                 except Exception:
@@ -322,6 +328,7 @@ async def refresh_library(force=False):
                 await msg.edit(view=view, attachments=files, allowed_mentions=discord.AllowedMentions.none())
             else:
                 msg = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions.none())
+                reposted = True
             new_ids.append(msg.id)
             new_digests.append(digest)
         for extra in ids[len(pages):]:
@@ -330,7 +337,7 @@ async def refresh_library(force=False):
             except Exception:
                 pass
         kv_set('library', json.dumps({'channel': str(ch.id), 'messages': [str(i) for i in new_ids], 'digests': new_digests}))
-        await restore_cards(ch)
+        await restore_cards(ch, force=reposted)
         # only one library is ever live: any other message of this bot in the channel that is not a new-game card is a double post and goes
         cards = {t['target'].split(':')[-1] for t in all_("SELECT target FROM timers WHERE kind='delete_card'")}
         keep = {str(i) for i in new_ids} | cards
@@ -400,14 +407,16 @@ def register_card(msg_id, game_key, leave_at):
     kv_set('library_cards', json.dumps(cards))
 
 
-async def restore_cards(ch):
+async def restore_cards(ch, force=False):
     """Re-posts, without any ping, every new-game card whose message is gone and whose 3 days are not over."""
     out = []
     for c in [c for c in _cards_conf() if c['leave_at'] > now()]:
         try:
-            await ch.fetch_message(int(c['msg']))
-            out.append(c)
-            continue
+            old = await ch.fetch_message(int(c['msg']))
+            if not force:
+                out.append(c)
+                continue
+            await old.delete()  # the library was sent again: the cards go below it again
         except discord.NotFound:
             pass
         except Exception:
