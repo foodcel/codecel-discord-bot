@@ -179,13 +179,10 @@ def _bullets(lines, limit):
 
 
 def update_card(game, row, bugfixes, updates, version='', ping_role=None, when=None):
-    """An update post: hero image, a big title, Fixes and New, a Play button. `row` is the released-game row (may be None)."""
-    media, f = _hero(row) if row else (None, None)
+    """An update post: a big title, Fixes and New, a Play button. No hero image (that is for the new-game card). `row` is the released-game row (may be None)."""
     children = []
     if ping_role:
         children.append(ui.TextDisplay(f'<@&{ping_role}>'))
-    if media is not None:
-        children.append(ui.MediaGallery(discord.MediaGalleryItem(media)))
     title = f"# {game['name']} — Update" + (f' {version}' if version else '')
     date = (when or datetime.now(timezone.utc)).strftime('%b %d, %Y').replace(' 0', ' ')
     children.append(ui.TextDisplay(f'{title}\n-# {date}'))
@@ -201,7 +198,7 @@ def update_card(game, row, bugfixes, updates, version='', ping_role=None, when=N
         children.append(ui.ActionRow(_play(link, 'Play now')))
     view = ui.LayoutView()
     view.add_item(ui.Container(*children))
-    return view, [f] if f else []
+    return view, []
 
 
 def released_row_for(name):
