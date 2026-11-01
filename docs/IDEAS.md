@@ -38,5 +38,40 @@ The user shared a screenshot of an update post (Peggle Deluxe, v16) and wants th
   Mentions in plain text DO ping, so the update message must keep allowed_mentions on purpose for the role only. 2000 characters per message (4000 for embeds), so long updates need a split.
   Questions to settle before building: should the older embed announcements be converted too, and does the bug post stay an embed in the forum (the dev boards read it)?
 
-## 4. (from the user, 2026-10-31) Keep adding ideas here as they come
+## 4. Game library and update posts in the #games style, linked to /release (from the user, 2026-11-01)
+The user asked to reverse engineer #games (1562940878685872149) and bring its look to our own library, `/release` and the update posts, in our design
+language: more minimal, less wording, clear what to read and where to press, and keep the hero image at the top.
+
+**How #games is built today (read live, 4 messages).**
+- It is made with Discord's newer message layout (Components V2), not embeds: one **container** (a card with a coloured side bar) holding text, images and buttons. It is posted by the "Redwing Helper" bot.
+- **Message 1, "Redwing Game Library"** (red bar `#C8161D`): hero banner gif on top (a media gallery), `## 🎮 Redwing Game Library` plus one line of intro, a divider, `### 🕹️ Console hubs`,
+  two rows (Vyra Station, X-Blocks 360) each with a small Roblox icon on the right, then two **Play** link buttons side by side, then a grey credits line.
+- **Message 2, "Games"** (dark blue bar `#13294B`): `### 🎲 Games`, then one row per game: bold name linked to the Roblox game, " · on Roblox as **X**" when the Roblox name differs,
+  or " · *Original name*" when ours is a renamed version (Thunderball Deluxe · *Peggle Deluxe*), a line `📱 Mobile · 💻 Computer · 🎮 Controller`,
+  and `-# Original game: <studio>` (credit). The original game's cover art sits on the right of every row (a Steam `library_600x900.jpg`, or Wikipedia for non-Steam games).
+  Ends with a divider, a "community" line that points to #game-suggestions and #bugs, and a long fan-made / no-affiliation disclaimer.
+- **New game announcements** are done by hand: a dev posts the same row (`**[Thunderball Deluxe](roblox link)** · *Peggle Deluxe*`, platforms, original game) and someone pings the Updates role.
+- **Update posts** (the Mythos 5.1 / Peggle v16 screenshot) are plain text: role pings, bold title `Game — Update (v16)`, bold Fixes / Changes / New with bullets, small footer. No hero, no button.
+
+**Plan to link it with /release, the bounty board and the games board.**
+1. `/release game link` stays the one action: it completes the bounty claim, moves the game to Released on our games board, and now also adds or refreshes the game's row in the #games library.
+   `/unrelease` removes the row. Extra optional fields on /release: `original` (studio credit), `roblox_name` (when the Roblox name differs), `platforms`. Remembered, so later updates reuse them.
+2. **Art comes for free from data we already have.** The Steam link given on `/claim link:` / `/gamelink` contains the Steam app id, so the cover is
+   `.../steam/apps/<id>/library_600x900.jpg` (and `header.jpg` for a wide hero). Non-Steam games: a Roblox game icon from the Roblox link, or one `art:` image the dev attaches.
+3. **Our library layout (minimal).** One container per page: hero banner, a short title, a divider, then one row per game: name linked, one grey line `Original: studio`, platform icons only
+   (no words), and a **Play** button on the right as the only thing to press (clear target; the cover art moves to the hero or a small thumbnail instead of the button). The long disclaimer shrinks to one footer line.
+   Released games only; Unreleased stays on the bounty board.
+4. **Updates in the same family.** `/update` posts a container: hero image of the game (Steam header or a Roblox thumbnail), a big title `# Game — Update v16`,
+   bold Fixes / Changes / New with bullets (same sections we already draft), a divider, a small footer, and a **Play** button that opens the Roblox link saved by /release.
+   The ping stays the ping question; the Updates role mention is a line inside the message, because this layout cannot have text outside the card.
+   Merging within 12 hours adds bullets under the right section in the same card.
+5. **Forms (/bug, /improvement) stay as they are until decided** (see idea 3).
+
+**Cons to design away.** (a) This layout allows at most 40 pieces per message, one row costs 3, so about 12 games per message: the library must split across messages and refresh them all.
+(b) These messages cannot hold normal text or embeds at the same time, so the update ping and the "new game" ping live inside the card or in a separate small message before it.
+(c) The dev boards and update drafts read our embeds, so the post builders must change together. (d) A rename or new link means editing every message of the library; keep it behind one `refresh_library()` like the boards.
+(e) The hero image needs a source per game (Steam header works for Steam games only). (f) Our own bot sends raw JSON, so it must set the "components v2" message flag; discord.py 2.7.1 supports it.
+Questions to settle before building: where the library lives (a new post in #games, or edit the Redwing Helper messages, which we do not own), whether /release also announces "new game" with the Updates ping, the banner source, and whether the console hubs stay a separate section.
+
+## 5. (from the user, 2026-10-31) Keep adding ideas here as they come
 The user will keep sending ideas. Add each one to this file under a new numbered heading.
