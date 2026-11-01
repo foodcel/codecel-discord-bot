@@ -4,6 +4,7 @@ Only text and the Roblox hero image are used: nothing is taken from Steam but th
 import asyncio
 import json
 import re
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -77,6 +78,41 @@ async def steam_studio(link):
     return ' / '.join(devs[:2]) or None
 
 
+def _exists(url):
+    try:
+        req = urllib.request.Request(url, method='HEAD', headers={'User-Agent': 'codecel-bot'})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def _norm(s):
+    return re.sub(r'[^a-z0-9]', '', str(s or '').lower())
+
+
+async def steam_art(source_link, name):
+    """The original game's pictures on Steam: its cover (for the small picture) and its wide art (for the new-game card).
+    The Steam link given on /claim is used; without one the Steam store is searched for the exact name. Nothing found = empty fields."""
+    out = {'art_url': None, 'art_hero_url': None, 'studio': None}
+    m = STEAM_APP.search(source_link or '')
+    app = m.group(1) if m else None
+    if not app and name:
+        d = await _json('https://store.steampowered.com/api/storesearch/?term=' + urllib.parse.quote(name) + '&l=english&cc=US')
+        hit = next((i for i in (d or {}).get('items', []) if i.get('type') == 'app' and _norm(i.get('name')) == _norm(name)), None)
+        app = str(hit['id']) if hit else None
+    if not app:
+        return out
+    base = f'https://cdn.cloudflare.steamstatic.com/steam/apps/{app}/'
+    for field, files in (('art_url', ('library_600x900.jpg', 'header.jpg')), ('art_hero_url', ('library_hero.jpg', 'header.jpg'))):
+        for f in files:
+            if await asyncio.to_thread(_exists, base + f):
+                out[field] = base + f
+                break
+    out['studio'] = await steam_studio(f'https://store.steampowered.com/app/{app}/')
+    return out
+
+
 async def save_hero(k, att):
     """Keeps a picture the dev attached (their own hero image). Returns the saved path, or an error text starting with '!'."""
     if not att or not str(att.get('content_type') or '').startswith('image/'):
@@ -130,8 +166,9 @@ async def command_release_new(i, opts):
         hero_file = await save_hero(k, opts['image'])
         if hero_file.startswith('!'):
             return await i.edit_original_response(content=hero_file[1:])
-    studio = (opts.get('studio') or '').strip() or await steam_studio(dev.get('source_link'))
     original = (opts.get('original') or '').strip() or clean_name(dev['name'])
+    art = await steam_art(dev.get('source_link'), original)
+    studio = (opts.get('studio') or '').strip() or await steam_studio(dev.get('source_link')) or art['studio']
     run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name)
         VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by, link=excluded.link,
@@ -139,6 +176,7 @@ async def command_release_new(i, opts):
         hero_url=excluded.hero_url, icon_url=excluded.icon_url, hero_file=COALESCE(excluded.hero_file, game_status.hero_file), studio=excluded.studio, original_name=excluded.original_name""",
         k, dev['name'], ','.join(owner_ids(dev)), dev.get('since'), now(), str(i.user.id), link, info.get('place_id'), info.get('name'),
         info.get('creator'), info.get('hero_url'), info.get('icon_url'), hero_file, studio, original)
+    run('UPDATE game_status SET art_url=?, art_hero_url=? WHERE key=?', art['art_url'], art['art_hero_url'], k)
     from . import board
     if board.is_live():  # releasing a game completes its claim on the bounty board
         board.set_completed(dev['name'], True)
@@ -195,6 +233,9 @@ async def command_release_edit(i, opts):
         if saved.startswith('!'):
             return await i.edit_original_response(content=saved[1:])
         changes['hero_file'] = saved
+    if 'original_name' in changes:
+        art = await steam_art(rel.get('source_link'), changes['original_name'])
+        changes.update({'art_url': art['art_url'], 'art_hero_url': art['art_hero_url']})
     sets = ','.join(f'{c}=?' for c in changes)
     run(f'UPDATE game_status SET {sets} WHERE key=?', *changes.values(), k)
     await refresh_game_board()

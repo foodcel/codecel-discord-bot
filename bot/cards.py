@@ -25,13 +25,12 @@ NL = chr(10)
 
 
 def _hero(row):
-    """(media for a gallery, file or None) of a released game: the picture the dev attached, else the one from Roblox."""
+    """(media for a gallery, file or None) of a released game: the picture the dev attached, else the original game's wide art, else the one from Roblox."""
     if row.get('hero_file') and Path(row['hero_file']).exists():
         f = discord.File(row['hero_file'])
         return f, f
-    if row.get('hero_url'):
-        return row['hero_url'], None
-    return None, None
+    url = row.get('art_hero_url') or row.get('hero_url')
+    return (url, None) if url else (None, None)
 
 
 def _title(row):
@@ -81,11 +80,11 @@ def hub_of(row):
 
 
 def _icon(row):
-    """(Thumbnail, file or None): the picture the dev attached, else the Roblox game icon, else its hero image."""
+    """(Thumbnail, file or None): the picture the dev attached, else the original game's cover on Steam, else the Roblox game icon."""
     if row.get('hero_file') and Path(row['hero_file']).exists():
         f = discord.File(row['hero_file'])
         return ui.Thumbnail(f), f
-    url = row.get('icon_url') or row.get('hero_url')
+    url = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
     return (ui.Thumbnail(url), None) if url else (None, None)
 
 
