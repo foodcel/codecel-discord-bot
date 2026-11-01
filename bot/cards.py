@@ -137,7 +137,7 @@ def hubs_page(rows):
             buttons.append(_play(r['link'], f'Play {name}'))
     if buttons:
         children.append(ui.ActionRow(*buttons))
-    children.append(ui.TextDisplay(FOOTER + NL + HUB_CREDIT))  # the library's footer sits under the Play buttons
+    children.append(ui.TextDisplay(FOOTER + ' ' + HUB_CREDIT[3:]))  # the library's footer sits under the Play buttons
     view = ui.LayoutView()
     view.add_item(ui.Container(*children, accent_colour=RED))
     return view, files
