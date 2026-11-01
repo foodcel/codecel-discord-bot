@@ -116,7 +116,7 @@ COMMANDS = [
     command('release', 'Release one of your games, or fix a released one', [
         sub('new', 'Your game is out: paste its Roblox link', [
             option(STRING, 'game', 'Game', required=True, autocomplete=True),
-            option(STRING, 'link', 'Roblox game link', required=True),
+            option(STRING, 'link', 'Roblox game link (a game that was released before keeps its old one if you leave this out)'),
             option(ATTACHMENT, 'image', 'Your own hero image (otherwise the one from Roblox)'),
             option(STRING, 'studio', 'Original studio (otherwise taken from the Steam page)'),
             option(STRING, 'original', 'Original game name (otherwise the name on the board)'),
@@ -124,7 +124,7 @@ COMMANDS = [
         ]),
         sub('quiet', 'Add a finished game to the library without announcing it (no card, no ping)', [
             option(STRING, 'game', 'Game', required=True, autocomplete=True),
-            option(STRING, 'link', 'Roblox game link', required=True),
+            option(STRING, 'link', 'Roblox game link (a game that was released before keeps its old one if you leave this out)'),
             option(ATTACHMENT, 'image', 'Your own picture (otherwise the one from Roblox)'),
             option(STRING, 'studio', 'Original studio (otherwise taken from the Steam page)'),
             option(STRING, 'original', 'Original game name (otherwise the name on the board)'),

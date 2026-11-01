@@ -9,7 +9,7 @@ import urllib.request
 from pathlib import Path
 
 from .ctx import fetch_channel
-from .db import now, run
+from .db import now, one, run
 from .env import cfg
 from .games import NONE, _find, clean_name, http, key, owner_ids, refresh_game_board
 from .perms import level, owns
@@ -160,6 +160,8 @@ async def command_release_new(i, opts, quiet=False):
     if not owns(i.user, owner_ids(dev)):
         return await reply('Only the dev who owns this game, or an admin, can release it.', ephemeral=True)
     link = (opts.get('link') or '').strip()
+    if not link:  # a game released before (then moved back) keeps the Roblox link it had
+        link = ((one('SELECT link FROM game_status WHERE key=?', k) or {}).get('link') or '').strip()
     if not ROBLOX_GAME.search(link):
         return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
     ping = 'none' if quiet else (opts.get('ping') or 'everyone')
