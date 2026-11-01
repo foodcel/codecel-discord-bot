@@ -8,7 +8,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from .ctx import fetch_channel
 from .db import now, run
+from .env import cfg
 from .games import NONE, _find, clean_name, http, key, owner_ids, refresh_game_board
 from .perms import owns
 from .ui import E, EM
@@ -162,13 +164,19 @@ async def command_release_new(i, opts):
     await i.response.defer(ephemeral=True, thinking=True)
     info = await roblox_info(link) or {}
     hero_file = None
-    if opts.get('image'):
+    if opts.get('image') and not in_test_channel(i):
         hero_file = await save_hero(k, opts['image'])
         if hero_file.startswith('!'):
             return await i.edit_original_response(content=hero_file[1:])
     original = (opts.get('original') or '').strip() or clean_name(dev['name'])
     art = await steam_art(dev.get('source_link'), original)
     studio = (opts.get('studio') or '').strip() or await steam_studio(dev.get('source_link')) or art['studio']
+    if in_test_channel(i):  # a dry run: draw the card and the library row, change nothing
+        mine = (opts.get('image') or {}).get('url') if opts.get('image') else None
+        row = {'key': k, 'name': dev['name'], 'owners': ','.join(owner_ids(dev)), 'link': link, 'place_id': info.get('place_id'), 'roblox_name': info.get('name'),
+               'creator': info.get('creator'), 'hero_url': mine or info.get('hero_url'), 'icon_url': info.get('icon_url'), 'hero_file': None,
+               'studio': studio, 'original_name': original, 'art_url': None if mine else art['art_url'], 'art_hero_url': None if mine else art['art_hero_url'], 'title': None}
+        return await preview(i, row, clean_name(dev['name']), '/release new')
     run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name)
         VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by, link=excluded.link,
@@ -193,6 +201,23 @@ async def command_release_new(i, opts):
         print('new game card', repr(e))
         warn = chr(10) + "⚠️ The game is released, but I could not post its new-game card."
     return await i.edit_original_response(content=f"{E['fixed']} **RELEASED**{EM}·{EM}{summary(row, clean_name(dev['name']))}{warn}")
+
+
+def in_test_channel(i):
+    return str(getattr(i, 'channel_id', None) or getattr(getattr(i, 'channel', None), 'id', '')) == str(cfg.test_id)
+
+
+async def preview(i, row, shown, what):
+    """Test channel: nothing is saved and nothing goes to the real boards or #games. The card and the library row are drawn here instead."""
+    import discord
+    from .cards import games_page, new_game_card
+    ch = await fetch_channel(cfg.test_id)
+    none = discord.AllowedMentions.none()
+    view, files = new_game_card(row)
+    await ch.send(view=view, files=files, allowed_mentions=none)
+    view2, files2 = games_page([row], False, False)
+    await ch.send(view=view2, files=files2, allowed_mentions=none)
+    return await i.edit_original_response(content=f"🧪 **TEST**{EM}·{EM}{what}. Nothing was saved, and nothing was posted in #games. Here is what it would look like in <#{cfg.test_id}>:\n{summary(row, shown)}")
 
 
 def _row(k):
@@ -232,7 +257,10 @@ async def command_release_edit(i, opts):
             changes['hero_url'] = info['hero_url']
         if info.get('icon_url'):
             changes['icon_url'] = info['icon_url']
-    if opts.get('image'):
+    if opts.get('image') and in_test_channel(i):
+        changes['hero_url'] = opts['image'].get('url')
+        changes['art_url'] = None
+    elif opts.get('image'):
         saved = await save_hero(k, opts['image'])
         if saved.startswith('!'):
             return await i.edit_original_response(content=saved[1:])
@@ -240,6 +268,9 @@ async def command_release_edit(i, opts):
     if 'original_name' in changes:
         art = await steam_art(rel.get('source_link'), changes['original_name'])
         changes.update({'art_url': art['art_url'], 'art_hero_url': art['art_hero_url']})
+    if in_test_channel(i):  # a dry run: show the result, change nothing
+        merged = {**rel, **changes}
+        return await preview(i, merged, merged.get('title') or clean_name(merged['name']), '/release edit')
     sets = ','.join(f'{c}=?' for c in changes)
     run(f'UPDATE game_status SET {sets} WHERE key=?', *changes.values(), k)
     await refresh_game_board()

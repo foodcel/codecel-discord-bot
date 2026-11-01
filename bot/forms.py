@@ -240,3 +240,17 @@ async def post_from_message(src, saver, kind, tag_id=None):
     asyncio.ensure_future(_analyze(id_, thread, kind))
     return id_, thread
 
+
+def card_from_message(src, saver, kind, tag_id=None):
+    """The card a `!bug` reply would post, for the test channel: nothing is saved."""
+    text = message_text(src)
+    first = (text.splitlines()[0] if text else '').strip()
+    form = {'title': cut(first, 70) or 'Report from a message', 'what': cut(text, 1500) or 'See the attached files.',
+            'steps': '', 'expected': '', 'device': '', 'why': ''}
+    names = [a.filename for a in src.attachments]
+    e = _card(kind, saver.id if src.author.bot else src.author.id, tag_name(tag_id) if tag_id else 'New report', form,
+              [f'{n} (would be attached)' for n in names] or None)
+    labeled(e, head('🔗', 'Original message'), f'[Open it]({src.jump_url})')
+    e.set_footer(text=f'Saved from a message by {saver.display_name} · replies go in this post')
+    return e
+

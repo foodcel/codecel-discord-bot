@@ -6,6 +6,7 @@ import re
 import discord
 
 from .ai import interpret_note
+from .env import cfg
 from .components import NO_MENTIONS
 from .ctx import fetch_channel
 from .perms import level
@@ -68,6 +69,12 @@ async def handle(m):
     game = await guess_game(text, typed.strip())
     dev = lv in ('admin', 'dev')
     to_thread = kind == 'bug' and not dev
+    if str(m.channel.id) == str(cfg.test_id):  # a dry run in the test channel: draw the card, save and post nothing
+        from .forms import card_from_message
+        where = 'a thread in the testing channel' if to_thread else ('the bugs forum' if kind == 'bug' else 'the improvements forum')
+        await m.channel.send(f"🧪 **TEST**{EM}·{EM}this would go to {where} (game: {game['name'] if game else 'not found'}). Nothing was saved or posted.", embeds=[card_from_message(src, member, kind, game['id'] if game else None)], allowed_mentions=NO_MENTIONS)
+        await _remove(m)
+        return True
     # the original text is copied into a forum everyone can read: never from a private channel (a tester thread is private too)
     if not to_thread and not src.channel.permissions_for(m.guild.default_role).view_channel:
         await _say(m, f"{E['warn']} That channel is private, so I will not copy it into a public forum. Use `/bug` and write it yourself.")
