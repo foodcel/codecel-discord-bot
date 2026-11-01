@@ -46,7 +46,7 @@ async def main():
         view, files = update_card(game, rows()[0], [
             'Free Ball Bucket: balls that drop into the outer edges now count as caught.',
             'Stage 4-1 (The Amoeban) now has all 105 of its pegs.',
-        ], ['Coin flip: a total miss now shows the original spinning coin.'], ['Restart notices: you get a popup before the servers restart.'], 'v16', cfg.updates_role)
+        ], ['Coin flip: a total miss now shows the original spinning coin.'], ['Restart notices: you get a popup before the servers restart.'], 'v16', f'<@&{cfg.updates_role}>', poster=OWNER)
         await ch.send(view=view, files=files, allowed_mentions=none)
     await finish(client)
 
