@@ -16,7 +16,7 @@ from .games import clean_name, game_lists, key, owner_ids
 
 BANNER = Path(__file__).resolve().parent.parent / 'assets' / 'games-banner.gif'
 PLATFORMS = '📱 💻 🎮'
-PAGE = 10  # games per library message (a message holds 40 pieces, a game row takes 3)
+PAGE = 6  # games per library message (a message holds 40 pieces; a game takes 5 and a gap 1)
 CARD_DAYS = 3
 LONG = discord.SeparatorSpacing.large
 FOOTER = '-# Fan-made Roblox experiences. The original games, brands and music belong to their owners; no affiliation is implied.'
@@ -38,16 +38,25 @@ def _title(row):
     return row.get('title') or clean_name(row['name'])
 
 
-def _credits(row, platforms=True):
-    """The grey line under a game: platforms, the original game and studio, who made this one."""
+def _credits(row, platforms=False):
+    """The grey line under a game: the original game's studio, and who ported it."""
     parts = [PLATFORMS] if platforms else []
-    original = row.get('original_name')
-    if original and key(original) != key(_title(row)) or row.get('studio'):
-        parts.append(f"Original: {original or _title(row)}" + (f" by {row['studio']}" if row.get('studio') else ''))
+    if row.get('studio'):
+        parts.append(f"Original game: {row['studio']}")
     owners = owner_ids(row)
     if owners:
-        parts.append(f'made by <@{owners[0]}>')
-    return '-# ' + ' · '.join(parts)
+        parts.append(f'ported by <@{owners[0]}>')
+    return '-# ' + ' · '.join(parts) if parts else ''
+
+
+def _name_line(row, big=False):
+    """The name the way the old library had it: the original game, and where it is called something else on Roblox, the Roblox name is the link."""
+    title, link, rb = _title(row), row.get('link'), row.get('roblox_name')
+    pre = '# ' if big else ''
+    if rb and key(rb) != key(title):
+        shown = f'**[{rb}]({link})**' if link else f'**{rb}**'
+        return f'{pre}**{title}** · on Roblox as {shown}' if not big else f'# {title}\non Roblox as {shown}'
+    return f'{pre}**[{title}]({link})**' if link and not big else (f'# {title}' if big else f'**{title}**')
 
 
 def _play(url, label='Play'):
@@ -72,20 +81,22 @@ def hub_of(row):
 
 
 def _icon(row):
-    """The square picture on the right of a row: the Roblox game icon, else its hero image."""
+    """(Thumbnail, file or None): the picture the dev attached, else the Roblox game icon, else its hero image."""
+    if row.get('hero_file') and Path(row['hero_file']).exists():
+        f = discord.File(row['hero_file'])
+        return ui.Thumbnail(f), f
     url = row.get('icon_url') or row.get('hero_url')
-    return ui.Thumbnail(url) if url else None
+    return (ui.Thumbnail(url), None) if url else (None, None)
 
 
 def game_row(row):
-    """One game: its name (a link), where it differs on Roblox, a platforms line, a grey credit line, and its picture on the right."""
-    link, title = row.get('link'), _title(row)
-    name = f'**[{title}]({link})**' if link else f'**{title}**'
-    if row.get('roblox_name') and key(row['roblox_name']) != key(title):
-        name += f" · on Roblox as **{row['roblox_name']}**"
-    text = NL.join([name, PLATFORMS, _credits(row, platforms=False)])
-    icon = _icon(row)
-    return [ui.Section(text, accessory=icon)] if icon else [ui.TextDisplay(text)]
+    """One game: its name, the platforms, the original game's studio and who made it, a picture on the right, and a Play now button."""
+    text = NL.join(x for x in [_name_line(row), PLATFORMS, _credits(row)] if x)
+    icon, f = _icon(row)
+    items = [ui.Section(text, accessory=icon)] if icon else [ui.TextDisplay(text)]
+    if row.get('link'):
+        items.append(ui.ActionRow(_play(row['link'], 'Play now')))
+    return items, [f] if f else []
 
 
 def library_plan(rows):
@@ -117,7 +128,9 @@ def hubs_page(rows):
     for r in rows:
         emoji, name, blurb = HUBS[hub_of(r)]
         text = NL.join([f'**{emoji} {name}**', blurb, PLATFORMS])
-        icon = _icon(r)
+        icon, f = _icon(r)
+        if f:
+            files.append(f)
         children.append(ui.Section(text, accessory=icon) if icon else ui.TextDisplay(text))
         if r.get('link'):
             buttons.append(_play(r['link'], f'Play {name}'))
@@ -132,13 +145,18 @@ def hubs_page(rows):
 
 def games_page(rows, first, last):
     children = [ui.TextDisplay('### 🎲 Games')] if first else []
-    for r in rows:
-        children += game_row(r)
+    files = []
+    for n, r in enumerate(rows):
+        if n or first:
+            children.append(ui.Separator(visible=False, spacing=LONG))  # air between two games
+        items, fs = game_row(r)
+        children += items
+        files += fs
     if last:
         children += [ui.Separator(visible=True, spacing=LONG), ui.TextDisplay(FOOTER)]
     view = ui.LayoutView()
     view.add_item(ui.Container(*children, accent_colour=BLUE))
-    return view, []
+    return view, files
 
 
 def library_pages(rows):
@@ -150,15 +168,15 @@ def library_pages(rows):
     return out
 
 
-def new_game_card(row, ping_role=None):
-    """The card that appears for 3 days when a game is released."""
+def new_game_card(row, ping=True):
+    """The card that appears for 3 days when a game is released. It pings @everyone."""
     media, f = _hero(row)
     children = []
-    if ping_role:
-        children.append(ui.TextDisplay(f'<@&{ping_role}>'))
+    if ping:
+        children.append(ui.TextDisplay('@everyone'))
     if media is not None:
         children.append(ui.MediaGallery(discord.MediaGalleryItem(media)))
-    children.append(ui.TextDisplay(f"-# 🎉 NEW GAME\n# {_title(row)}\n{_credits(row)}"))
+    children.append(ui.TextDisplay(NL.join(x for x in ['-# 🎉 NEW GAME', _name_line(row, big=True), PLATFORMS, _credits(row)] if x)))
     if row.get('link'):
         children.append(ui.ActionRow(_play(row['link'], 'Play now')))
     view = ui.LayoutView()
@@ -178,7 +196,7 @@ def _bullets(lines, limit):
     return '\n'.join(out)
 
 
-def update_card(game, row, bugfixes, updates, version='', ping_role=None, when=None):
+def update_card(game, row, bugfixes, changes, new, version='', ping_role=None, when=None):
     """An update post: a big title, Fixes and New, a Play button. No hero image (that is for the new-game card). `row` is the released-game row (may be None)."""
     children = []
     if ping_role:
@@ -187,10 +205,12 @@ def update_card(game, row, bugfixes, updates, version='', ping_role=None, when=N
     date = (when or datetime.now(timezone.utc)).strftime('%b %d, %Y').replace(' 0', ' ')
     children.append(ui.TextDisplay(f'{title}\n-# {date}'))
     if bugfixes:
-        children.append(ui.TextDisplay('### 🐛 Fixes\n' + _bullets(bugfixes, 1500)))
-    if updates:
-        children.append(ui.TextDisplay('### ✨ New\n' + _bullets(updates, 1500)))
-    if not bugfixes and not updates:
+        children.append(ui.TextDisplay('### 🐛 Fixes\n' + _bullets(bugfixes, 1200)))
+    if changes:
+        children.append(ui.TextDisplay('### 🔧 Changes\n' + _bullets(changes, 1200)))
+    if new:
+        children.append(ui.TextDisplay('### ✨ New\n' + _bullets(new, 1200)))
+    if not bugfixes and not changes and not new:
         children.append(ui.TextDisplay('Small improvements.'))
     children += [ui.Separator(visible=True, spacing=LONG), ui.TextDisplay('-# Thanks to everyone who reported these.')]
     link = (row or {}).get('link') or game.get('link')
@@ -264,15 +284,15 @@ async def refresh_library(force=False):
 
 
 async def post_new_game_card(row):
-    """The 3-day card for a game that was just released: in the library's channel, with the real Updates ping (not in the test channel)."""
+    """The 3-day card for a game that was just released: in the library's channel, pinging @everyone (not in the test channel)."""
     conf = library_config()
     if not conf:
         return None
     ch = await fetch_channel(conf['channel'])
     if not ch:
         return None
-    role = cfg.updates_role
-    view, files = new_game_card(row, role)
-    sent = await ch.send(view=view, files=files, allowed_mentions=mentions(ch, role))
+    view, files = new_game_card(row)
+    allowed = discord.AllowedMentions.none() if test_channel(ch) else discord.AllowedMentions(everyone=True)
+    sent = await ch.send(view=view, files=files, allowed_mentions=allowed)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_DAYS * 86400000)
     return sent
