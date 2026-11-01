@@ -5,10 +5,10 @@ import re
 from .ai import analyze_report, still_broken
 from .components import allowed
 from .ctx import dm, get_member, sleep, thread_link
-from .db import (add_timer, all_, bug_by_id, bug_by_thread, cancel_timers, now, run, update_bug)
+from .db import (add_timer, all_, bug_by_id, bug_by_thread, cancel_timers, kv_get, kv_set, now, run, update_bug)
 from .devboard import post_exploit, route_bug
 from .fixes import reopen
-from .perms import is_staff
+from .perms import is_staff, level
 from .strikes import strike_user
 from .tags import applied_ids, find_device_tag, find_game_tag, game_tags, set_tags, tag_name, thread_game_tag
 from .ui import E, EM
@@ -203,12 +203,36 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 _timers = {}
 
 
+INFO_PING_GAP = 10 * 60 * 1000  # a bug pings its dev about new info at most this often
+
+
+async def add_info(bug, msg):
+    """Words or files that came after "LOGGED": they are added to the report, the message gets a 📎, and the owner is pinged (at most every 10 minutes)."""
+    text = (msg.content or '').strip()
+    line = f"[{msg.author.display_name}] {text}" + (f" (+{len(msg.attachments)} file(s))" if msg.attachments else '')
+    update_bug(bug['id'], {'body': ((bug.get('body') or '') + chr(10) + line)[-3000:]})
+    try:
+        await msg.add_reaction('📎')
+    except Exception:
+        pass
+    key = f"info:{bug['id']}"
+    last = kv_get(key)
+    if last and now() - int(last) < INFO_PING_GAP:
+        return
+    kv_set(key, now())
+    from .devboard import notify_info
+    await notify_info(bug_by_id(bug['id']), msg)
+
+
 def handle_bug_message(msg):
     """Debounced handling of messages inside bug posts (a reporter answering, or "still broken" on a fixed bug)."""
     bug = bug_by_thread(msg.channel.id)
     if not bug:
         return
     run('UPDATE bugs SET last_msg_id=? WHERE id=?', str(msg.id), bug['id'])
+    if (not msg.author.bot and bug['status'] in ('new', 'investigating', 'fixing') and not bug['deleted'] and bug['routed']
+            and (msg.content or msg.attachments) and (not isinstance(msg.author, discord.Member) or level(msg.author) not in ('admin', 'dev', 'jr'))):
+        asyncio.ensure_future(add_info(bug, msg))  # something new for a report that is already with the developer
     if msg.author.bot or str(msg.author.id) != bug['reporter_id']:
         return
     loop = asyncio.get_running_loop()
