@@ -9,9 +9,9 @@ from pathlib import Path
 import discord
 from discord import ui
 
-from .ctx import fetch_channel
+from .ctx import ctx, fetch_channel
 from .pngs import width_strip
-from .db import add_timer, kv_get, kv_set, now, one
+from .db import add_timer, all_, kv_get, kv_set, now, one
 from .env import cfg
 from .games import clean_name, game_lists, key, owner_ids
 
@@ -288,10 +288,10 @@ def library_config():
 
 async def refresh_library(force=False):
     """Rewrites the library messages from the released games. Does nothing until a library was posted (scripts/post_library.py)."""
-    conf = library_config()
-    if not conf:
-        return
     async with _lock:
+        conf = library_config()  # read inside the lock: a call that waited must see what the call before it saved, or it posts a second copy
+        if not conf:
+            return
         ch = await fetch_channel(conf['channel'])
         if not ch:
             return
@@ -330,6 +330,15 @@ async def refresh_library(force=False):
             except Exception:
                 pass
         kv_set('library', json.dumps({'channel': str(ch.id), 'messages': [str(i) for i in new_ids], 'digests': new_digests}))
+        # only one library is ever live: any other message of this bot in the channel that is not a new-game card is a double post and goes
+        cards = {t['target'].split(':')[-1] for t in all_("SELECT target FROM timers WHERE kind='delete_card'")}
+        keep = {str(i) for i in new_ids} | cards
+        try:
+            async for m in ch.history(limit=60):
+                if m.author.id == ctx.client.user.id and str(m.id) not in keep:
+                    await m.delete()
+        except Exception as e:
+            print('library double sweep', repr(e))
 
 
 async def post_new_game_card(row, ping='everyone'):
