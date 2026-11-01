@@ -233,9 +233,12 @@ def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, w
     head = f'{title}\n-# {date}'
     cover = (row or {}).get('art_url') or (row or {}).get('icon_url') or (row or {}).get('hero_url')  # a link, so nothing has to be uploaded
     children.append(ui.Section(head, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(head))  # the small picture sits top right
+    first = True
     for heading, lines in (('🐛 Fixes', bugfixes), ('🔧 Changes', changes), ('✨ New', new)):
         if lines:
-            children.append(ui.TextDisplay(f'### {heading}\n' + _bullets(lines, 1200)))
+            # one blank line (an invisible character) above every section after the first
+            children.append(ui.TextDisplay(('' if first else 'ㅤ\n') + f'### {heading}\n' + _bullets(lines, 1200)))
+            first = False
     if not bugfixes and not changes and not new:
         children.append(ui.TextDisplay('Small improvements.'))
     who = f'Posted by <@{poster}> · ' if poster else ''
