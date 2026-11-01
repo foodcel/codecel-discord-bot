@@ -88,7 +88,14 @@ def find_game_tag(name):
     if hit:
         return hit
     near = [t for t in tags if len(_norm(t['name'])) >= 4 and (k.startswith(_norm(t['name'])) or (len(k) >= 4 and _norm(t['name']).startswith(k)))]
-    return near[0] if len(near) == 1 else None
+    if len(near) == 1:
+        return near[0]
+    # the name the game has on Roblox ("Thunderball Deluxe") or the title a dev set, for a released game that has a tag
+    from .db import all_
+    for r in all_("SELECT name, roblox_name, title FROM game_status WHERE status='released'"):
+        if k in {_norm(r.get('roblox_name')), _norm(r.get('title'))} - {''}:
+            return next((t for t in tags if _norm(t['name']) == _norm(r['name'])), None)
+    return None
 
 
 def find_device_tag(name):
