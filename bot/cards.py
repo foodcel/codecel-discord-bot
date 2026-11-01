@@ -224,13 +224,15 @@ WIDTH = 'ㅤ' * 44  # invisible characters that keep every update card the same 
 
 def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
     """An update post: a big title, the date, Fixes / Changes / New, a footer (who posted it, where to report a bug) and a Play now button.
-    No picture. `row` is the released-game row (may be None). ping_text is a mention shown in the card ('<@&role>'), None for no ping."""
+    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown in the card ('<@&role>'), None for no ping."""
     children = []
     if ping_text:
         children.append(ui.TextDisplay(ping_text))
     title = f"# {game['name']} — Update" + (f' {version}' if version else '')
     date = (when or datetime.now(timezone.utc)).strftime('%b %d, %Y').replace(' 0', ' ')
-    children.append(ui.TextDisplay(f'{title}\n-# {date}'))
+    head = f'{title}\n-# {date}'
+    cover = (row or {}).get('art_url') or (row or {}).get('icon_url') or (row or {}).get('hero_url')  # a link, so nothing has to be uploaded
+    children.append(ui.Section(head, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(head))  # the small picture sits top right
     for heading, lines in (('🐛 Fixes', bugfixes), ('🔧 Changes', changes), ('✨ New', new)):
         if lines:
             children.append(ui.TextDisplay(f'### {heading}\n' + _bullets(lines, 1200)))
