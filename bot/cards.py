@@ -16,7 +16,7 @@ from .games import clean_name, game_lists, key, owner_ids
 
 BANNER = Path(__file__).resolve().parent.parent / 'assets' / 'games-banner.gif'
 PLATFORMS = '📱 💻 🎮'
-PAGE = 6  # games per library message (a message holds 40 pieces; a game takes 5 and a gap 1)
+PAGE = 6  # games per library message (a message holds 40 pieces; a game card takes 6)
 CARD_DAYS = 3
 LONG = discord.SeparatorSpacing.large
 FOOTER = '-# Fan-made Roblox experiences. The original games, brands and music belong to their owners; no affiliation is implied.'
@@ -144,18 +144,17 @@ def hubs_page(rows):
 
 
 def games_page(rows, first, last):
-    children = [ui.TextDisplay('### 🎲 Games')] if first else []
+    """One message of games: every game is a card of its own (a 6-piece container), under a small heading, with the credits at the end."""
+    view = ui.LayoutView()
     files = []
-    for n, r in enumerate(rows):
-        if n or first:
-            children.append(ui.Separator(visible=False, spacing=LONG))  # air between two games
+    if first:
+        view.add_item(ui.TextDisplay('### 🎲 Games'))
+    for r in rows:
         items, fs = game_row(r)
-        children += items
+        view.add_item(ui.Container(*items, accent_colour=BLUE))
         files += fs
     if last:
-        children += [ui.Separator(visible=True, spacing=LONG), ui.TextDisplay(FOOTER)]
-    view = ui.LayoutView()
-    view.add_item(ui.Container(*children, accent_colour=BLUE))
+        view.add_item(ui.TextDisplay(FOOTER))
     return view, files
 
 
