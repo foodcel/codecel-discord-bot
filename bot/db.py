@@ -84,7 +84,7 @@ for _col in ('message_id TEXT', 'channel_id TEXT', 'payload TEXT'):  # where an 
     except Exception:
         pass
 
-for _col in ('title TEXT', 'place_id TEXT', 'roblox_name TEXT', 'creator TEXT', 'hero_url TEXT', 'hero_file TEXT', 'studio TEXT', 'original_name TEXT'):  # /release new: what Roblox and the dev say about a released game
+for _col in ('title TEXT', 'place_id TEXT', 'roblox_name TEXT', 'creator TEXT', 'hero_url TEXT', 'hero_file TEXT', 'studio TEXT', 'original_name TEXT', 'icon_url TEXT'):  # /release new: what Roblox and the dev say about a released game
     try:
         db.execute(f'ALTER TABLE game_status ADD COLUMN {_col}')
     except Exception:

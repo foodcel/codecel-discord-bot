@@ -38,15 +38,22 @@ async def roblox_info(link):
     m = ROBLOX_GAME.search(link or '')
     if not m:
         return None
-    out = {'place_id': m.group(1), 'name': None, 'creator': None, 'hero_url': None}
+    out = {'place_id': m.group(1), 'name': None, 'creator': None, 'hero_url': None, 'icon_url': None}
     u = await _json(f'https://apis.roblox.com/universes/v1/places/{out["place_id"]}/universe')
     uid = (u or {}).get('universeId')
     if not uid:
+        i = await _json(f'https://thumbnails.roblox.com/v1/places/gameicons?placeIds={out["place_id"]}&returnPolicy=PlaceHolder&size=512x512&format=Png&isCircular=false')
+        out['icon_url'] = ((((i or {}).get('data')) or [{}])[0]).get('imageUrl')
+        out['hero_url'] = out['icon_url']
         return out
     g = await _json(f'https://games.roblox.com/v1/games?universeIds={uid}')
     row = ((g or {}).get('data') or [{}])[0]
     out['name'] = row.get('name')
     out['creator'] = (row.get('creator') or {}).get('name')
+    i = await _json(f'https://thumbnails.roblox.com/v1/games/icons?universeIds={uid}&size=512x512&format=Png&isCircular=false')
+    first = (((i or {}).get('data')) or [{}])[0]
+    if first.get('state') == 'Completed':
+        out['icon_url'] = first.get('imageUrl')
     for url in (f'https://thumbnails.roblox.com/v1/games/multiget/thumbnails?universeIds={uid}&size=768x432&format=Png&isCircular=false',
                 f'https://thumbnails.roblox.com/v1/games/icons?universeIds={uid}&size=512x512&format=Png&isCircular=false'):
         t = await _json(url)
@@ -56,6 +63,7 @@ async def roblox_info(link):
         if first and first.get('state') == 'Completed' and first.get('imageUrl'):
             out['hero_url'] = first['imageUrl']
             break
+    out['hero_url'] = out['hero_url'] or out['icon_url']
     return out
 
 
@@ -124,13 +132,13 @@ async def command_release_new(i, opts):
             return await i.edit_original_response(content=hero_file[1:])
     studio = (opts.get('studio') or '').strip() or await steam_studio(dev.get('source_link'))
     original = (opts.get('original') or '').strip() or clean_name(dev['name'])
-    run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,hero_file,studio,original_name)
-        VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?)
+    run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name)
+        VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by, link=excluded.link,
         owners=excluded.owners, name=excluded.name, place_id=excluded.place_id, roblox_name=excluded.roblox_name, creator=excluded.creator,
-        hero_url=excluded.hero_url, hero_file=COALESCE(excluded.hero_file, game_status.hero_file), studio=excluded.studio, original_name=excluded.original_name""",
+        hero_url=excluded.hero_url, icon_url=excluded.icon_url, hero_file=COALESCE(excluded.hero_file, game_status.hero_file), studio=excluded.studio, original_name=excluded.original_name""",
         k, dev['name'], ','.join(owner_ids(dev)), dev.get('since'), now(), str(i.user.id), link, info.get('place_id'), info.get('name'),
-        info.get('creator'), info.get('hero_url'), hero_file, studio, original)
+        info.get('creator'), info.get('hero_url'), info.get('icon_url'), hero_file, studio, original)
     from . import board
     if board.is_live():  # releasing a game completes its claim on the bounty board
         board.set_completed(dev['name'], True)
@@ -180,6 +188,8 @@ async def command_release_edit(i, opts):
         changes.update({'link': link, 'place_id': info.get('place_id'), 'roblox_name': info.get('name'), 'creator': info.get('creator')})
         if info.get('hero_url'):
             changes['hero_url'] = info['hero_url']
+        if info.get('icon_url'):
+            changes['icon_url'] = info['icon_url']
     if opts.get('image'):
         saved = await save_hero(k, opts['image'])
         if saved.startswith('!'):

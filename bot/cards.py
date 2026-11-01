@@ -21,6 +21,7 @@ CARD_DAYS = 3
 LONG = discord.SeparatorSpacing.large
 FOOTER = '-# Fan-made Roblox experiences. The original games, brands and music belong to their owners; no affiliation is implied.'
 _lock = asyncio.Lock()
+NL = chr(10)
 
 
 def _hero(row):
@@ -37,9 +38,9 @@ def _title(row):
     return row.get('title') or clean_name(row['name'])
 
 
-def _credits(row):
+def _credits(row, platforms=True):
     """The grey line under a game: platforms, the original game and studio, who made this one."""
-    parts = [PLATFORMS]
+    parts = [PLATFORMS] if platforms else []
     original = row.get('original_name')
     if original and key(original) != key(_title(row)) or row.get('studio'):
         parts.append(f"Original: {original or _title(row)}" + (f" by {row['studio']}" if row.get('studio') else ''))
@@ -53,38 +54,100 @@ def _play(url, label='Play'):
     return ui.Button(style=discord.ButtonStyle.link, label=label, url=url, emoji='▶️')
 
 
+HUBS = {  # the console hubs sit at the top of the library, side by side
+    'vyrastation': ('🟦', 'Vyra Station', 'PS4-style console hub. Boot it up and pick a game.'),
+    'xblocks': ('🟩', 'X-Blocks 360', 'Xbox 360-style console hub. Metro dashboard, achievements.'),
+}
+HUB_CREDIT = '-# Interface inspired by PlayStation 4 (Sony Interactive Entertainment) and Xbox 360 (Microsoft).'
+RED, BLUE = 0xC8161D, 0x13294B  # the two bars the library has always had
+
+
+def hub_of(row):
+    for k in (key(row['name']), key(_title(row))):
+        if k.startswith('xblocks'):
+            return 'xblocks'
+        if k in HUBS:
+            return k
+    return None
+
+
+def _icon(row):
+    """The square picture on the right of a row: the Roblox game icon, else its hero image."""
+    url = row.get('icon_url') or row.get('hero_url')
+    return ui.Thumbnail(url) if url else None
+
+
 def game_row(row):
-    """One game of the library: its name (a link), a grey line, and a Play button when it has a link."""
-    link = row.get('link')
-    text = f"**{_title(row)}**\n{_credits(row)}"
-    if link:
-        return [ui.Section(text, accessory=_play(link))]
-    return [ui.TextDisplay(text)]
+    """One game: its name (a link), where it differs on Roblox, a platforms line, a grey credit line, and its picture on the right."""
+    link, title = row.get('link'), _title(row)
+    name = f'**[{title}]({link})**' if link else f'**{title}**'
+    if row.get('roblox_name') and key(row['roblox_name']) != key(title):
+        name += f" · on Roblox as **{row['roblox_name']}**"
+    text = NL.join([name, PLATFORMS, _credits(row, platforms=False)])
+    icon = _icon(row)
+    return [ui.Section(text, accessory=icon)] if icon else [ui.TextDisplay(text)]
+
+
+def library_plan(rows):
+    """What the messages hold: the hubs page first, then the other games PAGE at a time."""
+    hubs = {}
+    others = []
+    for r in rows:
+        h = hub_of(r)
+        if h and h not in hubs:
+            hubs[h] = r
+        else:
+            others.append(r)
+    plan = [{'kind': 'hubs', 'rows': [hubs[h] for h in HUBS if h in hubs]}]
+    for i in range(0, len(others), PAGE):
+        plan.append({'kind': 'games', 'rows': others[i:i + PAGE], 'first': i == 0})
+    return plan
+
+
+def hubs_page(rows):
+    children, files = [], []
+    if BANNER.exists():
+        f = discord.File(BANNER, filename='games-banner.gif')
+        files.append(f)
+        children.append(ui.MediaGallery(discord.MediaGalleryItem(f)))
+    children.append(ui.TextDisplay('## 🎮 Redwing Game Library' + NL + 'Everything we make, in one place. Start in a **console hub** or jump straight into a game below.'))
+    buttons = []
+    if rows:
+        children += [ui.Separator(visible=True, spacing=LONG), ui.TextDisplay('### 🕹️ Console hubs')]
+    for r in rows:
+        emoji, name, blurb = HUBS[hub_of(r)]
+        text = NL.join([f'**{emoji} {name}**', blurb, PLATFORMS])
+        icon = _icon(r)
+        children.append(ui.Section(text, accessory=icon) if icon else ui.TextDisplay(text))
+        if r.get('link'):
+            buttons.append(_play(r['link'], f'Play {name}'))
+    if buttons:
+        children.append(ui.ActionRow(*buttons))
+    if rows:
+        children.append(ui.TextDisplay(HUB_CREDIT))
+    view = ui.LayoutView()
+    view.add_item(ui.Container(*children, accent_colour=RED))
+    return view, files
+
+
+def games_page(rows, first, last):
+    children = [ui.TextDisplay('### 🎲 Games')] if first else []
+    for r in rows:
+        children += game_row(r)
+    if last:
+        children += [ui.Separator(visible=True, spacing=LONG), ui.TextDisplay(FOOTER)]
+    view = ui.LayoutView()
+    view.add_item(ui.Container(*children, accent_colour=BLUE))
+    return view, []
 
 
 def library_pages(rows):
-    """[(view, files)], one per message, PAGE games each. The first has the banner and title, the last the credits line."""
-    chunks = [rows[i:i + PAGE] for i in range(0, len(rows), PAGE)] or [[]]
-    pages = []
-    for n, chunk in enumerate(chunks):
-        children, files = [], []
-        if n == 0:
-            if BANNER.exists():
-                f = discord.File(BANNER, filename='games-banner.gif')
-                files.append(f)
-                children.append(ui.MediaGallery(discord.MediaGalleryItem(f)))
-            children.append(ui.TextDisplay('## 🎮 Redwing Game Library\nEverything we make, in one place. Press **Play** to jump in.'))
-            children.append(ui.Separator(visible=True, spacing=LONG))
-        if not chunk and n == 0:
-            children.append(ui.TextDisplay('No games are released yet.'))
-        for row in chunk:
-            children += game_row(row)
-        if n == len(chunks) - 1:
-            children += [ui.Separator(visible=True, spacing=LONG), ui.TextDisplay(FOOTER)]
-        view = ui.LayoutView()
-        view.add_item(ui.Container(*children))
-        pages.append((view, files))
-    return pages
+    """[(view, files)], one per message: the hubs, then the games."""
+    plan = library_plan(rows)
+    out = []
+    for n, p in enumerate(plan):
+        out.append(hubs_page(p['rows']) if p['kind'] == 'hubs' else games_page(p['rows'], p.get('first'), n == len(plan) - 1))
+    return out
 
 
 def new_game_card(row, ping_role=None):
@@ -175,8 +238,7 @@ async def refresh_library(force=False):
         rows = game_lists()['released']
         pages = library_pages(rows)
         ids, digests = conf['messages'], conf.get('digests', [])
-        shown = [json.dumps([[r['name'], r.get('title'), r.get('link'), r.get('original_name'), r.get('studio'), r.get('owners')] for r in rows[i:i + PAGE]], default=str)
-                 for i in range(0, max(len(rows), 1), PAGE)] or ['[]']
+        shown = [json.dumps(p['rows'], default=str) for p in library_plan(rows)]
         new_ids, new_digests = [], []
         for n, (view, files) in enumerate(pages):
             digest = hashlib.md5((shown[n] + str(n) + str(len(pages))).encode()).hexdigest()
