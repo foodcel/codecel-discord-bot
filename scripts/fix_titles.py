@@ -17,6 +17,9 @@ async def main():
         t = await fetch_channel(b['thread_id'])
         if not t:
             continue
+        only = [a.split('=')[1] for a in sys.argv if a.startswith('--only=')]
+        if only and str(b['id']) not in only[0].split(','):
+            continue
         if not t.name.startswith(f"#{b['id']} "):
             todo.append((b, t))
     print('posts without their number:', [(b['id'], t.name[:50]) for b, t in todo])
