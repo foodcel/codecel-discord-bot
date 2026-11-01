@@ -141,30 +141,39 @@ GAP_ROW = object()  # marks the blank line between two devs
 
 def table(e, headings, rows):
     """Columns of lines. Game names are cut so no column grows past its share of the embed: that is what keeps
-    the columns in the same place in both embeds. A long list is split into several rows of columns (a field holds 1024 characters)."""
+    the columns in the same place in both embeds. A long list is split into several rows of columns (a field holds 1024 characters),
+    and the split falls between two devs, never inside one."""
     n = len(headings)
-    state = {'chunk': [], 'len': [0] * n, 'first': True}
+    state = {'chunk': [], 'first': True}
+    blank = [ZW] * n
 
-    def flush():
-        columns(e, [{'name': name if state['first'] else ZW, 'lines': [r[i] for r in state['chunk']]}
-                    for i, name in enumerate(headings)], RULE if state['first'] else '')
-        state['chunk'] = []
-        state['len'] = [0] * n
+    def size(chunk):
+        return [sum(len(r[i]) + 1 for r in chunk) for i in range(n)]
+
+    def emit(chunk):
+        columns(e, [{'name': name if state['first'] else ZW, 'lines': [r[i] for r in chunk]} for i, name in enumerate(headings)],
+                RULE if state['first'] else '')
         state['first'] = False
 
     for r in rows:
         if r is GAP_ROW:
             if state['chunk']:  # an empty line between two devs (never at the top of a block)
-                r = [ZW] * n
+                r = blank
             else:
                 continue
-        if state['chunk'] and any(state['len'][i] + len(cell) + 1 > 960 for i, cell in enumerate(r)):
-            flush()
+        trial = state['chunk'] + [r]
+        if state['chunk'] and max(size(trial)) > 1000:
+            chunk = state['chunk']
+            cuts = [k for k, x in enumerate(chunk) if x is blank]
+            if cuts and cuts[-1] > 0:  # carry the dev that is still being written over to the next block of columns
+                emit(chunk[:cuts[-1]])
+                state['chunk'] = chunk[cuts[-1] + 1:]
+            else:
+                emit(chunk)
+                state['chunk'] = []
         state['chunk'].append(r)
-        for i, cell in enumerate(r):
-            state['len'][i] += len(cell) + 1
     if state['chunk']:
-        flush()
+        emit(state['chunk'])
 
 
 def bar(percent):
@@ -180,6 +189,12 @@ def progress_cell(r):
     if p is not None:
         return bar(p)
     return '▶ working' if w else '—'
+
+
+def short_link(u):
+    """A Roblox game link without its long name (https://www.roblox.com/games/123456): it opens the same game and keeps the board short."""
+    m = re.search(r'roblox\.com/(?:[a-z]{2}/)?games/(\d+)', u or '', re.I)
+    return f'https://www.roblox.com/games/{m.group(1)}' if m else u
 
 
 def tree_rows(rows, second, counts=False):
@@ -202,7 +217,7 @@ def tree_rows(rows, second, counts=False):
         out.append([title, ZW])
         for k, r in enumerate(g):
             branch = '└─' if k == len(g) - 1 else '├─'
-            name = f"[**{cut(r['name'], 18)}**]({r['link']})" if http(r['link']) else f"**{cut(r['name'], 18)}**"
+            name = f"[**{cut(r['name'], 18)}**]({short_link(r['link'])})" if http(r['link']) else f"**{cut(r['name'], 18)}**"
             out.append([f'{branch} {name}', second(r)])
     return out
 
