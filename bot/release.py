@@ -183,12 +183,16 @@ async def command_release_new(i, opts):
         await board.reload_claims()
     await refresh_game_board()
     row = _row(k)
-    from .cards import post_new_game_card
+    from .cards import post_new_game_card, test_channel
+    warn = ''
     try:
-        await post_new_game_card(row)
+        sent = await post_new_game_card(row)
+        if sent and not test_channel(sent.channel) and not sent.mention_everyone:
+            warn = chr(10) + "⚠️ The card is up, but Discord did not register the @everyone ping. Ask an admin to check the bot's Mention Everyone permission."
     except Exception as e:
         print('new game card', repr(e))
-    return await i.edit_original_response(content=f"{E['fixed']} **RELEASED**{EM}·{EM}{summary(row, clean_name(dev['name']))}")
+        warn = chr(10) + "⚠️ The game is released, but I could not post its new-game card."
+    return await i.edit_original_response(content=f"{E['fixed']} **RELEASED**{EM}·{EM}{summary(row, clean_name(dev['name']))}{warn}")
 
 
 def _row(k):
