@@ -10,6 +10,7 @@ import discord
 from discord import ui
 
 from .ctx import fetch_channel
+from .pngs import width_strip
 from .db import add_timer, kv_get, kv_set, now, one
 from .env import cfg
 from .games import clean_name, game_lists, key, owner_ids
@@ -93,8 +94,7 @@ def _icon(row):
 def game_row(row):
     """One game: its name, the platforms, the original game's studio and who made it, a picture on the right, and a Play now button."""
     icon, f = _icon(row)
-    # invisible characters after the platforms keep every card the same width (a card shrinks to its own text otherwise)
-    text = NL.join(x for x in [_name_line(row), PLATFORMS + 'ㅤ' * (22 if icon else 34), _credits(row)] if x)
+    text = NL.join(x for x in [_name_line(row), PLATFORMS, _credits(row)] if x)
     items = [ui.Section(text, accessory=icon)] if icon else [ui.TextDisplay(text)]
     if row.get('link'):
         items.append(ui.ActionRow(_play(row['link'], 'Play now')))
@@ -155,7 +155,9 @@ def footer_card():
 def games_page(rows, first, last):
     """One message of games: every game is a card of its own (a 6-piece container), with the footer card at the end."""
     view = ui.LayoutView()
-    files = []
+    strip = width_strip()  # makes the message as wide as Discord allows, like every other message of the library
+    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip)))
+    files = [strip]
     for r in rows:
         items, fs = game_row(r)
         view.add_item(ui.Container(*items, accent_colour=BLUE))
@@ -220,13 +222,11 @@ def _bullets(lines, limit):
     return NL.join(out)
 
 
-WIDTH = 'ㅤ' * 44  # invisible characters that keep every update card the same width, whatever its lines say
-
-
 def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
     """An update post: a big title, the date, Fixes / Changes / New, a footer (who posted it, where to report a bug) and a Play now button.
     The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown in the card ('<@&role>'), None for no ping."""
     children = []
+    strip = width_strip()
     if ping_text:
         children.append(ui.TextDisplay(ping_text))
     title = f"# {game['name']} — Update" + (f' {version}' if version else '')
@@ -244,13 +244,14 @@ def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, w
         children.append(ui.TextDisplay('Small improvements.'))
     who = f'Posted by <@{poster}> · ' if poster else ''
     children += [ui.Separator(visible=True, spacing=LONG),
-                 ui.TextDisplay(f'-# Thanks to everyone who reported these.\n-# {who}Found a bug? <#{cfg.bugs_id}>{WIDTH}')]
+                 ui.TextDisplay(f'-# Thanks to everyone who reported these.\n-# {who}Found a bug? <#{cfg.bugs_id}>')]
     link = (row or {}).get('link') or game.get('link')
     if link and str(link).startswith('http'):
         children.append(ui.ActionRow(_play(link, 'Play now')))
     view = ui.LayoutView()
+    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip)))  # the same width for every update card
     view.add_item(ui.Container(*children))
-    return view, []
+    return view, [strip]
 
 
 def released_row_for(name):
