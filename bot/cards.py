@@ -92,8 +92,9 @@ def _icon(row):
 
 def game_row(row):
     """One game: its name, the platforms, the original game's studio and who made it, a picture on the right, and a Play now button."""
-    text = NL.join(x for x in [_name_line(row), PLATFORMS, _credits(row)] if x)
     icon, f = _icon(row)
+    # invisible characters after the platforms keep every card the same width (a card shrinks to its own text otherwise)
+    text = NL.join(x for x in [_name_line(row), PLATFORMS + 'ㅤ' * (22 if icon else 34), _credits(row)] if x)
     items = [ui.Section(text, accessory=icon)] if icon else [ui.TextDisplay(text)]
     if row.get('link'):
         items.append(ui.ActionRow(_play(row['link'], 'Play now')))
