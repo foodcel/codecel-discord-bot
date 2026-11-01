@@ -20,6 +20,8 @@ PAGE = 6  # games per library message (a message holds 40 pieces; a game card ta
 CARD_DAYS = 3
 LONG = discord.SeparatorSpacing.large
 FOOTER = '-# Fan-made Roblox experiences. The original games, brands and music belong to their owners; no affiliation is implied.'
+COMMUNITY = ('**A community built on a love of games** 💙' + chr(10) + 'Got an idea for the next one? Drop it in <#1562961976387174452>. '
+             'Found a bug? Report it in <#1563046117984444557> or use `/bug`.')
 _lock = asyncio.Lock()
 NL = chr(10)
 
@@ -151,6 +153,8 @@ def games_page(rows, first, last):
         items, fs = game_row(r)
         view.add_item(ui.Container(*items, accent_colour=BLUE))
         files += fs
+    if last:  # also keeps a short last page as wide as the others
+        view.add_item(ui.TextDisplay(COMMUNITY))
     return view, files
 
 
