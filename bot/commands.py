@@ -76,6 +76,7 @@ BOARD_NAMES = {c['name'] for c in BOARD_COMMANDS}
 STATUS_CHOICES = [('🟢 Active (open to every dev)', 'active'), ('🟡 Waiting for a reply', 'pending'),
                   ('🔒 Private (one dev only)', 'private'), ('💤 On a break', 'inactive')]
 ON_OFF = [('On', 'on'), ('Off', 'off')]
+RELEASE_PING = [('@everyone', 'everyone'), ('@Updates', 'updates'), ('@Releases', 'releases'), ('No ping', 'none')]
 
 PREVIEW_CHOICES = [
     ('everything (clears the test channel)', 'all'), ('dev board', 'board'), ('bug page', 'bug'),
@@ -119,6 +120,7 @@ COMMANDS = [
             option(ATTACHMENT, 'image', 'Your own hero image (otherwise the one from Roblox)'),
             option(STRING, 'studio', 'Original studio (otherwise taken from the Steam page)'),
             option(STRING, 'original', 'Original game name (otherwise the name on the board)'),
+            option(STRING, 'ping', 'Who the new-game card pings (default: everyone)', choices=RELEASE_PING),
         ]),
         sub('edit', 'Fix a released game', [
             option(STRING, 'game', 'Released game', required=True, autocomplete=True),

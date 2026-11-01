@@ -180,12 +180,23 @@ def library_pages(rows):
     return out
 
 
-def new_game_card(row, ping=True):
-    """The card that appears for 3 days when a game is released. It pings @everyone."""
+def ping_target(choice):
+    """(text shown in the card, role id or None, pings everyone) for a /release new ping choice. Text None = no ping."""
+    if choice == 'updates' and cfg.updates_role:
+        return f'<@&{cfg.updates_role}>', cfg.updates_role, False
+    if choice == 'releases' and cfg.releases_role:
+        return f'<@&{cfg.releases_role}>', cfg.releases_role, False
+    if choice in (None, 'everyone'):
+        return '@everyone', None, True
+    return None, None, False
+
+
+def new_game_card(row, ping_text='@everyone'):
+    """The card that appears for 3 days when a game is released. It pings what the dev chose (default @everyone)."""
     media, f = _hero(row)
     children = []
-    if ping:
-        children.append(ui.TextDisplay('@everyone'))
+    if ping_text:
+        children.append(ui.TextDisplay(ping_text))
     if media is not None:
         children.append(ui.MediaGallery(discord.MediaGalleryItem(media)))
     children.append(ui.TextDisplay(NL.join(x for x in ['-# 🎉 NEW GAME', _name_line(row, big=True), PLATFORMS, _credits(row)] if x)))
@@ -199,37 +210,39 @@ def new_game_card(row, ping=True):
 def _bullets(lines, limit):
     out, used = [], 0
     for ln in lines:
-        item = f'• {ln}'
+        item = f'› {ln}'
         if used + len(item) > limit:
             out.append(f'• …and {len(lines) - len(out)} more')
             break
         out.append(item)
         used += len(item) + 1
-    return '\n'.join(out)
+    return NL.join(out)
 
 
-def update_card(game, row, bugfixes, changes, new, version='', ping_role=None, when=None):
-    """An update post: a big title, Fixes and New, a Play button. No hero image (that is for the new-game card). `row` is the released-game row (may be None)."""
+def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
+    """An update post, like the Redwing Helper one: a header with the game's cover on the right, the lists, a Play button and who posted it.
+    `row` is the released-game row (may be None). ping_text is a mention shown in the card ('<@&role>'), None for no ping."""
+    stamp = int((when or datetime.now(timezone.utc)).timestamp())
+    head = NL.join([f'-# 🛠️ GAME UPDATE · <t:{stamp}:D>', f"## {game['name']}", '### Update' + (f' {version}' if version else '')])
+    cover = (row or {}).get('art_url') or (row or {}).get('icon_url') or (row or {}).get('hero_url')  # a link, so nothing has to be uploaded
+    icon = ui.Thumbnail(cover) if cover else None
     children = []
-    if ping_role:
-        children.append(ui.TextDisplay(f'<@&{ping_role}>'))
-    title = f"# {game['name']} — Update" + (f' {version}' if version else '')
-    date = (when or datetime.now(timezone.utc)).strftime('%b %d, %Y').replace(' 0', ' ')
-    children.append(ui.TextDisplay(f'{title}\n-# {date}'))
-    if bugfixes:
-        children.append(ui.TextDisplay('### 🐛 Fixes\n' + _bullets(bugfixes, 1200)))
-    if changes:
-        children.append(ui.TextDisplay('### 🔧 Changes\n' + _bullets(changes, 1200)))
-    if new:
-        children.append(ui.TextDisplay('### ✨ New\n' + _bullets(new, 1200)))
+    if ping_text:
+        children.append(ui.TextDisplay(ping_text))
+    children.append(ui.Section(head, accessory=icon) if icon else ui.TextDisplay(head))
+    children.append(ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))
+    for title, lines in (('🐛 Fixes', bugfixes), ('🔧 Changes', changes), ('✨ New', new)):
+        if lines:
+            children.append(ui.TextDisplay(f'**{title}**' + NL + _bullets(lines, 1200)))
     if not bugfixes and not changes and not new:
         children.append(ui.TextDisplay('Small improvements.'))
-    children += [ui.Separator(visible=True, spacing=LONG), ui.TextDisplay('-# Thanks to everyone who reported these.')]
     link = (row or {}).get('link') or game.get('link')
-    if link and link.startswith('http'):
-        children.append(ui.ActionRow(_play(link, 'Play now')))
+    if link and str(link).startswith('http'):
+        children += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.ActionRow(_play(link, f"Play {game['name']}"))]
+    who = f'Posted by <@{poster}> · ' if poster else ''
+    children.append(ui.TextDisplay(f'-# {who}Found a bug? <#{cfg.bugs_id}>'))
     view = ui.LayoutView()
-    view.add_item(ui.Container(*children))
+    view.add_item(ui.Container(*children, accent_colour=RED))
     return view, []
 
 
@@ -295,7 +308,7 @@ async def refresh_library(force=False):
         kv_set('library', json.dumps({'channel': str(ch.id), 'messages': [str(i) for i in new_ids], 'digests': new_digests}))
 
 
-async def post_new_game_card(row):
+async def post_new_game_card(row, ping='everyone'):
     """The 3-day card for a game that was just released: in the library's channel, pinging @everyone (not in the test channel)."""
     conf = library_config()
     if not conf:
@@ -303,8 +316,10 @@ async def post_new_game_card(row):
     ch = await fetch_channel(conf['channel'])
     if not ch:
         return None
-    view, files = new_game_card(row)
-    allowed = discord.AllowedMentions.none() if test_channel(ch) else discord.AllowedMentions(everyone=True)
+    text, role, everyone = ping_target(ping)
+    view, files = new_game_card(row, text)
+    allowed = (discord.AllowedMentions.none() if test_channel(ch)
+               else discord.AllowedMentions(everyone=everyone, roles=[discord.Object(id=int(role))] if role else False))
     sent = await ch.send(view=view, files=files, allowed_mentions=allowed)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_DAYS * 86400000)
     return sent

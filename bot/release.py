@@ -161,6 +161,9 @@ async def command_release_new(i, opts):
     link = (opts.get('link') or '').strip()
     if not ROBLOX_GAME.search(link):
         return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
+    ping = opts.get('ping') or 'everyone'
+    if (ping == 'releases' and not cfg.releases_role) or (ping == 'updates' and not cfg.updates_role):
+        return await reply(f'The {ping.title()} role is not set up yet, so I cannot ping it. Pick another ping, or ask an admin.', ephemeral=True)
     from .guard import card_limit_reason, check_release, cooldown_left, note
     admin = level(i.user) == 'admin'
     wait = 0 if (admin or in_test_channel(i)) else cooldown_left(i.user.id)
@@ -196,7 +199,7 @@ async def command_release_new(i, opts):
         row = {'key': k, 'name': dev['name'], 'owners': ','.join(owner_ids(dev)), 'link': link, 'place_id': info.get('place_id'), 'roblox_name': info.get('name'),
                'creator': info.get('creator'), 'hero_url': mine or info.get('hero_url'), 'icon_url': info.get('icon_url'), 'hero_file': None,
                'studio': studio, 'original_name': original, 'art_url': None if mine else art['art_url'], 'art_hero_url': None if mine else art['art_hero_url'], 'title': None}
-        return await preview(i, row, clean_name(dev['name']), '/release new', blocked or card_limit_reason(i.user.id, admin) or '')
+        return await preview(i, row, clean_name(dev['name']), '/release new', blocked or (card_limit_reason(i.user.id, admin) if ping != 'none' else None) or '', ping)
     run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name)
         VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by, link=excluded.link,
@@ -222,15 +225,16 @@ async def command_release_new(i, opts):
     except Exception as e:
         print('game tags', repr(e))
     note(i.user.id, 'release')
-    why_not = blocked or card_limit_reason(i.user.id, admin) or ('this game already had its new-game card' if row.get('card_at') else None)
+    why_not = blocked or (card_limit_reason(i.user.id, admin) if ping != 'none' else None) or ('this game already had its new-game card' if row.get('card_at') else None)
     if why_not and not blocked:
         blocked = f'ℹ️ The game is released, but no new-game card was posted: {why_not}. An admin can post it.'
     try:
-        sent = None if why_not else await post_new_game_card(row)
-        if sent:
+        sent = None if why_not else await post_new_game_card(row, ping)
+        if sent and ping != 'none':
             note(i.user.id, 'card')
+        if sent:
             run('UPDATE game_status SET card_at=? WHERE key=?', now(), k)
-        if sent and not test_channel(sent.channel) and not sent.mention_everyone:
+        if sent and ping == 'everyone' and not test_channel(sent.channel) and not sent.mention_everyone:
             warn = chr(10) + "⚠️ The card is up, but Discord did not register the @everyone ping. Ask an admin to check the bot's Mention Everyone permission."
     except Exception as e:
         print('new game card', repr(e))
@@ -242,13 +246,14 @@ def in_test_channel(i):
     return str(getattr(i, 'channel_id', None) or getattr(getattr(i, 'channel', None), 'id', '')) == str(cfg.test_id)
 
 
-async def preview(i, row, shown, what, note=''):
+async def preview(i, row, shown, what, note='', ping='everyone'):
     """Test channel: nothing is saved and nothing goes to the real boards or #games. The card and the library row are drawn here instead."""
     import discord
     from .cards import games_page, new_game_card
     ch = await fetch_channel(cfg.test_id)
     none = discord.AllowedMentions.none()
-    view, files = new_game_card(row)
+    from .cards import ping_target
+    view, files = new_game_card(row, ping_target(ping)[0])
     await ch.send(view=view, files=files, allowed_mentions=none)
     view2, files2 = games_page([row], False, False)
     await ch.send(view=view2, files=files2, allowed_mentions=none)

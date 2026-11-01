@@ -359,7 +359,8 @@ async def post_announcement(pending_id, ping=False):
         return {'ok': False, 'msg': 'Set an announcement channel first with `/config set`.'}
     role = ping_role(game) if ping else None
     from .cards import mentions, released_row_for, update_card
-    view, files = update_card(game, released_row_for(game['name']), bug_lines, list(p['updates']), new_lines, p.get('version') or '', role)
+    poster = (p.get('owners') or [None])[0]
+    view, files = update_card(game, released_row_for(game['name']), bug_lines, list(p['updates']), new_lines, p.get('version') or '', f'<@&{role}>' if role else None, poster=poster)
     sent = await ch.send(view=view, files=files, allowed_mentions=mentions(ch, role))
     b_ids, n_ids = chosen_ids(p)
     ids = b_ids + n_ids  # what was not ticked stays pending for the next update
@@ -368,7 +369,7 @@ async def post_announcement(pending_id, ping=False):
     run('INSERT INTO announcements(tag_id,game_name,posted_at,url,bug_ids,message_id,channel_id,payload) VALUES(?,?,?,?,?,?,?,?)',
         p['tagId'], game['name'], now(), sent.jump_url, json.dumps(ids), str(sent.id), str(ch.id),
         json.dumps({'bugfixes': bug_lines, 'updates': list(p['updates']) + new_lines, 'changes': list(p['updates']), 'new': new_lines,
-                    'version': p.get('version') or '', 'ping_role': role}))
+                    'version': p.get('version') or '', 'ping_role': role, 'poster': poster}))
     schedule_boards()
     del_pending(pending_id)
     kv_del(f"offer:{p['tagId']}")
@@ -405,13 +406,13 @@ async def merge_announcement(pending_id):
         await msg.edit(embeds=await build_embeds(game, bugfixes, updates, version), allowed_mentions=NO_MENTIONS)
     else:
         from .cards import released_row_for, update_card
-        view, files = update_card(game, released_row_for(game['name']), bugfixes, changes, new, version, old.get('ping_role'))
+        view, files = update_card(game, released_row_for(game['name']), bugfixes, changes, new, version, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
         await msg.edit(view=view, attachments=files, allowed_mentions=NO_MENTIONS)
     b_ids, n_ids = chosen_ids(p)
     for i in b_ids + n_ids:
         update_bug(i, {'announced': 1})
     run('UPDATE announcements SET bug_ids=?, payload=? WHERE id=?',
-        json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'changes': changes, 'new': new, 'version': version, 'ping_role': old.get('ping_role')}), row['id'])
+        json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'changes': changes, 'new': new, 'version': version, 'ping_role': old.get('ping_role'), 'poster': old.get('poster')}), row['id'])
     schedule_boards()
     del_pending(pending_id)
     kv_del(f"offer:{p['tagId']}")
