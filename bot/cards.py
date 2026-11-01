@@ -142,7 +142,7 @@ def hubs_page(rows):
     if buttons:
         children.append(ui.ActionRow(*buttons))
     view = ui.LayoutView()
-    view.add_item(ui.Container(*children, accent_colour=RED))
+    view.add_item(ui.Container(*children))
     return view, files
 
 
