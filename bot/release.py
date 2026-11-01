@@ -1,11 +1,11 @@
 """/release new and /release edit. A dev pastes the Roblox link of a finished game: the bot fetches the game's name, creator and hero image
 from Roblox, credits the dev who owns it, and takes the original studio from the Steam page given on /claim (or the dev's own words).
 Only text and the Roblox hero image are used: nothing is taken from Steam but the studio name."""
+import asyncio
+import json
 import re
-import socket
+import urllib.request
 from pathlib import Path
-
-import aiohttp
 
 from .db import now, run
 from .games import NONE, _find, clean_name, http, key, owner_ids, refresh_game_board
@@ -19,15 +19,15 @@ MAX_IMAGE = 8 * 1024 * 1024
 NL = chr(10)
 
 
-def session():
-    """IPv4 only: the VM has no working IPv6 route, which made these requests hang."""
-    return aiohttp.ClientSession(connector=aiohttp.TCPConnector(family=socket.AF_INET))
+def _get(url, timeout=15):
+    """Plain urllib in a thread: aiohttp hangs on Roblox from the VM while this answers in a fraction of a second."""
+    with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'codecel-bot'}), timeout=timeout) as r:
+        return r.read()
 
 
-async def _json(session, url):
+async def _json(url):
     try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=15), headers={'User-Agent': 'codecel-bot'}) as r:
-            return await r.json(content_type=None) if r.status == 200 else None
+        return json.loads(await asyncio.to_thread(_get, url))
     except Exception as e:
         print('release fetch', url[:60], repr(e))
         return None
@@ -39,24 +39,23 @@ async def roblox_info(link):
     if not m:
         return None
     out = {'place_id': m.group(1), 'name': None, 'creator': None, 'hero_url': None}
-    async with session() as s:
-        u = await _json(s, f'https://apis.roblox.com/universes/v1/places/{out["place_id"]}/universe')
-        uid = (u or {}).get('universeId')
-        if not uid:
-            return out
-        g = await _json(s, f'https://games.roblox.com/v1/games?universeIds={uid}')
-        row = ((g or {}).get('data') or [{}])[0]
-        out['name'] = row.get('name')
-        out['creator'] = (row.get('creator') or {}).get('name')
-        for url in (f'https://thumbnails.roblox.com/v1/games/multiget/thumbnails?universeIds={uid}&size=768x432&format=Png&isCircular=false',
-                    f'https://thumbnails.roblox.com/v1/games/icons?universeIds={uid}&size=512x512&format=Png&isCircular=false'):
-            t = await _json(s, url)
-            data = (t or {}).get('data') or [{}]
-            first = data[0]
-            first = ((first.get('thumbnails') or [None])[0]) if 'thumbnails' in first else first
-            if first and first.get('state') == 'Completed' and first.get('imageUrl'):
-                out['hero_url'] = first['imageUrl']
-                break
+    u = await _json(f'https://apis.roblox.com/universes/v1/places/{out["place_id"]}/universe')
+    uid = (u or {}).get('universeId')
+    if not uid:
+        return out
+    g = await _json(f'https://games.roblox.com/v1/games?universeIds={uid}')
+    row = ((g or {}).get('data') or [{}])[0]
+    out['name'] = row.get('name')
+    out['creator'] = (row.get('creator') or {}).get('name')
+    for url in (f'https://thumbnails.roblox.com/v1/games/multiget/thumbnails?universeIds={uid}&size=768x432&format=Png&isCircular=false',
+                f'https://thumbnails.roblox.com/v1/games/icons?universeIds={uid}&size=512x512&format=Png&isCircular=false'):
+        t = await _json(url)
+        data = (t or {}).get('data') or [{}]
+        first = data[0]
+        first = ((first.get('thumbnails') or [None])[0]) if 'thumbnails' in first else first
+        if first and first.get('state') == 'Completed' and first.get('imageUrl'):
+            out['hero_url'] = first['imageUrl']
+            break
     return out
 
 
@@ -65,8 +64,7 @@ async def steam_studio(link):
     m = STEAM_APP.search(link or '')
     if not m:
         return None
-    async with session() as s:
-        d = await _json(s, f'https://store.steampowered.com/api/appdetails?appids={m.group(1)}&filters=developers')
+    d = await _json(f'https://store.steampowered.com/api/appdetails?appids={m.group(1)}&filters=developers')
     devs = (((d or {}).get(m.group(1)) or {}).get('data') or {}).get('developers') or []
     return ' / '.join(devs[:2]) or None
 
@@ -84,12 +82,9 @@ async def save_hero(k, att):
     for old in HERO_DIR.glob(f'{safe}.*'):
         old.unlink(missing_ok=True)
     try:
-        async with session() as s, s.get(att['url'], timeout=aiohttp.ClientTimeout(total=30)) as r:
-            if r.status != 200:
-                return '!I could not download that picture.'
-            path.write_bytes(await r.read())
+        path.write_bytes(await asyncio.to_thread(_get, att['url'], 30))
     except Exception as e:
-        print('hero save', e)
+        print('hero save', repr(e))
         return '!I could not download that picture.'
     return str(path)
 
