@@ -1,0 +1,57 @@
+diff --git a/bot.py b/bot.py
+index b379d15..c7a1132 100644
+--- a/bot.py
++++ b/bot.py
+@@ -130,6 +130,10 @@ CHANNEL_ACCOUNTS = parse_channel_accounts(os.environ.get("CHANNEL_ACCOUNTS", "")
+ GITHUB_POLL_SECONDS = 60
+ # Bounty board: events keep it current; the full re-read catches anything missed while the bot was offline.
+ FORUM_SYNC_SECONDS = 3600
++# The bounty board is switched off unless BOUNTY_BOARD=on: another bot runs it now. Off, its slash commands are not registered, so they
++# disappear from the server's command list, and none of its events or the hourly sync do anything.
++BOUNTY_BOARD_ON = os.environ.get("BOUNTY_BOARD", "").strip().lower() in ("1", "true", "on", "yes")
++BOUNTY_COMMANDS = ("bounty-board", "claim", "unclaim", "assign", "complete", "uncomplete", "exclude", "include")
+ BOARD_REFRESH_DELAY = 5  # seconds; a burst of votes becomes one edit of the pinned messages
+ HIGHLY_REQUESTED_VOTES = 30  # a post reaching this gets the tag (never removed by the bot)
+ HIGHLY_REQUESTED_TAG = "Highly Requested"
+@@ -380,10 +384,14 @@ class ClaudeBot(discord.Client):
+         return Chat(thread_id=None, model=PING_MODEL, effort=None, system_prompt=ping_prompt(style))
+ 
+     async def setup_hook(self) -> None:
++        if not BOUNTY_BOARD_ON:
++            for name in BOUNTY_COMMANDS:
++                self.tree.remove_command(name)
+         await self.tree.sync()
+         if self.github:
+             self.loop.create_task(self.poll_github())
+-        self.loop.create_task(self.sync_forums())
++        if BOUNTY_BOARD_ON:
++            self.loop.create_task(self.sync_forums())
+ 
+     async def close(self) -> None:
+         if self.github:
+@@ -537,7 +545,7 @@ class ClaudeBot(discord.Client):
+ 
+     async def recount_votes(self, guild_id: int | None, channel_id: int, message_id: int) -> None:
+         """A reaction changed. If it's on a board post's starter message, recount that post's votes."""
+-        if guild_id is None or message_id != channel_id:  # a forum post's starter message shares the thread's id
++        if not BOUNTY_BOARD_ON or guild_id is None or message_id != channel_id:  # a forum post's starter message shares the thread's id
+             return
+         post = self.store.forum_post(guild_id, channel_id)
+         board = self.store.forum_board(guild_id)
+@@ -562,13 +570,15 @@ class ClaudeBot(discord.Client):
+         await self.recount_votes(payload.guild_id, payload.channel_id, payload.message_id)
+ 
+     async def on_thread_create(self, thread: discord.Thread) -> None:
++        if not BOUNTY_BOARD_ON:
++            return
+         board = self.store.forum_board(thread.guild.id)
+         if board and thread.parent_id == board.forum_id and not thread.flags.pinned:
+             self.store.save_post(thread.guild.id, thread.id, thread.name, 0)
+             self.schedule_board_refresh(thread.guild.id)
+ 
+     async def on_raw_thread_delete(self, payload: discord.RawThreadDeleteEvent) -> None:
+-        if self.store.remove_post(payload.guild_id, payload.thread_id):  # drops its claim too
++        if BOUNTY_BOARD_ON and self.store.remove_post(payload.guild_id, payload.thread_id):  # drops its claim too
+             self.schedule_board_refresh(payload.guild_id)
+ 
+     async def post_feed(self, link) -> None:

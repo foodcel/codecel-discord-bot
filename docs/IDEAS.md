@@ -24,3 +24,6 @@ One command that explains the bot, organized per role. You only see the sections
   Private reply (only you see it). Admins get a dropdown to view the page of another role.
 - **Never goes stale.** Build the list from the command definitions in `bot/commands.py` (name, description, who may use it) instead of typing it twice.
 - **Extras.** A line per section on what the bot does by itself (tags, numbers, 24 hour delete), and a "what's new" line that links the last announcement.
+
+## 3. (from the user, 2026-10-31) Keep adding ideas here as they come
+The user will keep sending ideas. Add each one to this file under a new numbered heading.
