@@ -47,6 +47,43 @@ async def ensure_suggest_tags():
     await load_tags()
 
 
+MAX_TAGS = 20  # Discord's limit for one forum
+
+
+def _has_game(name, names):
+    """True when a tag already stands for this game: the same name, or a longer or shorter form of it ("Peggle Deluxe" for "Peggle")."""
+    k = _norm(name)
+    for n in names:
+        o = _norm(n)
+        if o == k or (len(o) >= 4 and len(k) >= 4 and (k.startswith(o) or o.startswith(k))):
+            return True
+    return False
+
+
+async def ensure_game_tags(name):
+    """Makes the game's tag in the bugs forum and in the suggestions forum when either has none.
+    Returns (forums where a tag was made, problems to tell the dev). A forum that is full (20 tags) cannot get one."""
+    made, problems = [], []
+    for label, fid in (('bugs', cfg.bugs_id), ('improvements', cfg.suggestions_id)):
+        if not fid:
+            continue
+        forum = await ctx.client.fetch_channel(int(fid))
+        names = [t.name for t in forum.available_tags]
+        if _has_game(name, names):
+            continue
+        if len(names) >= MAX_TAGS:
+            problems.append(f'The {label} forum is full (Discord allows {MAX_TAGS} tags), so **{name}** has no tag there. An admin must remove a tag to make room.')
+            continue
+        try:  # one edit with the whole list: creating tags one by one overwrites each other
+            await forum.edit(available_tags=[*forum.available_tags, discord.ForumTag(name=name[:20])], reason=f'Game released: {name}')
+            made.append(label)
+        except Exception as e:
+            print('game tag', label, repr(e))
+            problems.append(f'I could not make the **{name}** tag in the {label} forum.')
+    await load_tags()
+    return made, problems
+
+
 def _by_name(n, pool=None):
     n = str(n).lower()
     return next((t for t in (_tags if pool is None else pool) if t['name'].lower() == n), None)

@@ -192,7 +192,15 @@ async def command_release_new(i, opts):
     await refresh_game_board()
     row = _row(k)
     from .cards import post_new_game_card, test_channel
+    from .tags import ensure_game_tags
     warn = ''
+    try:  # the game gets its tag in the bugs and improvements forums
+        made, problems = await ensure_game_tags(clean_name(dev['name']))
+        if made:
+            warn += chr(10) + f"🏷️ Made the **{clean_name(dev['name'])}** tag in the {' and '.join(made)} forum."
+        warn += ''.join(chr(10) + '⚠️ ' + p for p in problems)
+    except Exception as e:
+        print('game tags', repr(e))
     try:
         sent = await post_new_game_card(row)
         if sent and not test_channel(sent.channel) and not sent.mention_everyone:
