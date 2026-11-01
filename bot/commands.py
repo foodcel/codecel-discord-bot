@@ -102,6 +102,7 @@ COMMANDS = [
     command('update', 'Post a game update with its bug fixes', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
     _bug_command(),
     _improvement_command(),
+    command('help', 'Show the commands you can use'),
     command('pings', 'Choose when the bot pings you', [
         option(STRING, 'bugs', 'Ping me when a new bug arrives on my games', choices=ON_OFF),
         option(STRING, 'exploits', 'Ping me for high-priority exploit reports', choices=ON_OFF),

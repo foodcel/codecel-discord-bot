@@ -161,3 +161,43 @@ async def modal_bug(i, tag_id, token, fields):
     from .testers import schedule_refresh
     schedule_refresh()  # the roster shows how many reports each tester made
     return await i.edit_original_response(content=f"{E['fixed']} **SENT**{EM}·{EM}#{id_} went to the {game} developer. Follow it here: {thread.jump_url}")
+
+
+async def thread_from_message(src, saver, tag_id):
+    """A tester replied `!bug` to a message: the same thread in the testing channel as /bug makes, filled from the message."""
+    from .forms import _files, message_files, message_text
+    game = tag_name(tag_id)
+    text = message_text(src)
+    first = (text.splitlines()[0] if text else '').strip()
+    form = {'title': cut(first, 70) or 'Report from a message', 'what': cut(text, 1500) or 'See the attached files.', 'steps': '', 'expected': '', 'device': ''}
+    ai = {'title': form['title'], 'summary': cut(form['what'], 200), 'severity': 'medium'}
+    try:
+        ai = await summarize_tester_report(game, form['title'], form['what'], '', '', '')
+    except Exception as e:
+        print('summarizeTesterReport', e)
+    batches, too_big, image = await _files(message_files(src))
+    testing = await fetch_channel(cfg.testing_id)
+    thread = await testing.create_thread(name=cut(ai.get('title') or form['title'], 90), type=discord.ChannelType.public_thread,
+                                         auto_archive_duration=10080, reason=f'Tester report by {saver}')
+    reporter = saver.id if src.author.bot else src.author.id
+    id_ = run("""INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,summary,severity,status,created_at,body,source)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+              str(thread.id), str(reporter), tag_id, game, ai.get('title') or form['title'], ai['summary'], ai['severity'], 'new', now(),
+              form['what'], 'tester').lastrowid
+    bug = bug_by_id(id_)
+    try:
+        await thread.edit(name=cut(f"#{id_} {bug['title']}", 100))
+    except Exception:
+        pass
+    e = tester_report_embed(bug, form, reporter, too_big, image)
+    labeled(e, head('🔗', 'Original message'), f'[Open it]({src.jump_url})')
+    sent = await thread.send(embeds=[e], files=batches[0], allowed_mentions=NO_MENTIONS)
+    for k, extra in enumerate(batches[1:]):
+        if extra:
+            await thread.send(content=f'📎 **MORE FILES**{EM}·{EM}{k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
+    update_bug(id_, {'last_msg_id': str(sent.id)})
+    await route_bug(bug_by_id(id_))
+    from .testers import schedule_refresh
+    schedule_refresh()
+    return id_, thread
+

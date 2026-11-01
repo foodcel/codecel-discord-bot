@@ -23,6 +23,13 @@ async def _exec(t):
         if bug:
             update_bug(bug['id'], {'deleted': 1})
         schedule_boards()
+    elif t['kind'] == 'delete_card':  # the 3-day new-game card goes away (the game stays in the library)
+        channel_id, message_id = t['target'].split(':')
+        ch = await fetch_channel(channel_id)
+        try:
+            await (await ch.fetch_message(int(message_id))).delete()
+        except Exception as e:
+            print('delete card', repr(e))
     elif t['kind'] == 'unban':
         try:
             await ctx.guild.unban(discord.Object(id=int(t['target'])), reason='7-day ban finished')

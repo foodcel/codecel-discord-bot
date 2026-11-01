@@ -190,3 +190,53 @@ async def _analyze(id_, thread, kind):
     except Exception as e:
         print('form analysis', repr(e))
         update_bug(id_, {'status': 'new'})  # the next start retries it (catch-up)
+
+
+def message_text(src):
+    """The words of a message: its text, or the text of an embed a bot made."""
+    parts = [src.content or '']
+    for e in src.embeds:
+        parts += [e.title or '', e.description or ''] + [f'{f.name}: {f.value}' for f in e.fields]
+    return NL_.join(p.strip() for p in parts if p and p.strip())
+
+
+NL_ = chr(10)
+
+
+def message_files(src):
+    return [{'name': a.filename, 'url': a.url, 'size': a.size, 'type': a.content_type or ''} for a in src.attachments]
+
+
+async def post_from_message(src, saver, kind, tag_id=None):
+    """A dev replied `!bug` or `!improve` to a message: the forum post is made from it, then checked like any other post.
+    The player who wrote the message is the reporter (they hear when it is fixed); the dev who saved it is named in the footer."""
+    text = message_text(src)
+    first = (text.splitlines()[0] if text else '').strip()
+    form = {'title': cut(first, 70) or 'Report from a message', 'what': cut(text, 1500) or 'See the attached files.',
+            'steps': '', 'expected': '', 'device': '', 'why': ''}
+    forum = await fetch_channel(cfg.bugs_id if kind == 'bug' else cfg.suggestions_id)
+    if forum is None:
+        return None
+    game = tag_name(tag_id) if tag_id else None
+    tags = []
+    if tag_id:
+        tag = forum.get_tag(int(tag_id if kind == 'bug' else to_suggest_tag_id(tag_id) or 0))
+        if tag:
+            tags.append(tag)
+    batches, too_big, image = await _files(message_files(src))
+    reporter = saver.id if src.author.bot else src.author.id
+    e = _card(kind, reporter, game or 'New report', form, too_big, image)
+    labeled(e, head('🔗', 'Original message'), f'[Open it]({src.jump_url})')
+    e.set_footer(text=f"Saved from a message by {saver.display_name} · replies go in this post")
+    created = await forum.create_thread(name=cut(form['title'], 100), embeds=[e], files=batches[0], applied_tags=tags,
+                                        allowed_mentions=NO_MENTIONS, reason=f"{KINDS[kind]['command']} reply by {saver}")
+    thread = created.thread
+    for k, extra in enumerate(batches[1:]):
+        if extra:
+            await thread.send(content=f'📎 **MORE FILES**{EM}·{EM}{k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
+    id_ = run("""INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,status,created_at,last_msg_id,body,source,kind)
+        VALUES(?,?,?,?,?,'new',?,?,?,'form',?)""",
+              str(thread.id), str(reporter), tag_id, game, form['title'], now(), str(thread.last_message_id or thread.id), form['what'], kind).lastrowid
+    asyncio.ensure_future(_analyze(id_, thread, kind))
+    return id_, thread
+

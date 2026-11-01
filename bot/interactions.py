@@ -425,6 +425,9 @@ async def handle_command(i):
     sub, opts, _ = get_options(i)
     if name == 'tester':  # testers have no dev role: it checks who may do what itself
         return await testers.command_tester(i, sub, opts)
+    if name == 'help':  # for everyone
+        from .help import command_help
+        return await command_help(i)
     if name == 'improvement':  # for everyone, like /bug
         from .forms import command_form
         return await command_form(i, opts, 'suggestion')
@@ -489,6 +492,9 @@ async def handle_component(i):
     b = parts[2] if len(parts) > 2 else None
     ctype = i.data.get('component_type')
     if ctype == 2:  # button
+        if kind == 'help':
+            from .help import button_help
+            return await button_help(i, a)
         if kind == 'bug':
             return await button_bug(i, a, b)
         if kind == 'ann':

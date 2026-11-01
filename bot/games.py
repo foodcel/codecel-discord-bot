@@ -265,6 +265,11 @@ async def refresh_game_board():
     from . import board
     if board.is_live():  # the bounty board shows the same lists: a progress, link or release change must reach it
         await board.refresh_board()
+    try:  # the permanent library (cards.py) lists the released games too
+        from .cards import refresh_library
+        await refresh_library()
+    except Exception as e:
+        print('library', repr(e))
     ref = kv_get('gameboard')
     if not ref:
         return

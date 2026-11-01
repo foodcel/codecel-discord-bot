@@ -16,7 +16,7 @@ from .fixlog import backfill_snapshots
 from .intake import intake_thread
 from .interactions import handle_interaction
 from .router import handle_message
-from . import devlog, suggest, testers
+from . import devlog, msgreport, suggest, testers
 from .tags import ensure_suggest_tags, load_tags
 from .timers import run_timers
 
@@ -138,6 +138,8 @@ async def on_message(m):
     if str(m.channel.id) == cfg.bounty_id and not board.is_live():
         return schedule_claims()
     try:
+        if msgreport.wants(m) and await msgreport.handle(m):  # a reply of `!bug` or `!improve`
+            return
         await handle_message(m)
     except Exception:
         traceback.print_exc()

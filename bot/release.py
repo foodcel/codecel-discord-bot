@@ -137,6 +137,11 @@ async def command_release_new(i, opts):
         await board.reload_claims()
     await refresh_game_board()
     row = _row(k)
+    from .cards import post_new_game_card
+    try:
+        await post_new_game_card(row)
+    except Exception as e:
+        print('new game card', repr(e))
     return await i.edit_original_response(content=f"{E['fixed']} **RELEASED**{EM}·{EM}{summary(row, clean_name(dev['name']))}")
 
 
