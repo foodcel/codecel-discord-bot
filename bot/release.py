@@ -12,7 +12,7 @@ from .ctx import fetch_channel
 from .db import now, run
 from .env import cfg
 from .games import NONE, _find, clean_name, http, key, owner_ids, refresh_game_board
-from .perms import owns
+from .perms import level, owns
 from .ui import E, EM
 
 ROBLOX_GAME = re.compile(r'roblox\.com/(?:[a-z]{2}/)?games/(\d+)', re.I)
@@ -161,6 +161,11 @@ async def command_release_new(i, opts):
     link = (opts.get('link') or '').strip()
     if not ROBLOX_GAME.search(link):
         return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
+    from .guard import card_limit_reason, check_release, cooldown_left, note
+    admin = level(i.user) == 'admin'
+    wait = 0 if (admin or in_test_channel(i)) else cooldown_left(i.user.id)
+    if wait:
+        return await reply(f'Slow down: wait {wait // 60 + 1} more minute(s) before the next `/release new`.', ephemeral=True)
     await i.response.defer(ephemeral=True, thinking=True)
     info = await roblox_info(link) or {}
     hero_file = None
@@ -171,12 +176,27 @@ async def command_release_new(i, opts):
     original = (opts.get('original') or '').strip() or clean_name(dev['name'])
     art = await steam_art(dev.get('source_link'), original)
     studio = (opts.get('studio') or '').strip() or await steam_studio(dev.get('source_link')) or art['studio']
+    mine = (opts.get('image') or {}).get('url') if opts.get('image') else None
+    verdict = await check_release([art['art_hero_url'], art['art_url'], info.get('hero_url'), info.get('icon_url'), mine],
+                                  [original, info.get('name'), studio], hero_file)
+    blocked = None
+    if verdict['flagged']:  # nothing from this release is shown: the pictures are removed and there is no card
+        blocked = f"🚫 A picture or word looks like **{verdict['reason']}**, so I removed the pictures and did not post the card or the @everyone ping."
+    elif not verdict['ok']:
+        blocked = '⚠️ I could not check the pictures, so I did not post the card or the @everyone ping. An admin can post it.'
+    if blocked:
+        if hero_file:
+            Path(hero_file).unlink(missing_ok=True)
+        hero_file = None
+        if verdict['flagged']:
+            info = {**info, 'hero_url': None, 'icon_url': None}
+            art = {**art, 'art_url': None, 'art_hero_url': None}
+            mine = None
     if in_test_channel(i):  # a dry run: draw the card and the library row, change nothing
-        mine = (opts.get('image') or {}).get('url') if opts.get('image') else None
         row = {'key': k, 'name': dev['name'], 'owners': ','.join(owner_ids(dev)), 'link': link, 'place_id': info.get('place_id'), 'roblox_name': info.get('name'),
                'creator': info.get('creator'), 'hero_url': mine or info.get('hero_url'), 'icon_url': info.get('icon_url'), 'hero_file': None,
                'studio': studio, 'original_name': original, 'art_url': None if mine else art['art_url'], 'art_hero_url': None if mine else art['art_hero_url'], 'title': None}
-        return await preview(i, row, clean_name(dev['name']), '/release new')
+        return await preview(i, row, clean_name(dev['name']), '/release new', blocked or card_limit_reason(i.user.id, admin) or '')
     run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name)
         VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by, link=excluded.link,
@@ -201,21 +221,28 @@ async def command_release_new(i, opts):
         warn += ''.join(chr(10) + '⚠️ ' + p for p in problems)
     except Exception as e:
         print('game tags', repr(e))
+    note(i.user.id, 'release')
+    why_not = blocked or card_limit_reason(i.user.id, admin) or ('this game already had its new-game card' if row.get('card_at') else None)
+    if why_not and not blocked:
+        blocked = f'ℹ️ The game is released, but no new-game card was posted: {why_not}. An admin can post it.'
     try:
-        sent = await post_new_game_card(row)
+        sent = None if why_not else await post_new_game_card(row)
+        if sent:
+            note(i.user.id, 'card')
+            run('UPDATE game_status SET card_at=? WHERE key=?', now(), k)
         if sent and not test_channel(sent.channel) and not sent.mention_everyone:
             warn = chr(10) + "⚠️ The card is up, but Discord did not register the @everyone ping. Ask an admin to check the bot's Mention Everyone permission."
     except Exception as e:
         print('new game card', repr(e))
         warn = chr(10) + "⚠️ The game is released, but I could not post its new-game card."
-    return await i.edit_original_response(content=f"{E['fixed']} **RELEASED**{EM}·{EM}{summary(row, clean_name(dev['name']))}{warn}")
+    return await i.edit_original_response(content=f"{E['fixed']} **RELEASED**{EM}·{EM}{summary(row, clean_name(dev['name']))}{warn}{(chr(10) + blocked) if blocked else ''}")
 
 
 def in_test_channel(i):
     return str(getattr(i, 'channel_id', None) or getattr(getattr(i, 'channel', None), 'id', '')) == str(cfg.test_id)
 
 
-async def preview(i, row, shown, what):
+async def preview(i, row, shown, what, note=''):
     """Test channel: nothing is saved and nothing goes to the real boards or #games. The card and the library row are drawn here instead."""
     import discord
     from .cards import games_page, new_game_card
@@ -225,7 +252,7 @@ async def preview(i, row, shown, what):
     await ch.send(view=view, files=files, allowed_mentions=none)
     view2, files2 = games_page([row], False, False)
     await ch.send(view=view2, files=files2, allowed_mentions=none)
-    return await i.edit_original_response(content=f"🧪 **TEST**{EM}·{EM}{what}. Nothing was saved, and nothing was posted in #games. Here is what it would look like in <#{cfg.test_id}>:\n{summary(row, shown)}")
+    return await i.edit_original_response(content=f"🧪 **TEST**{EM}·{EM}{what}. Nothing was saved, and nothing was posted in #games. Here is what it would look like in <#{cfg.test_id}>:\n{summary(row, shown)}" + (chr(10) + '🛡️ In a real release: ' + note if note else ''))
 
 
 def _row(k):
@@ -272,6 +299,12 @@ async def command_release_edit(i, opts):
         saved = await save_hero(k, opts['image'])
         if saved.startswith('!'):
             return await i.edit_original_response(content=saved[1:])
+        from .guard import check_release
+        verdict = await check_release([], [title], saved)
+        if verdict['flagged'] or not verdict['ok']:
+            Path(saved).unlink(missing_ok=True)
+            return await i.edit_original_response(content=(f"🚫 That picture looks like **{verdict['reason']}**, so I did not save it." if verdict['flagged']
+                                                         else '⚠️ I could not check that picture, so I did not save it. Try again in a moment.'))
         changes['hero_file'] = saved
     if 'original_name' in changes:
         art = await steam_art(rel.get('source_link'), changes['original_name'])
