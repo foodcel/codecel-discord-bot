@@ -27,7 +27,7 @@ intents.guild_messages = True
 intents.message_content = True
 intents.members = True
 intents.guild_reactions = True
-client = discord.Client(intents=intents)
+client = discord.Client(intents=intents, activity=discord.CustomActivity(name='tokenmogs the loser below me'), status=discord.Status.online)
 ctx.client = client
 
 _claim_task = None
