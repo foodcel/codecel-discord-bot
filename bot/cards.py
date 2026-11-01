@@ -11,7 +11,7 @@ from discord import ui
 
 from .ctx import ctx, fetch_channel
 from .pngs import width_strip
-from .db import add_timer, all_, kv_get, kv_set, now, one
+from .db import add_timer, all_, cancel_timers, kv_get, kv_set, now, one
 from .env import cfg
 from .games import clean_name, game_lists, key, owner_ids
 
@@ -330,6 +330,7 @@ async def refresh_library(force=False):
             except Exception:
                 pass
         kv_set('library', json.dumps({'channel': str(ch.id), 'messages': [str(i) for i in new_ids], 'digests': new_digests}))
+        await restore_cards(ch)
         # only one library is ever live: any other message of this bot in the channel that is not a new-game card is a double post and goes
         cards = {t['target'].split(':')[-1] for t in all_("SELECT target FROM timers WHERE kind='delete_card'")}
         keep = {str(i) for i in new_ids} | cards
@@ -355,6 +356,7 @@ async def post_new_game_card(row, ping='everyone'):
                else discord.AllowedMentions(everyone=everyone, roles=[discord.Object(id=int(role))] if role else False))
     sent = await ch.send(view=view, files=files, allowed_mentions=allowed)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_DAYS * 86400000)
+    register_card(sent.id, row['key'], now() + CARD_DAYS * 86400000)
     return sent
 
 
@@ -383,4 +385,51 @@ async def purge_rivals(message):
 async def keep_library():
     """Puts the library back when a message of it was deleted, and clears any rival message that got in. Safe to call often."""
     await refresh_library()
+
+
+# ---- the new-game cards are kept too: a card that was deleted comes back (silent) until its 3 days are over ----
+def _cards_conf():
+    try:
+        return json.loads(kv_get('library_cards') or '[]')
+    except Exception:
+        return []
+
+
+def register_card(msg_id, game_key, leave_at):
+    cards = [c for c in _cards_conf() if c['leave_at'] > now()] + [{'msg': str(msg_id), 'key': game_key, 'leave_at': leave_at}]
+    kv_set('library_cards', json.dumps(cards))
+
+
+async def restore_cards(ch):
+    """Re-posts, without any ping, every new-game card whose message is gone and whose 3 days are not over."""
+    out = []
+    for c in [c for c in _cards_conf() if c['leave_at'] > now()]:
+        try:
+            await ch.fetch_message(int(c['msg']))
+            out.append(c)
+            continue
+        except discord.NotFound:
+            pass
+        except Exception:
+            out.append(c)  # could not check: leave it
+            continue
+        row = one("SELECT * FROM game_status WHERE key=? AND status='released'", c['key'])
+        if not row:
+            continue
+        view, files = new_game_card(row, None)
+        sent = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions.none())
+        cancel_timers('delete_card', f"{ch.id}:{c['msg']}")
+        add_timer('delete_card', f'{ch.id}:{sent.id}', c['leave_at'])
+        out.append({**c, 'msg': str(sent.id)})
+    kv_set('library_cards', json.dumps(out))
+
+
+async def guard_loop():
+    """Every 90 seconds: the library and the cards are all there, nothing of a rival bot is, and there is no second copy."""
+    while True:
+        try:
+            await refresh_library()
+        except Exception as e:
+            print('library guard', repr(e))
+        await asyncio.sleep(90)
 
