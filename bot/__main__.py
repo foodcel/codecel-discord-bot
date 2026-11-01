@@ -4,7 +4,7 @@ import traceback
 
 import discord
 
-from . import board
+from . import board, cards
 from .bounty import refresh_claims
 from .catchup import catchup
 from .commands_sync import register_commands
@@ -137,6 +137,8 @@ async def on_thread_create(thread):
 async def on_message(m):
     if str(m.channel.id) == cfg.bounty_id and not board.is_live():
         return schedule_claims()
+    if cards.in_library_channel(m.channel.id) and await cards.purge_rivals(m):  # another bot posting in the library channel: gone
+        return
     try:
         if msgreport.wants(m) and await msgreport.handle(m):  # a reply of `!bug` or `!improve`
             return
@@ -173,6 +175,23 @@ async def on_raw_reaction_clear(p):
 async def on_raw_reaction_clear_emoji(p):
     await board.on_vote_change(p.channel_id, p.message_id)
     await suggest.on_vote_change(p.channel_id, p.message_id)
+
+
+@client.event
+async def on_raw_message_delete(p):
+    conf = cards.library_config()
+    if conf and str(p.channel_id) == str(conf['channel']) and str(p.message_id) in [str(i) for i in conf['messages']]:
+        await asyncio.sleep(1)  # a message of the library was deleted: put it back
+        try:
+            await cards.keep_library()
+        except Exception:
+            traceback.print_exc()
+
+
+@client.event
+async def on_message_edit(before, after):
+    if cards.in_library_channel(after.channel.id):
+        await cards.purge_rivals(after)
 
 
 @client.event

@@ -295,6 +295,12 @@ async def refresh_library(force=False):
         ch = await fetch_channel(conf['channel'])
         if not ch:
             return
+        try:  # a rival bot's posts in this channel are removed on every refresh too
+            async for m in ch.history(limit=60):
+                if m.author.bot and str(m.author.id) in rival_ids():
+                    await m.delete()
+        except Exception as e:
+            print('rival sweep', repr(e))
         rows = game_lists()['released']
         pages = library_pages(rows)
         ids, digests = conf['messages'], conf.get('digests', [])
@@ -341,3 +347,31 @@ async def post_new_game_card(row, ping='everyone'):
     sent = await ch.send(view=view, files=files, allowed_mentions=allowed)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_DAYS * 86400000)
     return sent
+
+
+# ---- the library channel belongs to this bot ----
+def rival_ids():
+    """Ids of the other bots whose posts are removed from the library channel (kv 'library_rivals', comma separated)."""
+    return {x for x in (kv_get('library_rivals') or '').split(',') if x}
+
+
+def in_library_channel(channel_id):
+    conf = library_config()
+    return bool(conf) and str(channel_id) == str(conf['channel'])
+
+
+async def purge_rivals(message):
+    """Deletes a message of a rival bot in the library channel. True when it was one."""
+    if message.author.bot and str(message.author.id) in rival_ids() and in_library_channel(message.channel.id):
+        try:
+            await message.delete()
+        except Exception as e:
+            print('rival delete', repr(e))
+        return True
+    return False
+
+
+async def keep_library():
+    """Puts the library back when a message of it was deleted, and clears any rival message that got in. Safe to call often."""
+    await refresh_library()
+
