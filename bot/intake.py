@@ -2,6 +2,8 @@
 import asyncio
 import re
 
+import discord
+
 from .ai import analyze_report, still_broken
 from .components import allowed
 from .ctx import dm, get_member, sleep, thread_link
