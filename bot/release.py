@@ -139,7 +139,7 @@ def summary(row, shown):
     hero = 'your picture' if row.get('hero_file') else ('from Roblox' if row.get('hero_url') else 'none yet')
     lines = [
         f"{shown}" + (f" (on Roblox as **{row['roblox_name']}**)" if row.get('roblox_name') and row['roblox_name'] != shown else ''),
-        f"Made by <@{owner_ids(row)[0]}>" + (f" · Roblox creator **{row['creator']}**" if row.get('creator') else ''),
+        f"Ported by <@{owner_ids(row)[0]}>" + (f" · Roblox creator **{row['creator']}**" if row.get('creator') else ''),
         f"Original: **{row['original_name'] or shown}**" + (f" by **{row['studio']}**" if row.get('studio') else ' (studio not found: add it with `/release edit studio:`)'),
         f'Hero image: {hero}' + ('' if row.get('hero_file') or row.get('hero_url') else ' (add one with `/release edit image:`)'),
     ]
