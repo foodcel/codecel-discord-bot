@@ -25,5 +25,18 @@ One command that explains the bot, organized per role. You only see the sections
 - **Never goes stale.** Build the list from the command definitions in `bot/commands.py` (name, description, who may use it) instead of typing it twice.
 - **Extras.** A line per section on what the bot does by itself (tags, numbers, 24 hour delete), and a "what's new" line that links the last announcement.
 
-## 3. (from the user, 2026-10-31) Keep adding ideas here as they come
+## 3. Plain-message look for updates and for the /bug and /improvement posts (from the user, 2026-11-01)
+The user shared a screenshot of an update post (Peggle Deluxe, v16) and wants this form factor for the update announcements and for the forms.
+
+- **What the look is.** No embed box. A normal message: role pings on the first line, a bold title (`Game — Update (vN)`), bold section names
+  (Fixes, Changes, New) each followed by bullets, nested bullets for detail, small grey footer line ("The servers will restart in 1 minute.").
+  Blank line between sections. Reads like a person wrote it, full width, wraps cleanly on a phone.
+- **Updates.** `/update` would post this text instead of the embed. Sections come from the draft: Fixes (bug fixes), Changes (updates), New (new features / Added
+  suggestions). The ping line stays the ping question (Updates role or none). Merging within 12 hours would append bullets under the right section.
+- **Forms.** The post the bot makes for `/bug` and `/improvement` would use the same layout: bold title, bold "What happened" / "Steps" / "Expected" sections with bullets, small footer for game and device.
+- **Cons to design away.** Plain messages have no colour bar and no fields, so the design language (rules, columns) does not apply. Text cannot be edited into columns, so keep to bullets.
+  Mentions in plain text DO ping, so the update message must keep allowed_mentions on purpose for the role only. 2000 characters per message (4000 for embeds), so long updates need a split.
+  Questions to settle before building: should the older embed announcements be converted too, and does the bug post stay an embed in the forum (the dev boards read it)?
+
+## 4. (from the user, 2026-10-31) Keep adding ideas here as they come
 The user will keep sending ideas. Add each one to this file under a new numbered heading.
