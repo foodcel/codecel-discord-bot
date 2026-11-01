@@ -210,7 +210,7 @@ def new_game_card(row, ping_text='@everyone'):
 def _bullets(lines, limit):
     out, used = [], 0
     for ln in lines:
-        item = f'› {ln}'
+        item = f'• {ln}'
         if used + len(item) > limit:
             out.append(f'• …and {len(lines) - len(out)} more')
             break
@@ -219,30 +219,31 @@ def _bullets(lines, limit):
     return NL.join(out)
 
 
+WIDTH = 'ㅤ' * 44  # invisible characters that keep every update card the same width, whatever its lines say
+
+
 def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
-    """An update post, like the Redwing Helper one: a header with the game's cover on the right, the lists, a Play button and who posted it.
-    `row` is the released-game row (may be None). ping_text is a mention shown in the card ('<@&role>'), None for no ping."""
-    stamp = int((when or datetime.now(timezone.utc)).timestamp())
-    head = NL.join([f'-# 🛠️ GAME UPDATE · <t:{stamp}:D>', f"## {game['name']}", '### Update' + (f' {version}' if version else '')])
-    cover = (row or {}).get('art_url') or (row or {}).get('icon_url') or (row or {}).get('hero_url')  # a link, so nothing has to be uploaded
-    icon = ui.Thumbnail(cover) if cover else None
+    """An update post: a big title, the date, Fixes / Changes / New, a footer (who posted it, where to report a bug) and a Play now button.
+    No picture. `row` is the released-game row (may be None). ping_text is a mention shown in the card ('<@&role>'), None for no ping."""
     children = []
     if ping_text:
         children.append(ui.TextDisplay(ping_text))
-    children.append(ui.Section(head, accessory=icon) if icon else ui.TextDisplay(head))
-    children.append(ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))
-    for title, lines in (('🐛 Fixes', bugfixes), ('🔧 Changes', changes), ('✨ New', new)):
+    title = f"# {game['name']} — Update" + (f' {version}' if version else '')
+    date = (when or datetime.now(timezone.utc)).strftime('%b %d, %Y').replace(' 0', ' ')
+    children.append(ui.TextDisplay(f'{title}\n-# {date}'))
+    for heading, lines in (('🐛 Fixes', bugfixes), ('🔧 Changes', changes), ('✨ New', new)):
         if lines:
-            children.append(ui.TextDisplay(f'**{title}**' + NL + _bullets(lines, 1200)))
+            children.append(ui.TextDisplay(f'### {heading}\n' + _bullets(lines, 1200)))
     if not bugfixes and not changes and not new:
         children.append(ui.TextDisplay('Small improvements.'))
+    who = f'Posted by <@{poster}> · ' if poster else ''
+    children += [ui.Separator(visible=True, spacing=LONG),
+                 ui.TextDisplay(f'-# Thanks to everyone who reported these.\n-# {who}Found a bug? <#{cfg.bugs_id}>{WIDTH}')]
     link = (row or {}).get('link') or game.get('link')
     if link and str(link).startswith('http'):
-        children += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.ActionRow(_play(link, f"Play {game['name']}"))]
-    who = f'Posted by <@{poster}> · ' if poster else ''
-    children.append(ui.TextDisplay(f'-# {who}Found a bug? <#{cfg.bugs_id}>'))
+        children.append(ui.ActionRow(_play(link, 'Play now')))
     view = ui.LayoutView()
-    view.add_item(ui.Container(*children, accent_colour=RED))
+    view.add_item(ui.Container(*children))
     return view, []
 
 
