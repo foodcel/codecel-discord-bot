@@ -153,6 +153,9 @@ async def _apply_one(id_, bug, status, member, kind, done, skipped):
     try:
         await set_bug_status(bug, status, str(member.id))
         done.append(f'#{id_}')
+        if status in ('not_a_bug', 'declined'):  # bug hunting: this may be someone's 5th false report
+            from .hunting import after_false
+            asyncio.ensure_future(after_false(bug_by_id(id_)))
     except Exception as e:
         print('applyStatus', repr(e))
         skipped.append(f'#{id_} error')

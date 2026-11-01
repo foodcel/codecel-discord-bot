@@ -234,9 +234,9 @@ async def post_from_message(src, saver, kind, tag_id=None):
     for k, extra in enumerate(batches[1:]):
         if extra:
             await thread.send(content=f'📎 **MORE FILES**{EM}·{EM}{k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
-    id_ = run("""INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,status,created_at,last_msg_id,body,source,kind)
-        VALUES(?,?,?,?,?,'new',?,?,?,'form',?)""",
-              str(thread.id), str(reporter), tag_id, game, form['title'], now(), str(thread.last_message_id or thread.id), form['what'], kind).lastrowid
+    id_ = run("""INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,status,created_at,last_msg_id,body,source,kind,saved_by)
+        VALUES(?,?,?,?,?,'new',?,?,?,'form',?,?)""",
+              str(thread.id), str(reporter), tag_id, game, form['title'], now(), str(thread.last_message_id or thread.id), form['what'], kind, str(saver.id)).lastrowid
     asyncio.ensure_future(_analyze(id_, thread, kind))
     return id_, thread
 

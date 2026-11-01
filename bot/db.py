@@ -78,6 +78,12 @@ for _col in ("kind TEXT NOT NULL DEFAULT 'bug'", 'votes INTEGER NOT NULL DEFAULT
     except Exception:
         pass
 
+for _col in ('saved_by TEXT',):  # bug hunting: who replied !bug / !improve
+    try:
+        db.execute(f'ALTER TABLE bugs ADD COLUMN {_col}')
+    except Exception:
+        pass
+
 for _col in ('message_id TEXT', 'channel_id TEXT', 'payload TEXT'):  # where an announcement was posted, and its lines (to add to it later)
     try:
         db.execute(f'ALTER TABLE announcements ADD COLUMN {_col}')

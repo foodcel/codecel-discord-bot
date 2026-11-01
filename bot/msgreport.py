@@ -1,6 +1,6 @@
-"""Reply to a message with `!bug` or `!improve` (optionally followed by the game) to report that message.
-Devs get a post in the bugs forum (or the improvements forum); testers get a thread in the testing channel.
-The bot answers under the message and removes the `!bug` reply."""
+"""Bug hunting: reply to a message with `!bug` or `!improve` (optionally followed by the game) to report that message.
+Devs and testers alike get a post in the bugs forum (or the improvements forum) in the name of the player who wrote the message.
+The bot answers under the message and removes the `!bug` reply. Five false posts (marked Not a bug or Declined) and the command is taken away (bot/hunting.py)."""
 import re
 
 import discord
@@ -56,6 +56,10 @@ async def handle(m):
     lv = level(member)
     if not is_tester(member):
         return False  # players use /bug and /improvement
+    from .hunting import blocked
+    if level(member) != 'admin' and blocked(member.id) and str(m.channel.id) != str(cfg.test_id):
+        await _say(m, f"{E['warn']} Bug hunting is switched off for you for now. An admin will talk to you about it.")
+        return True
     try:
         src = m.reference.resolved if isinstance(m.reference.resolved, discord.Message) else await m.channel.fetch_message(m.reference.message_id)
     except Exception:
@@ -67,33 +71,25 @@ async def handle(m):
         await _say(m, f"{E['warn']} That message has no text or files to report.")
         return True
     game = await guess_game(text, typed.strip())
-    dev = lv in ('admin', 'dev')
-    to_thread = kind == 'bug' and not dev
     if str(m.channel.id) == str(cfg.test_id):  # a dry run in the test channel: draw the card, save and post nothing
         from .forms import card_from_message
-        where = 'a thread in the testing channel' if to_thread else ('the bugs forum' if kind == 'bug' else 'the improvements forum')
-        await m.channel.send(f"🧪 **TEST**{EM}·{EM}this would go to {where} (game: {game['name'] if game else 'not found'}). Nothing was saved or posted.", embeds=[card_from_message(src, member, kind, game['id'] if game else None)], allowed_mentions=NO_MENTIONS)
+        where = 'the bugs forum' if kind == 'bug' else 'the improvements forum'
+        await m.channel.send(f"🧪 **TEST**{EM}·{EM}bug hunting would post this in {where} for <@{src.author.id}> (game: {game['name'] if game else 'not found'}). Nothing was saved or posted.",
+                             embeds=[card_from_message(src, member, kind, game['id'] if game else None)], allowed_mentions=NO_MENTIONS)
         await _remove(m)
         return True
-    # the original text is copied into a forum everyone can read: never from a private channel (a tester thread is private too)
-    if not to_thread and not src.channel.permissions_for(m.guild.default_role).view_channel:
+    # the original text is copied into a forum everyone can read: never from a private channel (the testing channel is where testers work, so it is fine)
+    private = not src.channel.permissions_for(m.guild.default_role).view_channel
+    if private and str(getattr(src.channel, 'parent_id', None) or src.channel.id) != str(cfg.testing_id):
         await _say(m, f"{E['warn']} That channel is private, so I will not copy it into a public forum. Use `/bug` and write it yourself.")
         return True
-    if to_thread:  # a tester: a thread in the testing channel, which needs the game
-        if not game:
-            await _say(m, f"{E['warn']} Which game is it? Reply again with `!bug <game>`.")
-            return True
-        from .tester import thread_from_message
-        id_, thread = await thread_from_message(src, member, game['id'])
-        where = 'the testing channel'
-    else:
-        from .forms import post_from_message
-        done = await post_from_message(src, member, kind, game['id'] if game else None)
-        if not done:
-            await _say(m, f"{E['warn']} I could not find the forum. Ask a developer.")
-            return True
-        id_, thread = done
-        where = 'the forum'
+    from .forms import post_from_message
+    done = await post_from_message(src, member, kind, game['id'] if game else None)
+    if not done:
+        await _say(m, f"{E['warn']} I could not find the forum. Ask a developer.")
+        return True
+    id_, thread = done
+    where = 'the bugs forum' if kind == 'bug' else 'the improvements forum'
     noun = 'bug' if kind == 'bug' else 'improvement'
     await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}{noun} #{id_} is in {where}: {thread.jump_url}", keep=True)
     await _remove(m)

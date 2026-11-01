@@ -452,7 +452,9 @@ async def handle_command(i):
     if name == 'pardon':
         u = opts['user']
         c = await pardon(u)
-        return await i.response.send_message(f'Removed one strike from <@{u}>. They now have {c}.', ephemeral=True, allowed_mentions=NO_MENTIONS)
+        from .hunting import lift
+        back = ' Bug hunting is back too.' if lift(u) else ''
+        return await i.response.send_message(f'Removed one strike from <@{u}>. They now have {c}.{back}', ephemeral=True, allowed_mentions=NO_MENTIONS)
     if name == 'pings':
         b = opts.get('bugs')
         x = opts.get('exploits')
