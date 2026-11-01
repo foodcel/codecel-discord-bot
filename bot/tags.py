@@ -74,8 +74,21 @@ def status_tag_ids():
 
 
 def find_game_tag(name):
+    """The game tag for a name: exact, then written a little differently, then a longer or shorter form of one tag
+    ("Peggle Deluxe" for the tag "Peggle") as long as only one tag fits."""
     n = str(name or '').lower()
-    return next((t for t in game_tags() if t['name'].lower() == n), None)
+    tags = game_tags()
+    hit = next((t for t in tags if t['name'].lower() == n), None)
+    if hit:
+        return hit
+    k = _norm(name)
+    if not k:
+        return None
+    hit = next((t for t in tags if _norm(t['name']) == k), None)
+    if hit:
+        return hit
+    near = [t for t in tags if len(_norm(t['name'])) >= 4 and (k.startswith(_norm(t['name'])) or (len(k) >= 4 and _norm(t['name']).startswith(k)))]
+    return near[0] if len(near) == 1 else None
 
 
 def find_device_tag(name):
