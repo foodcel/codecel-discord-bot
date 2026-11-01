@@ -113,6 +113,10 @@ def library_plan(rows):
     plan = [{'kind': 'hubs', 'rows': [hubs[h] for h in HUBS if h in hubs]}]
     for i in range(0, len(others), PAGE):
         plan.append({'kind': 'games', 'rows': others[i:i + PAGE], 'first': i == 0})
+    if plan[-1]['kind'] == 'games' and len(plan[-1]['rows']) < PAGE:
+        plan[-1]['footer'] = True
+    else:  # no games, or a full last page: the footer card is a message of its own
+        plan.append({'kind': 'footer', 'rows': []})
     return plan
 
 
@@ -137,24 +141,26 @@ def hubs_page(rows):
             buttons.append(_play(r['link'], f'Play {name}'))
     if buttons:
         children.append(ui.ActionRow(*buttons))
-    children.append(ui.TextDisplay(FOOTER + ' ' + HUB_CREDIT[3:]))  # the library's footer sits under the Play buttons
     view = ui.LayoutView()
     view.add_item(ui.Container(*children, accent_colour=RED))
     return view, files
 
 
+def footer_card():
+    """The library's footer: where to suggest games and report bugs, then the credits."""
+    return ui.Container(ui.TextDisplay(COMMUNITY), ui.Separator(visible=True, spacing=LONG), ui.TextDisplay(FOOTER + ' ' + HUB_CREDIT[3:]), accent_colour=BLUE)
+
+
 def games_page(rows, first, last):
-    """One message of games: every game is a card of its own (a 6-piece container), under a small heading, with the credits at the end."""
+    """One message of games: every game is a card of its own (a 6-piece container), with the footer card at the end."""
     view = ui.LayoutView()
     files = []
-    if first:
-        view.add_item(ui.TextDisplay('### 🎲 Games'))
     for r in rows:
         items, fs = game_row(r)
         view.add_item(ui.Container(*items, accent_colour=BLUE))
         files += fs
-    if last:  # also keeps a short last page as wide as the others
-        view.add_item(ui.TextDisplay(COMMUNITY))
+    if last:  # the footer card fits under up to 5 games; it also keeps a short last page full width
+        view.add_item(footer_card())
     return view, files
 
 
@@ -163,7 +169,14 @@ def library_pages(rows):
     plan = library_plan(rows)
     out = []
     for n, p in enumerate(plan):
-        out.append(hubs_page(p['rows']) if p['kind'] == 'hubs' else games_page(p['rows'], p.get('first'), n == len(plan) - 1))
+        if p['kind'] == 'hubs':
+            out.append(hubs_page(p['rows']))
+        elif p['kind'] == 'games':
+            out.append(games_page(p['rows'], p.get('first'), p.get('footer')))
+        else:
+            view = ui.LayoutView()
+            view.add_item(footer_card())
+            out.append((view, []))
     return out
 
 
@@ -254,7 +267,7 @@ async def refresh_library(force=False):
         rows = game_lists()['released']
         pages = library_pages(rows)
         ids, digests = conf['messages'], conf.get('digests', [])
-        shown = [json.dumps(p['rows'], default=str) for p in library_plan(rows)]
+        shown = [json.dumps([p['kind'], p.get('footer'), p['rows']], default=str) for p in library_plan(rows)]
         new_ids, new_digests = [], []
         for n, (view, files) in enumerate(pages):
             digest = hashlib.md5((shown[n] + str(n) + str(len(pages))).encode()).hexdigest()
