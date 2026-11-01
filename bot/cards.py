@@ -142,13 +142,13 @@ def hubs_page(rows):
     if buttons:
         children.append(ui.ActionRow(*buttons))
     view = ui.LayoutView()
-    view.add_item(ui.Container(*children))
+    view.add_item(ui.Container(*children, accent_colour=RED))
     return view, files
 
 
 def footer_card():
     """The library's footer: where to suggest games and report bugs, then the credits."""
-    return ui.Container(ui.TextDisplay(COMMUNITY), ui.Separator(visible=True, spacing=LONG), ui.TextDisplay(FOOTER + ' ' + HUB_CREDIT[3:]))
+    return ui.Container(ui.TextDisplay(COMMUNITY), ui.Separator(visible=True, spacing=LONG), ui.TextDisplay(FOOTER + ' ' + HUB_CREDIT[3:]), accent_colour=BLUE)
 
 
 def games_page(rows, first, last):
@@ -157,7 +157,7 @@ def games_page(rows, first, last):
     files = []
     for r in rows:
         items, fs = game_row(r)
-        view.add_item(ui.Container(*items))
+        view.add_item(ui.Container(*items, accent_colour=BLUE))
         files += fs
     if last:  # the footer card fits under up to 5 games; it also keeps a short last page full width
         view.add_item(footer_card())
