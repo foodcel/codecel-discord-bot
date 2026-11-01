@@ -111,9 +111,22 @@ COMMANDS = [
     command('preview', 'Admin: post the finished embeds in the test channel (everything wipes it first)',
             [option(STRING, 'what', 'Which preview', choices=PREVIEW_CHOICES)]),
     command('botrules', 'Post the bug report rules and strike ladder here'),
-    command('release', 'Mark one of your games as released', [
-        option(STRING, 'game', 'Game', required=True, autocomplete=True),
-        option(STRING, 'link', 'Link players use to play it (optional)'),
+    command('release', 'Release one of your games, or fix a released one', [
+        sub('new', 'Your game is out: paste its Roblox link', [
+            option(STRING, 'game', 'Game', required=True, autocomplete=True),
+            option(STRING, 'link', 'Roblox game link', required=True),
+            option(ATTACHMENT, 'image', 'Your own hero image (otherwise the one from Roblox)'),
+            option(STRING, 'studio', 'Original studio (otherwise taken from the Steam page)'),
+            option(STRING, 'original', 'Original game name (otherwise the name on the board)'),
+        ]),
+        sub('edit', 'Fix a released game', [
+            option(STRING, 'game', 'Released game', required=True, autocomplete=True),
+            option(STRING, 'title', 'The title to show'),
+            option(STRING, 'link', 'Roblox game link'),
+            option(ATTACHMENT, 'image', 'Your own hero image'),
+            option(STRING, 'studio', 'Original studio'),
+            option(STRING, 'original', 'Original game name'),
+        ]),
     ]),
     command('unrelease', 'Move a released game back to unreleased', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
     command('gamelink', "Set a game's link: its Steam page while unreleased, its Roblox link once released", [

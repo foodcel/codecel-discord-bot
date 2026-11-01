@@ -23,6 +23,9 @@ async def _exec(t):
         if bug:
             update_bug(bug['id'], {'deleted': 1})
         schedule_boards()
+        if bug and bug['status'] == 'fixed':  # its 24 hours are over: the fix is confirmed, so it can join an update offer now
+            from .announce import maybe_offer
+            await maybe_offer(bug['game_tag_id'])
     elif t['kind'] == 'unban':
         try:
             await ctx.guild.unban(discord.Object(id=int(t['target'])), reason='7-day ban finished')

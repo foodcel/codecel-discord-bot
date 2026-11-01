@@ -18,8 +18,13 @@ from .tags import tag_name
 from .ui import E, EM, GAP, columns, describe, flat, head, section
 
 
+CONFIRM_MS = 86400000  # a fix is confirmed once 24 hours passed without the player saying it is still broken
+
+
 def unannounced(tag_id):
-    return all_("SELECT * FROM bugs WHERE game_tag_id=? AND status='fixed' AND announced=0 ORDER BY id", tag_id)
+    """What an update can announce: confirmed fixes (a fresh one can still be reopened) and added suggestions (nothing to reopen)."""
+    return all_("SELECT * FROM bugs WHERE game_tag_id=? AND status='fixed' AND announced=0 AND (kind='suggestion' OR fixed_at IS NULL OR fixed_at<=?) ORDER BY id",
+                tag_id, now() - CONFIRM_MS + 60000)
 
 
 async def resolve_icon(game):
@@ -165,7 +170,7 @@ def item_note(key):
     m = ctx.guild.get_member(int(bug['fixed_by'])) if ctx.guild and (bug['fixed_by'] or '').isdigit() else None
     who = m.display_name if m else 'a dev'
     done = 'added' if bug['kind'] == 'suggestion' else 'fixed'
-    sure = '✅ confirmed' if time.time() * 1000 - bug['fixed_at'] > 86400000 else '⏳ can still be reopened'
+    sure = '✅ confirmed'
     return f"#{bug['id']} · {done} by {who} {_ago(bug['fixed_at'])} · {sure}"[:100]
 
 

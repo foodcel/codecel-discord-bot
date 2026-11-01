@@ -19,10 +19,11 @@ FOOT_UNRELEASED = '\n'.join([
     '/claim · take a game (add its Steam page with link:)',
     '/progress · set how far it is and if you are working on it',
     '/gamelink · change a game\'s link',
-    '/release · the game is out (add its Roblox link with link:)',
+    '/release new · the game is out (paste its Roblox link)',
     '/unclaim · drop a game you claimed',
 ])
 FOOT_RELEASED = '\n'.join([
+    '/release edit · fix a released game\'s title, link, image or credits',
     '/gamelink · change a released game\'s Roblox link',
     '/unrelease · move a game back to unreleased',
 ])
@@ -228,7 +229,7 @@ def _valid_date(s):
 
 async def game_embeds(lists=None):
     lists = lists or game_lists()
-    rel = await rows_by_dev([{'name': clean_name(r['name']), 'owners': owner_ids(r), 'at': r['released_at'], 'link': r['link']}
+    rel = await rows_by_dev([{'name': r.get('title') or clean_name(r['name']), 'owners': owner_ids(r), 'at': r['released_at'], 'link': r['link']}
                              for r in lists['released']])
     dev = await rows_by_dev([{'name': clean_name(g['name']), 'owners': g['owners'], 'since': g['since'], 'link': g.get('source_link'),
                              'progress': g.get('progress'), 'working': g.get('working')} for g in lists['unreleased']])
@@ -299,7 +300,7 @@ async def autocomplete_games(i, command, focused):
     lists = game_lists()
     if command in ('release', 'progress'):
         pool = lists['unreleased']
-    elif command == 'unrelease':
+    elif command in ('unrelease', 'release-edit'):
         pool = lists['released']
     else:
         pool = [*lists['unreleased'], *lists['released']]
