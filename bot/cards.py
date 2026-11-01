@@ -136,8 +136,6 @@ def hubs_page(rows):
             buttons.append(_play(r['link'], f'Play {name}'))
     if buttons:
         children.append(ui.ActionRow(*buttons))
-    if rows:
-        children.append(ui.TextDisplay(HUB_CREDIT))
     view = ui.LayoutView()
     view.add_item(ui.Container(*children, accent_colour=RED))
     return view, files
@@ -154,7 +152,7 @@ def games_page(rows, first, last):
         view.add_item(ui.Container(*items, accent_colour=BLUE))
         files += fs
     if last:
-        view.add_item(ui.TextDisplay(FOOTER))
+        view.add_item(ui.TextDisplay(FOOTER + NL + HUB_CREDIT))
     return view, files
 
 
