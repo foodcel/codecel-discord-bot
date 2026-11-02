@@ -25,7 +25,7 @@ async def main():
     for channel, message, build in POSTS:
         ch = await client.fetch_channel(channel)
         msg = await ch.fetch_message(message)
-        await msg.edit(embeds=build())  # the content (the ping) stays; editing never pings again
+        await msg.edit(embeds=build(), attachments=[n.strip()])  # the content (the ping) stays; editing never pings again
         print('edited', build.__name__, msg.jump_url)
     await finish(client)
 

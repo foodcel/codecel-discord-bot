@@ -4,6 +4,7 @@ Built here so the preview and the real post are identical."""
 import re
 
 from .env import cfg
+from .pngs import width_strip
 from .ui import E, ZW, flat, head, section, gap
 
 GAMES_CHANNEL = 1562940878685872149  # #games
@@ -36,7 +37,13 @@ def make(title, groups, footer, emoji=None):
         section(e, head(icon, heading), tree(*rows))
     gap(e)
     e.set_footer(text='\n'.join(footer))
+    e.set_image(url='attachment://width.png')  # a 1400 px transparent strip, sent with the embed (see strip()): every announcement is the same width
     return e
+
+
+def strip():
+    """The file the announcements' picture points to. A new one for every message sent."""
+    return width_strip()
 
 
 def bot_news_embeds():

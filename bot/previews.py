@@ -4,6 +4,7 @@ import time
 import discord
 
 from .announce import build_embeds, draft_payload, polish_dev_updates
+from .pngs import width_strip
 from .botnews import (board_news_embeds, bot_news_embeds, roster_news_devs_embeds, roster_news_testers_embeds, suggestion_news_embeds,
                       tester_news_embeds)
 from .bugview import bug_embeds
@@ -73,6 +74,8 @@ async def post_previews(what='all'):
     async def send(content, **extra):
         kw = {'content': content, 'allowed_mentions': NO_MENTIONS}
         kw.update(extra)
+        if any(getattr(e.image, 'url', None) == 'attachment://width.png' for e in kw.get('embeds') or []):  # the announcements' width strip
+            kw['files'] = [width_strip()]
         return await ch.send(**kw)
 
     def want(k):

@@ -7,7 +7,7 @@ import discord
 
 from _boot import boot, finish
 
-from bot.botnews import testing_news_devs_embeds as release_news_devs_embeds, testing_news_testers_embeds as release_news_testers_embeds
+from bot.botnews import strip, testing_news_devs_embeds as release_news_devs_embeds, testing_news_testers_embeds as release_news_testers_embeds
 from bot.ctx import fetch_channel
 
 DEV_CHANNEL, DEV_ROLE = 1565961892264939531, 1562719404473458778
@@ -21,7 +21,7 @@ async def main():
         return await finish(client)
     for channel, role, embeds in ((DEV_CHANNEL, DEV_ROLE, release_news_devs_embeds()), (TESTER_CHANNEL, TESTER_ROLE, release_news_testers_embeds())):
         ch = await fetch_channel(channel)
-        sent = await ch.send(content=f'<@&{role}>', embeds=embeds, allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=role)]))
+        sent = await ch.send(content=f'<@&{role}>', embeds=embeds, files=[strip()], allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=role)]))
         print(ch.name, '->', sent.jump_url, '| roles pinged:', [r.id for r in sent.role_mentions], '| everyone:', sent.mention_everyone)
     await finish(client)
 

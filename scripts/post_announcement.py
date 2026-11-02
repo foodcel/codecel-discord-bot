@@ -10,7 +10,7 @@ import discord
 
 from _boot import boot, finish
 
-from bot.botnews import (board_news_embeds, bot_news_embeds, roster_news_devs_embeds, roster_news_testers_embeds, suggestion_news_embeds,
+from bot.botnews import (strip, board_news_embeds, bot_news_embeds, roster_news_devs_embeds, roster_news_testers_embeds, suggestion_news_embeds,
                          tester_news_embeds)
 
 
@@ -35,7 +35,7 @@ async def main():
     embeds = {'testers': tester_news_embeds, 'board': board_news_embeds, 'suggestions': suggestion_news_embeds,
             'roster-testers': roster_news_testers_embeds, 'roster-devs': roster_news_devs_embeds}.get(arg('kind'), bot_news_embeds)()
     msg = await ch.send(
-        content=f'<@&{role}>' if role else '@everyone' if ping else None, embeds=embeds,
+        content=f'<@&{role}>' if role else '@everyone' if ping else None, embeds=embeds, files=[strip()],
         allowed_mentions=discord.AllowedMentions(everyone=ping, roles=[discord.Object(id=int(role))] if role else False, users=False))
     print('posted', msg.jump_url)
     await finish(client)
