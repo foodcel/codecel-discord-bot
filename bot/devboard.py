@@ -96,7 +96,7 @@ def board_card(key):
     from discord import ui
     from .look import clone_rows
     from .nums import label
-    from .pngs import width_strip
+    from .pngs import with_strip
     from .botnews import date_button
     bugs = open_bugs_for(key)
     kind, base = kind_of(key), base_key(key)
@@ -125,12 +125,11 @@ def board_card(key):
     if len(bugs) > shown:
         blocks.append(f'…and {len(bugs) - shown} more. Pick a game below to see them.')
     body = (chr(10) * 2).join(blocks) or ('No open suggestions 🎉' if suggestion else 'No open bugs 🎉')
-    strip_ = width_strip()
     head = ui.Section(f'### {title}', accessory=date_button()) if len(title) <= 44 else ui.TextDisplay(f'### {title}')
     view = ui.LayoutView(timeout=None)
-    view.add_item(ui.Container(head, ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(body),
-                               ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay('-# ' + foot),
-                               ui.MediaGallery(discord.MediaGalleryItem(strip_))))
+    parts, strip_ = with_strip([head, ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(body),
+                                ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay('-# ' + foot)])
+    view.add_item(ui.Container(*parts))
     for row in clone_rows(board_components(key)):
         view.add_item(row)
     return view, [strip_]

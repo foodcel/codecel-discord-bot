@@ -9,6 +9,7 @@ import discord
 from discord import ui
 
 from .botnews import date_button, strip, tree
+from .pngs import with_strip
 from .components import NO_MENTIONS
 from .ctx import fetch_channel
 from .db import add_timer, all_, kv_get, kv_set, now, one, run
@@ -65,7 +66,8 @@ def board_view():
         items.append(ui.TextDisplay(f"**🎮 {g['name']}**{NL}{tree(*rows)}"))
     items += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(NL.join('-# ' + x for x in FOOTER))]
     view = ui.LayoutView(timeout=None)
-    view.add_item(ui.Container(*items, ui.MediaGallery(discord.MediaGalleryItem(strip_))))
+    items, strip_ = with_strip(items)
+    view.add_item(ui.Container(*items))
     if games:  # the picker sits below the card, outside it: one dropdown where you pick every game you test (pick none to leave them all)
         picks = games[:25]
         view.add_item(ui.ActionRow(ui.Select(custom_id='tbd:pick', placeholder='🙋 Pick a game to join or leave it…', min_values=1, max_values=len(picks),
@@ -112,10 +114,9 @@ def card_view(g, ping=True):
     cover = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
     strip_ = strip()
     view = ui.LayoutView(timeout=None)
-    view.add_item(ui.Container(
-        ui.Section(text, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(text),
-        ui.ActionRow(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋')),
-        ui.MediaGallery(discord.MediaGalleryItem(strip_))))
+    parts, strip_ = with_strip([ui.Section(text, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(text),
+                                ui.ActionRow(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋'))])
+    view.add_item(ui.Container(*parts))
     return view, [strip_], role
 
 

@@ -24,3 +24,20 @@ STRIP = _png(1400, 2)
 def width_strip():
     """A new file each time (a File can be sent once). Its gallery goes first in the message."""
     return discord.File(io.BytesIO(STRIP), filename='width.png')
+
+
+def with_strip(items):
+    """(items with the width strip put in, the strip file). The strip keeps every card the same width. It goes in front of the last line of the card
+    (or in front of its last button row): there is a gap there anyway, so it leaves no dead space of its own."""
+    from discord import ui
+    strip = width_strip()
+    gallery = ui.MediaGallery(discord.MediaGalleryItem(strip))
+    items = list(items)
+    for k in range(len(items) - 1, -1, -1):
+        if isinstance(items[k], ui.Separator):
+            items.insert(k, gallery)
+            return items, strip
+    k = next((k for k in range(len(items) - 1, -1, -1) if isinstance(items[k], ui.ActionRow)), len(items))
+    items.insert(k, gallery)
+    return items, strip
+

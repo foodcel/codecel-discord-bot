@@ -8,7 +8,7 @@ import discord
 from discord import ui
 
 from .env import cfg
-from .pngs import width_strip
+from .pngs import width_strip, with_strip
 from .ui import E, ZW, flat, head, section, gap
 
 GAMES_CHANNEL = 1562940878685872149  # #games
@@ -265,5 +265,6 @@ def as_card(e, ping=None):
     view = ui.LayoutView()
     if ping:  # the ping sits right above the card, outside it
         view.add_item(ui.TextDisplay(ping))
-    view.add_item(ui.Container(*items, ui.MediaGallery(discord.MediaGalleryItem(strip_))))  # the strip at the end of the card keeps every card the same width
+    items, strip_ = with_strip(items)  # the strip keeps every card the same width
+    view.add_item(ui.Container(*items))
     return view, [strip_]

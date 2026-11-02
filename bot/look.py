@@ -7,7 +7,7 @@ import discord
 from discord import ui
 
 from .botnews import code_chip, date_button
-from .pngs import width_strip
+from .pngs import width_strip, with_strip
 
 NL = chr(10)
 ZWS = '​'
@@ -171,7 +171,8 @@ def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=Fals
     view = ui.LayoutView()
     if ping:
         view.add_item(ui.TextDisplay(ping))
-    view.add_item(ui.Container(*items, ui.MediaGallery(discord.MediaGalleryItem(strip_))))  # the strip at the end of the card keeps every card the same width
+    items, strip_ = with_strip(items)  # the strip keeps every card the same width
+    view.add_item(ui.Container(*items))
     for row in below or []:  # a picker or buttons sit under the card, outside it
         view.add_item(row)
     return view, [strip_]

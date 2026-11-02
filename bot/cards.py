@@ -12,7 +12,7 @@ import discord
 from discord import ui
 
 from .ctx import ctx, fetch_channel
-from .pngs import width_strip
+from .pngs import width_strip, with_strip
 from .db import add_timer, all_, cancel_timers, kv_get, kv_set, now, one
 from .env import cfg
 from .games import clean_name, game_lists, key, owner_ids
@@ -332,7 +332,8 @@ def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=N
     link = (row or {}).get('link') or game.get('link')
     if link and str(link).startswith('http'):
         children.append(ui.ActionRow(_play(link, 'Play now')))
-    return [ui.Container(*children, ui.MediaGallery(discord.MediaGalleryItem(strip)))], [strip]  # the strip at the end of the card: the same width for every update card, no dead space above
+    children, strip = with_strip(children)  # the strip: the same width for every update card, no dead space of its own
+    return [ui.Container(*children)], [strip]
 
 
 def released_row_for(name):
