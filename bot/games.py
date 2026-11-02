@@ -314,55 +314,10 @@ async def refresh_game_board():
         print('game board', e)
 
 
-FOOT_TESTING = '\n'.join([
-    '/progress testing:on · put your game in testing',
-    '/progress testing:off · testing is over',
-    '/bug · testers report them in the testing channel',
-])
-
-
-async def testing_embed(lists=None):
-    """The games in the testing phase: unreleased and released ones, sorted by dev."""
-    lists = lists or game_lists()
-    rows = [{'name': g.get('title') or clean_name(g['name']), 'owners': owner_ids(g), 'at': g['testing_at'], 'link': g.get('link') or g.get('source_link')}
-            for g in [*lists['unreleased'], *lists['released']] if g.get('testing_at')]
-    tst = await rows_by_dev(rows)
-    e = flat()
-    e.title = head('🧪', 'Games in testing')
-    describe(e, f"🧪 **{len({r['name'] for r in tst})}** in testing")
-    if tst:
-        table(e, [head(E['game'], 'Games'), head(E['date'], 'Testing since')], tree_rows(
-            tst, lambda r: datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d')))
-    else:
-        e.add_field(name=ZW, value='None right now.', inline=False)
-    gap(e)
-    e.set_footer(text=FOOT_TESTING)
-    return e
-
-
 async def refresh_testing_board():
-    """Keeps one pinned message in #future-games that lists the games in testing. Posted again when it was deleted."""
-    from .env import cfg
-    ch = await fetch_channel(cfg.future_games_id)
-    if not ch:
-        return
-    embed = await testing_embed()
-    ref = json.loads(kv_get('testing_board') or '{}')
-    if ref.get('message') and str(ref.get('channel')) == str(ch.id):
-        try:
-            await ch.get_partial_message(int(ref['message'])).edit(embed=embed)
-            return
-        except Exception:
-            pass
-    msg = await ch.send(embed=embed)
-    kv_set('testing_board', json.dumps({'channel': str(ch.id), 'message': str(msg.id)}))
-    try:
-        await msg.pin()
-        async for m in ch.history(limit=5):  # the "pinned a message" line is removed
-            if m.type.name == 'pins_add':
-                await m.delete()
-    except Exception as e:
-        print('pin testing board', repr(e))
+    """The tester board in #future-games (see testerboard.py)."""
+    from .testerboard import refresh_board
+    await refresh_board()
 
 
 async def _refresh_names_and_board():
@@ -498,6 +453,7 @@ async def command_progress(i, opts):
     if percent is not None or working is not None:
         set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
     tag_note = ''
+    was_testing = bool(g.get('testing_at'))
     if testing is not None or percent is not None:  # a percent means the game is back in development, unless testing was asked for too
         on = testing == 'on'
         if not one('SELECT 1 FROM game_status WHERE key=?', key(g['name'])):
@@ -505,6 +461,16 @@ async def command_progress(i, opts):
         run('UPDATE game_status SET testing_at=? WHERE key=?', now() if on else None, key(g['name']))
         if on:
             tag_note = await _tester_tag_note(clean_name(g['name']))
+            if not was_testing:  # newly in testing: a card that pings Helpers, for a day
+                try:
+                    from .env import cfg
+                    from .testerboard import post_card
+                    await post_card({'key': key(g['name']), 'name': g.get('title') or clean_name(g['name']), 'owners': owner_ids(g)}, ping=str(i.channel_id) != str(cfg.test_id))
+                    tag_note += '\n🙋 Helpers were pinged in the future-games channel.'
+                except Exception as e:
+                    print('tester card', repr(e))
+        else:
+            run('DELETE FROM game_testers WHERE game_key=?', key(g['name']))
     await refresh_game_board()
     shown = clean_name(g['name'])
     if rel and not dev:

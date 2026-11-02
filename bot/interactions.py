@@ -515,6 +515,9 @@ async def handle_component(i):
         if kind == 'rel':  # the preview of /release new, quiet and edit
             from .reldraft import on_button
             return await on_button(i, a, int(b))
+        if kind == 'tbd':  # the tester board and its cards
+            from .testerboard import on_button
+            return await on_button(i, a, b)
         if kind == 'help':
             from .help import button_help
             return await button_help(i, a)
@@ -541,6 +544,9 @@ async def handle_component(i):
         if kind == 'rel' and a == 'ping':
             from .reldraft import on_select
             return await on_select(i, int(b), value)
+        if kind == 'tbd':
+            from .testerboard import on_select
+            return await on_select(i, a, value)
         if kind == 'ann' and a == 'sel':
             return await select_ann(i, int(b))
         if kind == 'trgame':

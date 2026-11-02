@@ -30,6 +30,7 @@ class Cfg:
     test_id = _e.get('TEST_CHANNEL_ID') or None
     updates_id = _e.get('UPDATES_CHANNEL_ID') or None
     testing_id = _e.get('TESTING_CHANNEL_ID') or None
+    helpers_role = _e.get('HELPERS_ROLE_ID') or '1565120384519381052'  # pinged when a game goes into testing; helpers can volunteer as testers
     future_games_id = _e.get('FUTURE_GAMES_CHANNEL_ID') or '1562728247131635742'  # private channel where the board of games in testing lives
     tester_forum_id = _e.get('TESTER_FORUM_ID') or '1566668851083612330'  # the forum in the Testers category where every tester report becomes a post
     tester_info_id = _e.get('TESTER_INFO_CHANNEL_ID') or None          # optional: the channel whose roster message the tester list is taken from
