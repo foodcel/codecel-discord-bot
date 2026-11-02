@@ -169,10 +169,9 @@ def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=Fals
     if e.footer and e.footer.text:
         items += [ui.Separator(visible=True, spacing=SMALL), ui.TextDisplay(NL.join('-# ' + code_chip(x) for x in e.footer.text.split(NL)))]
     view = ui.LayoutView()
-    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
     if ping:
         view.add_item(ui.TextDisplay(ping))
-    view.add_item(ui.Container(*items))
+    view.add_item(ui.Container(*items, ui.MediaGallery(discord.MediaGalleryItem(strip_))))  # the strip at the end of the card keeps every card the same width
     for row in below or []:  # a picker or buttons sit under the card, outside it
         view.add_item(row)
     return view, [strip_]

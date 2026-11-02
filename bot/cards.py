@@ -332,7 +332,7 @@ def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=N
     link = (row or {}).get('link') or game.get('link')
     if link and str(link).startswith('http'):
         children.append(ui.ActionRow(_play(link, 'Play now')))
-    return [ui.MediaGallery(discord.MediaGalleryItem(strip)), ui.Container(*children)], [strip]  # the strip: the same width for every update card
+    return [ui.Container(*children, ui.MediaGallery(discord.MediaGalleryItem(strip)))], [strip]  # the strip at the end of the card: the same width for every update card, no dead space above
 
 
 def released_row_for(name):

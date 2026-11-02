@@ -20,7 +20,7 @@ from .ui import E, flat, head, section, gap
 CARD_HOURS = 24
 NL = chr(10)
 FOOTER = [
-    '🙋 · pick the games you want to test: pick again to change the list',
+    '🙋 · pick a game to join it, pick it again to leave it',
     '`/progress testing:on` · put your game in testing',
     '`/bug` · testers report them in the testing channel',
 ]
@@ -65,11 +65,10 @@ def board_view():
         items.append(ui.TextDisplay(f"**🎮 {g['name']}**{NL}{tree(*rows)}"))
     items += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(NL.join('-# ' + x for x in FOOTER))]
     view = ui.LayoutView(timeout=None)
-    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
-    view.add_item(ui.Container(*items))
+    view.add_item(ui.Container(*items, ui.MediaGallery(discord.MediaGalleryItem(strip_))))
     if games:  # the picker sits below the card, outside it: one dropdown where you pick every game you test (pick none to leave them all)
         picks = games[:25]
-        view.add_item(ui.ActionRow(ui.Select(custom_id='tbd:pick', placeholder='🙋 Pick the games you want to test…', min_values=0, max_values=len(picks),
+        view.add_item(ui.ActionRow(ui.Select(custom_id='tbd:pick', placeholder='🙋 Pick a game to join or leave it…', min_values=1, max_values=len(picks),
                                             options=[discord.SelectOption(label=g['name'][:100], value=g['key'], description=f"testing since {date(g['since'])}") for g in picks])))
     return view, [strip_]
 
@@ -113,10 +112,10 @@ def card_view(g, ping=True):
     cover = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
     strip_ = strip()
     view = ui.LayoutView(timeout=None)
-    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
     view.add_item(ui.Container(
         ui.Section(text, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(text),
-        ui.ActionRow(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋'))))
+        ui.ActionRow(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋')),
+        ui.MediaGallery(discord.MediaGalleryItem(strip_))))
     return view, [strip_], role
 
 
@@ -151,20 +150,22 @@ async def on_button(i, action, arg):
 
 
 async def on_select(i, action, values):
-    """The dropdown on the board: the games you picked are the games you test (what you picked before is replaced)."""
+    """The dropdown on the board: every game you pick flips: you join it, or leave it if you already test it."""
     if action != 'pick':
         return
     await i.response.defer(ephemeral=True)
     if not can_volunteer(i.user):
         return await i.edit_original_response(content='Only testers and helpers can volunteer.')
     shown = {g['key']: g for g in testing_games()[:25]}
-    chosen = [v for v in values if v in shown]
     me = str(i.user.id)
-    for k in shown:
-        if k not in chosen:
+    joined, left = [], []
+    for k in [v for v in values if v in shown]:
+        if me in testers_of(k):
             run('DELETE FROM game_testers WHERE game_key=? AND user_id=?', k, me)
-    for k in chosen:
-        run('INSERT OR IGNORE INTO game_testers(game_key,user_id,at) VALUES(?,?,?)', k, me, now())
+            left.append(shown[k]['name'])
+        else:
+            run('INSERT OR IGNORE INTO game_testers(game_key,user_id,at) VALUES(?,?,?)', k, me, now())
+            joined.append(shown[k]['name'])
     await refresh_board()
-    text = (f"{E['fixed']} You test " + ', '.join(f"**{shown[k]['name']}**" for k in chosen) + '. Pick again any time to change the list.') if chosen else 'You no longer test any game.'
-    return await i.edit_original_response(content=text)
+    lines = ([f"{E['fixed']} You test " + ', '.join(f'**{n}**' for n in joined) + ' now.'] if joined else []) + ([f"🚪 You left " + ', '.join(f'**{n}**' for n in left) + '.'] if left else [])
+    return await i.edit_original_response(content=NL.join(lines) or 'Nothing changed.')

@@ -128,9 +128,9 @@ def board_card(key):
     strip_ = width_strip()
     head = ui.Section(f'### {title}', accessory=date_button()) if len(title) <= 44 else ui.TextDisplay(f'### {title}')
     view = ui.LayoutView(timeout=None)
-    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
     view.add_item(ui.Container(head, ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(body),
-                               ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay('-# ' + foot)))
+                               ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay('-# ' + foot),
+                               ui.MediaGallery(discord.MediaGalleryItem(strip_))))
     for row in clone_rows(board_components(key)):
         view.add_item(row)
     return view, [strip_]
