@@ -10,7 +10,7 @@ from .botnews import code_chip, date_button
 from .pngs import width_strip, with_strip
 
 NL = chr(10)
-ZWS = '​'
+ZWS = '​ㅤ   ⠀'  # the invisible characters the embeds use as spacers
 RULE = re.compile(r'^[\s​_─―‾-]+$')  # a line that is only a rule
 SMALL = discord.SeparatorSpacing.small
 
@@ -117,7 +117,7 @@ def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=Fals
     inline_desc: the first line of the description (the counts) moves into the title; plain_count drops the emoji in front of it;
     first_sub: [(old, new)] changes to that line. below: components (rows) shown under the card, like a picker."""
     strip_ = width_strip()
-    title, desc = e.title or '', (e.description or '').strip(' ' + ZWS + NL)
+    title, desc = e.title or '', _tidy((e.description or '').strip(' ' + ZWS + NL))
     if inline_desc and desc:
         first, _, desc = desc.partition(NL)
         first = re.sub(r'[*]', '', first).strip()
@@ -126,7 +126,7 @@ def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=Fals
         if plain_count:
             first = re.sub(r'^[^A-Za-z0-9]+', '', first)
         title = f'{title} · {first}'
-        desc = desc.strip(' ' + ZWS + NL)
+        desc = _tidy(desc.strip(' ' + ZWS + NL))
     accessory = ui.Thumbnail(e.thumbnail.url) if e.thumbnail and e.thumbnail.url else (date_button(when) if len(title) <= 44 else None)
     items = []
     if title:
