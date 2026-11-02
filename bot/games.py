@@ -17,7 +17,7 @@ from .ui import E, EM, ZW, columns, cut, describe, flat, head, lkey, RULE, gap
 
 FOOT_UNRELEASED = '\n'.join([
     '/claim · take a game (add its Steam page with link:)',
-    '/progress · set how far it is and if you are working on it',
+    '/progress · set how far it is, if you are working on it, or put it in testing',
     '/gamelink · change a game\'s link',
     '/release new · the game is out (paste its Roblox link)',
     '/release quiet · add it without announcing it',
@@ -99,13 +99,14 @@ def game_lists():
         if k not in released_keys:
             unreleased.append({'key': k, 'name': c['name'], 'owners': c['owners'], 'since': c['since'],
                                'source_link': (sources.get(k) or {}).get('source_link'),
-                               'progress': (sources.get(k) or {}).get('progress'), 'working': (sources.get(k) or {}).get('working')})
+                               'progress': (sources.get(k) or {}).get('progress'), 'working': (sources.get(k) or {}).get('working'),
+                               'testing_at': (sources.get(k) or {}).get('testing_at')})
     # moved back to unreleased after it had left the bounty-board
     for r in rows:
         if r['status'] == 'unreleased' and r['key'] not in seen:
             unreleased.append({'key': r['key'], 'name': r['name'], 'owners': owner_ids(r), 'since': r['since'],
                                'source_link': r['source_link'],
-                               'progress': r['progress'], 'working': r['working']})
+                               'progress': r['progress'], 'working': r['working'], 'testing_at': r.get('testing_at')})
     return {'released': released, 'unreleased': unreleased}
 
 
@@ -153,6 +154,8 @@ def table(e, headings, rows):
     def emit(chunk):
         columns(e, [{'name': name if state['first'] else ZW, 'lines': [r[i] for r in chunk]} for i, name in enumerate(headings)],
                 RULE if state['first'] else '')
+        for _ in range(3 - n):  # Discord puts three fields on a row
+            e.add_field(name=ZW, value=ZW, inline=True)
         state['first'] = False
 
     for r in rows:
@@ -182,7 +185,9 @@ def bar(percent):
 
 
 def progress_cell(r):
-    """How far a game is, and whether its dev is working on it right now."""
+    """How far a game is, and whether its dev is working on it right now. A game in the testing phase says so instead of a bar."""
+    if r.get('testing_at'):
+        return '🧪 testing'
     p, w = r.get('progress'), r.get('working')
     if w == 0:
         return f'⏸ {p}%' if p is not None else '⏸ paused'
@@ -248,7 +253,7 @@ async def game_embeds(lists=None):
     rel = await rows_by_dev([{'name': r.get('title') or clean_name(r['name']), 'owners': owner_ids(r), 'at': r['released_at'], 'link': r['link']}
                              for r in lists['released']])
     dev = await rows_by_dev([{'name': clean_name(g['name']), 'owners': g['owners'], 'since': g['since'], 'link': g.get('source_link'),
-                             'progress': g.get('progress'), 'working': g.get('working')} for g in lists['unreleased']])
+                             'progress': g.get('progress'), 'working': g.get('working'), 'testing_at': g.get('testing_at')} for g in lists['unreleased']])
 
     def n_games(rows):
         return len({r['name'] for r in rows})
@@ -421,17 +426,34 @@ async def command_progress(i, opts):
         return await reply('That game is not in the unreleased list. Claim it on the bounty-board first.', ephemeral=True)
     if not owns(i.user, owner_ids(g)):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
-    percent, working = opts.get('percent'), opts.get('working')
-    if percent is None and working is None:
-        return await reply('Give a percent, or say whether you are working on it.', ephemeral=True)
+    percent, working, testing = opts.get('percent'), opts.get('working'), opts.get('testing')
+    if percent is None and working is None and testing is None:
+        return await reply('Give a percent, say whether you are working on it, or put it in testing.', ephemeral=True)
     if percent is not None and not 0 <= percent <= 100:
         return await reply('The percent must be between 0 and 100.', ephemeral=True)
     if working is None and percent is not None and g.get('working') is None:
         working = True  # giving a percent means it is being worked on
     set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
+    tag_note = ''
+    if testing is not None or percent is not None:  # a percent means the game is back in development, unless testing was asked for too
+        on = bool(testing)
+        run('UPDATE game_status SET testing_at=? WHERE key=?', now() if on else None, key(g['name']))
+        if on:
+            tag_note = await _tester_tag_note(clean_name(g['name']))
     await refresh_game_board()
     now_ = [x for x in game_lists()['unreleased'] if x['key'] == k][0]
-    return await reply(f"{E['fixed']} **PROGRESS**{EM}·{EM}{clean_name(g['name'])} {progress_cell(now_)}", ephemeral=True)
+    return await reply(f"{E['fixed']} **PROGRESS**{EM}·{EM}{clean_name(g['name'])} {progress_cell(now_)}{tag_note}", ephemeral=True)
+
+
+async def _tester_tag_note(name):
+    """A game in testing gets its tag in the testers forum at once. Returns a line for the dev."""
+    try:
+        from .tags import ensure_tester_tag
+        tag, problem = await ensure_tester_tag(name)
+    except Exception as e:
+        print('tester tag', repr(e))
+        return ''
+    return f"\n🏷️ Testers can report it now: its tag **{tag.name}** is ready in the testers forum." if tag else (f'\n⚠️ {problem}' if problem else '')
 
 
 def set_progress(name, owners, since, percent, working):

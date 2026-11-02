@@ -150,10 +150,11 @@ COMMANDS = [
         option(STRING, 'game', 'Game', required=True, autocomplete=True),
         option(STRING, 'link', 'Link to the original game', required=True),
     ]),
-    command('progress', 'Say how far an unreleased game is, and whether you are working on it right now', [
+    command('progress', 'Say how far an unreleased game is, whether you are working on it, or that it is in testing', [
         option(STRING, 'game', 'Game', required=True, autocomplete=True),
         option(INTEGER, 'percent', 'How much of the game is done', min_value=0, max_value=100),
         option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
+        option(BOOLEAN, 'testing', 'In the testing phase? Testers can then report it, and the board shows 🧪 testing'),
     ]),
     command('tester', 'The tester roster', [
         sub('add', 'Add a tester to the roster (admins)', [

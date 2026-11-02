@@ -238,7 +238,7 @@ async def commit_release(i, d):
         hero_url=excluded.hero_url, icon_url=excluded.icon_url, hero_file=COALESCE(excluded.hero_file, game_status.hero_file), studio=excluded.studio, original_name=excluded.original_name, notes=COALESCE(excluded.notes, game_status.notes)""",
         k, dev['name'], ','.join(owner_ids(dev)), dev.get('since'), now(), str(i.user.id), d['link'], info.get('place_id'), info.get('name'),
         info.get('creator'), info.get('hero_url'), info.get('icon_url'), hero_file, d['studio'], d['original'], d['note'])
-    run('UPDATE game_status SET art_url=?, art_hero_url=?, title=? WHERE key=?', art['art_url'], art['art_hero_url'], d.get('title'), k)
+    run('UPDATE game_status SET art_url=?, art_hero_url=?, title=?, testing_at=NULL WHERE key=?', art['art_url'], art['art_hero_url'], d.get('title'), k)
     from . import board
     if board.is_live():  # releasing a game completes its claim on the bounty board
         board.set_completed(dev['name'], True)
