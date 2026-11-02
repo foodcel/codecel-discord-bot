@@ -297,7 +297,7 @@ async def refresh_library(force=False):
             return
         try:  # a rival bot's posts in this channel are removed on every refresh too
             async for m in ch.history(limit=60):
-                if m.author.bot and str(m.author.id) in rival_ids():
+                if is_rival(m):
                     await m.delete()
         except Exception as e:
             print('rival sweep', repr(e))
@@ -373,6 +373,15 @@ def rival_ids():
     return {x for x in (kv_get('library_rivals') or '').split(',') if x}
 
 
+def is_rival(m):
+    """A message of a rival bot: a bot (or a webhook) on the list, or any bot or webhook that calls itself Redwing. Never this bot's own."""
+    if ctx.client and ctx.client.user and m.author.id == ctx.client.user.id:
+        return False
+    if not (m.author.bot or m.webhook_id):
+        return False
+    return str(m.author.id) in rival_ids() or str(m.webhook_id or '') in rival_ids() or (m.author.name or '').lower().startswith('redwing')
+
+
 def in_library_channel(channel_id):
     conf = library_config()
     return bool(conf) and str(channel_id) == str(conf['channel'])
@@ -380,7 +389,7 @@ def in_library_channel(channel_id):
 
 async def purge_rivals(message):
     """Deletes a message of a rival bot in the library channel. True when it was one."""
-    if message.author.bot and str(message.author.id) in rival_ids() and in_library_channel(message.channel.id):
+    if is_rival(message) and in_library_channel(message.channel.id):
         try:
             await message.delete()
         except discord.NotFound:
@@ -454,9 +463,8 @@ async def guard_tick():
     want = expected_ids()
     msgs = [m async for m in ch.history(limit=100)]
     seen = {str(m.id) for m in msgs}
-    rivals = rival_ids()
     for m in msgs:  # a rival bot's message is deleted the second it is seen (the gateway event usually deletes it first)
-        if m.author.bot and str(m.author.id) in rivals:
+        if is_rival(m):
             try:
                 await m.delete()
             except discord.NotFound:
