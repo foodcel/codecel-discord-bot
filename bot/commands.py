@@ -154,7 +154,7 @@ COMMANDS = [
         option(STRING, 'game', 'Game', required=True, autocomplete=True),
         option(INTEGER, 'percent', 'How much of the game is done', min_value=0, max_value=100),
         option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
-        option(BOOLEAN, 'testing', 'In the testing phase? Testers can then report it, and the board shows 🧪 testing'),
+        option(STRING, 'testing', 'Testing phase on or off. Testers can report a game in testing (released games too)', choices=[('On', 'on'), ('Off', 'off')]),
     ]),
     command('tester', 'The tester roster', [
         sub('add', 'Add a tester to the roster (admins)', [

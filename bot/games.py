@@ -17,7 +17,7 @@ from .ui import E, EM, ZW, columns, cut, describe, flat, head, lkey, RULE, gap
 
 FOOT_UNRELEASED = '\n'.join([
     '/claim · take a game (add its Steam page with link:)',
-    '/progress · set how far it is, if you are working on it, or put it in testing',
+    '/progress · set how far it is, if you are working on it, or testing:on',
     '/gamelink · change a game\'s link',
     '/release new · the game is out (paste its Roblox link)',
     '/release quiet · add it without announcing it',
@@ -291,6 +291,10 @@ async def refresh_game_board():
         await refresh_library()
     except Exception as e:
         print('library', repr(e))
+    try:  # the board of games in testing (a private channel)
+        await refresh_testing_board()
+    except Exception as e:
+        print('testing board', repr(e))
     ref = kv_get('gameboard')
     if not ref:
         return
@@ -310,6 +314,57 @@ async def refresh_game_board():
         print('game board', e)
 
 
+FOOT_TESTING = '\n'.join([
+    '/progress testing:on · put your game in testing',
+    '/progress testing:off · testing is over',
+    '/bug · testers report them in the testing channel',
+])
+
+
+async def testing_embed(lists=None):
+    """The games in the testing phase: unreleased and released ones, sorted by dev."""
+    lists = lists or game_lists()
+    rows = [{'name': g.get('title') or clean_name(g['name']), 'owners': owner_ids(g), 'at': g['testing_at'], 'link': g.get('link') or g.get('source_link')}
+            for g in [*lists['unreleased'], *lists['released']] if g.get('testing_at')]
+    tst = await rows_by_dev(rows)
+    e = flat()
+    e.title = head('🧪', 'Games in testing')
+    describe(e, f"🧪 **{len({r['name'] for r in tst})}** in testing")
+    if tst:
+        table(e, [head(E['game'], 'Games'), head(E['date'], 'Testing since')], tree_rows(
+            tst, lambda r: datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d')))
+    else:
+        e.add_field(name=ZW, value='None right now.', inline=False)
+    gap(e)
+    e.set_footer(text=FOOT_TESTING)
+    return e
+
+
+async def refresh_testing_board():
+    """Keeps one pinned message in #future-games that lists the games in testing. Posted again when it was deleted."""
+    from .env import cfg
+    ch = await fetch_channel(cfg.future_games_id)
+    if not ch:
+        return
+    embed = await testing_embed()
+    ref = json.loads(kv_get('testing_board') or '{}')
+    if ref.get('message') and str(ref.get('channel')) == str(ch.id):
+        try:
+            await ch.get_partial_message(int(ref['message'])).edit(embed=embed)
+            return
+        except Exception:
+            pass
+    msg = await ch.send(embed=embed)
+    kv_set('testing_board', json.dumps({'channel': str(ch.id), 'message': str(msg.id)}))
+    try:
+        await msg.pin()
+        async for m in ch.history(limit=5):  # the "pinned a message" line is removed
+            if m.type.name == 'pins_add':
+                await m.delete()
+    except Exception as e:
+        print('pin testing board', repr(e))
+
+
 async def _refresh_names_and_board():
     # Proper names are made as soon as the bounty-board is read (startup, or when a game is claimed), so the /release list is clean too.
     await ensure_names()
@@ -324,8 +379,10 @@ async def autocomplete_games(i, command, focused):
     """Shows the proper name, answers with the typed name (that is what the lists are keyed on)."""
     q = str(focused or '').lower()
     lists = game_lists()
-    if command in ('release', 'progress'):
+    if command == 'release':
         pool = lists['unreleased']
+    elif command == 'progress':
+        pool = [*lists['unreleased'], *lists['released']]  # testing works for released games too
     elif command in ('unrelease', 'release-edit'):
         pool = lists['released']
     else:
@@ -421,28 +478,37 @@ async def command_progress(i, opts):
     name = opts.get('game')
     if name == NONE:
         return await reply('No games are waiting to be released.', ephemeral=True)
-    k, _, g = _find(name)
+    k, rel, dev = _find(name)
+    g = dev or rel
     if not g:
-        return await reply('That game is not in the unreleased list. Claim it on the bounty-board first.', ephemeral=True)
+        return await reply('That game is not in the list. Claim it on the bounty-board first.', ephemeral=True)
     if not owns(i.user, owner_ids(g)):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
     percent, working, testing = opts.get('percent'), opts.get('working'), opts.get('testing')
+    if rel and not dev and (percent is not None or working is not None):
+        return await reply('A released game has no progress bar. Use `testing:on` or `testing:off`.', ephemeral=True)
     if percent is None and working is None and testing is None:
         return await reply('Give a percent, say whether you are working on it, or put it in testing.', ephemeral=True)
     if percent is not None and not 0 <= percent <= 100:
         return await reply('The percent must be between 0 and 100.', ephemeral=True)
     if working is None and percent is not None and g.get('working') is None:
         working = True  # giving a percent means it is being worked on
-    set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
+    if percent is not None or working is not None:
+        set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
     tag_note = ''
     if testing is not None or percent is not None:  # a percent means the game is back in development, unless testing was asked for too
-        on = bool(testing)
+        on = testing == 'on'
+        if not one('SELECT 1 FROM game_status WHERE key=?', key(g['name'])):
+            set_progress(g['name'], owner_ids(g), g.get('since'), None, None)
         run('UPDATE game_status SET testing_at=? WHERE key=?', now() if on else None, key(g['name']))
         if on:
             tag_note = await _tester_tag_note(clean_name(g['name']))
     await refresh_game_board()
+    shown = clean_name(g['name'])
+    if rel and not dev:
+        return await reply(f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {'🧪 testing' if testing == 'on' else 'not in testing'}{tag_note}", ephemeral=True)
     now_ = [x for x in game_lists()['unreleased'] if x['key'] == k][0]
-    return await reply(f"{E['fixed']} **PROGRESS**{EM}·{EM}{clean_name(g['name'])} {progress_cell(now_)}{tag_note}", ephemeral=True)
+    return await reply(f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {progress_cell(now_)}{tag_note}", ephemeral=True)
 
 
 async def _tester_tag_note(name):
