@@ -24,7 +24,8 @@ async def main():
                           'quiet': False, 'link': link, 'info': info, 'art': art, 'studio': studio, 'original': original, 'note': 'Multiplayer + VC. Only 1 map so far.',
                           'ping': 'everyone', 'title': None, 'hero_file': None, 'mine': None, 'test': True})
     ch = await fetch_channel(cfg.test_id)
-    sent = await ch.send(**reldraft.payload(pid))
+    p = reldraft.payload(pid)
+    sent = await ch.send(view=p['view'], files=p['attachments'], allowed_mentions=p['allowed_mentions'])
     print('draft', pid, 'message', sent.id)
     await finish(client)
 
