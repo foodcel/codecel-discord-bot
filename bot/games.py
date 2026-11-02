@@ -461,12 +461,12 @@ async def command_progress(i, opts):
         run('UPDATE game_status SET testing_at=? WHERE key=?', now() if on else None, key(g['name']))
         if on:
             tag_note = await _tester_tag_note(clean_name(g['name']))
-            if not was_testing:  # newly in testing: a card that pings Helpers, for a day
+            if not was_testing:  # newly in testing: a card that pings the Tester role, for a day
                 try:
                     from .env import cfg
                     from .testerboard import post_card
                     await post_card({'key': key(g['name']), 'name': g.get('title') or clean_name(g['name']), 'owners': owner_ids(g)}, ping=str(i.channel_id) != str(cfg.test_id))
-                    tag_note += '\n🙋 Helpers were pinged in the future-games channel.'
+                    tag_note += '\n🙋 Testers were pinged in the future-games channel.'
                 except Exception as e:
                     print('tester card', repr(e))
         else:

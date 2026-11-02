@@ -107,9 +107,9 @@ async def refresh_board():
 def card_view(g, ping=True):
     """The card of a game that just went into testing: (view, files, role pinged). The ping and the date are inside the card."""
     row = one('SELECT art_url, icon_url, hero_url FROM game_status WHERE key=?', g['key']) or {}
-    role = cfg.helpers_role if ping else None
-    text = (f"### 🧪 {g['name']} needs testers{NL}-# dev {' '.join(f'<@{o}>' for o in g['owners']) or '—'}"
-            + (f' · <@&{role}>' if role else '') + f' · <t:{int(time.time())}:D>')  # the ping and the date are in the card
+    role = cfg.tester_ping_role if ping else None
+    devs = ' '.join(f'<@{o}>' for o in g['owners']) or '—'
+    text = NL.join([f"### 🧪 {g['name']} needs testers", f'-# dev {devs}'] + ([f'-# <@&{role}>'] if role else []) + [f'-# <t:{int(time.time())}:D>'])  # dev, the ping and the date, one under the other
     cover = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
     strip_ = strip()
     view = ui.LayoutView(timeout=None)
@@ -121,7 +121,7 @@ def card_view(g, ping=True):
 
 
 async def post_card(g, ping=True):
-    """The small card for a game that just went into testing: pings Helpers, has the volunteer button, and goes away after a day."""
+    """The small card for a game that just went into testing: pings the Tester role, has the volunteer button, and goes away after a day."""
     ch = await fetch_channel(cfg.future_games_id)
     if not ch:
         return None
