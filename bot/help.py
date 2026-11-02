@@ -19,7 +19,7 @@ PAGES = {
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
         ('😈', 'Fun', ['mog'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
-        ('🎮', 'Your games', ['claim', 'unclaim', 'release testing', 'release new', 'release quiet', 'release edit', 'unrelease', 'gamelink', 'progress']),
+        ('🎮', 'Your games', ['claim', 'unclaim', 'release new', 'release quiet', 'release edit', 'unrelease', 'gamelink', 'progress']),
         ('📣', 'Updates and settings', ['update', 'config', 'pings', 'tester find']),
         ('⌨️', 'Typed in your board', [
             ('12 fixed', 'mark a bug fixed, investigating, duplicate…'),
@@ -45,7 +45,7 @@ SHORT = {
     'mog': 'Codecel posts a mog GIF and pings Robin and Redwing Helper',
     'pardon': 'remove a strike (and give back bug hunting)', 'botrules': 'post the bug report rules here', 'preview': 'post the finished embeds in the test channel',
     'claim': 'take a game (add its Steam page with link:)', 'unclaim': 'drop a game you claimed', 'release new': 'your game is out: paste its Roblox link',
-    'release quiet': 'add a finished game without announcing it', 'release testing': 'put your game in testing, so testers can report bugs', 'release edit': 'fix a released game', 'unrelease': 'move a game back to unreleased',
+    'release quiet': 'add a finished game without announcing it', 'release edit': 'fix a released game', 'unrelease': 'move a game back to unreleased',
     'gamelink': "change a game's link", 'progress': 'say how far a game is', 'update': 'draft and post an update', 'config': "a game's channel, link and pings",
     'pings': 'choose when the bot pings you', 'tester find': 'find a tester for your game', 'tester profile': 'fill in or change your tester profile',
     'bug': 'report a bug with a short form', 'improvement': 'suggest an improvement with a short form', 'help': 'this list',

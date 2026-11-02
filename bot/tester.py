@@ -50,10 +50,10 @@ def is_tester(m):
 
 
 def known_games():
-    """Every game a tester can report: the games in the testing phase, and the released ones that have a tag."""
+    """Every game a tester can report: the ones on the board (claimed or released) and the ones that have a tag."""
     from .games import clean_name, game_lists
     lists = game_lists()
-    names = [clean_name(g['name']) for g in lists['testing']] + [t['name'] for t in game_tags()]  # the games in testing, and the released ones that have a tag
+    names = [clean_name(g['name']) for g in lists['unreleased'] + lists['released']] + [t['name'] for t in game_tags()]
     return list(dict.fromkeys(n for n in names if n))
 
 

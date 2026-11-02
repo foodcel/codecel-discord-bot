@@ -20,7 +20,7 @@ from .env import cfg
 from .fixes import apply_status
 from .fixlog import log_page, open_log, send_fix_transcript
 from .games import autocomplete_games, command_gamelink, command_progress, command_games, command_release
-from .release import command_release_edit, command_release_new, command_release_testing
+from .release import command_release_edit, command_release_new
 from .reldraft import text_view
 from .perms import can_confirm, can_manage, level
 from .previews import post_previews
@@ -78,7 +78,7 @@ async def autocomplete(i):
     if name in bounty_board_commands.BOARD_NAMES:
         return await bounty_board.autocomplete(i, name, fvalue)
     if name in ('release', 'unrelease', 'games', 'gamelink', 'progress'):
-        return await autocomplete_games(i, 'release-edit' if (name == 'release' and sub == 'edit') else ('release-testing' if (name == 'release' and sub == 'testing') else name), fvalue)
+        return await autocomplete_games(i, 'release-edit' if (name == 'release' and sub == 'edit') else name, fvalue)
     q = str(fvalue).lower()
     if fname == 'board':
         lst = [{'name': c['name'][:100], 'value': c['name'][:100]} for c in get_claims()]
@@ -486,8 +486,6 @@ async def handle_command(i):
     if name == 'release':
         if sub == 'edit':
             return await command_release_edit(i, opts)
-        if sub == 'testing':
-            return await command_release_testing(i, opts)
         return await command_release_new(i, opts, quiet=(sub == 'quiet'))
     if name == 'unrelease':
         return await command_release(i, opts, True)

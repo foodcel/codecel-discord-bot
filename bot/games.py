@@ -19,15 +19,9 @@ FOOT_UNRELEASED = '\n'.join([
     '/claim · take a game (add its Steam page with link:)',
     '/progress · set how far it is and if you are working on it',
     '/gamelink · change a game\'s link',
-    '/release testing · put it in the testing phase',
     '/release new · the game is out (paste its Roblox link)',
     '/release quiet · add it without announcing it',
     '/unclaim · drop a game you claimed',
-])
-FOOT_TESTING = '\n'.join([
-    '/release testing · put a game in testing, or send it back to development',
-    '/release new · testing is done: the game is out',
-    '/bug · testers report them in the testing channel',
 ])
 FOOT_RELEASED = '\n'.join([
     '/release edit · fix a released game\'s title, link, image or credits',
@@ -96,18 +90,12 @@ def game_lists():
     rows = all_('SELECT * FROM game_status')
     released = sorted((r for r in rows if r['status'] == 'released'), key=lambda r: -(r['released_at'] or 0))
     released_keys = {r['key'] for r in released}
-    testing_rows = {r['key']: r for r in rows if r['status'] == 'testing' and r['key'] not in released_keys}
     unreleased = []
-    testing = {}
     seen = set()
     sources = {r['key']: r for r in rows}
     for c in get_claims():
         k = key(c['name'])
         seen.add(k)
-        if k in testing_rows:  # in the testing phase: shown in its own list, with the owners the board says today
-            r = testing_rows[k]
-            testing[k] = {'key': k, 'name': c['name'], 'owners': c['owners'], 'since': c['since'], 'source_link': r.get('source_link'), 'link': r.get('link'), 'testing_at': r.get('testing_at')}
-            continue
         if k not in released_keys:
             unreleased.append({'key': k, 'name': c['name'], 'owners': c['owners'], 'since': c['since'],
                                'source_link': (sources.get(k) or {}).get('source_link'),
@@ -118,10 +106,7 @@ def game_lists():
             unreleased.append({'key': r['key'], 'name': r['name'], 'owners': owner_ids(r), 'since': r['since'],
                                'source_link': r['source_link'],
                                'progress': r['progress'], 'working': r['working']})
-    for k, r in testing_rows.items():  # in testing after it left the bounty-board
-        if k not in testing:
-            testing[k] = {'key': k, 'name': r['name'], 'owners': owner_ids(r), 'since': r['since'], 'source_link': r.get('source_link'), 'link': r.get('link'), 'testing_at': r.get('testing_at')}
-    return {'released': released, 'unreleased': unreleased, 'testing': sorted(testing.values(), key=lambda g: -(g['testing_at'] or 0))}
+    return {'released': released, 'unreleased': unreleased}
 
 
 # ---- the table ----
@@ -168,8 +153,6 @@ def table(e, headings, rows):
     def emit(chunk):
         columns(e, [{'name': name if state['first'] else ZW, 'lines': [r[i] for r in chunk]} for i, name in enumerate(headings)],
                 RULE if state['first'] else '')
-        for _ in range(3 - n):  # Discord puts three fields on a row: an empty one keeps the next block of columns on a row of its own
-            e.add_field(name=ZW, value=ZW, inline=True)
         state['first'] = False
 
     for r in rows:
@@ -267,9 +250,6 @@ async def game_embeds(lists=None):
     dev = await rows_by_dev([{'name': clean_name(g['name']), 'owners': g['owners'], 'since': g['since'], 'link': g.get('source_link'),
                              'progress': g.get('progress'), 'working': g.get('working')} for g in lists['unreleased']])
 
-    tst = await rows_by_dev([{'name': clean_name(g['name']), 'owners': g['owners'], 'at': g.get('testing_at'), 'link': g.get('link') or g.get('source_link')}
-                             for g in lists.get('testing', [])])
-
     def n_games(rows):
         return len({r['name'] for r in rows})
 
@@ -293,18 +273,7 @@ async def game_embeds(lists=None):
         e2.add_field(name=ZW, value='None yet.', inline=False)
     gap(e2)
     e2.set_footer(text=FOOT_UNRELEASED)
-
-    e3 = flat()
-    e3.title = head('🧪', 'Games in testing')
-    describe(e3, f'🧪 **{n_games(tst)}** in testing')
-    if tst:
-        table(e3, [head(E['game'], 'Games'), head(E['date'], 'Testing since')], tree_rows(
-            tst, lambda r: datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d') if r.get('at') else '—'))
-    else:
-        e3.add_field(name=ZW, value='None right now.', inline=False)
-    gap(e3)
-    e3.set_footer(text=FOOT_TESTING)
-    return [e1, e2, e3]
+    return [e1, e2]
 
 
 # ---- the live board message (posted once with /games post, then kept up to date) ----
@@ -350,9 +319,7 @@ async def autocomplete_games(i, command, focused):
     """Shows the proper name, answers with the typed name (that is what the lists are keyed on)."""
     q = str(focused or '').lower()
     lists = game_lists()
-    if command in ('release', 'release-testing'):
-        pool = [*lists['unreleased'], *lists['testing']]  # a game in testing can be released too
-    elif command == 'progress':
+    if command in ('release', 'progress'):
         pool = lists['unreleased']
     elif command in ('unrelease', 'release-edit'):
         pool = lists['released']
@@ -375,7 +342,7 @@ def _find(name):
     def pick(lst):
         return next((g for g in lst if g['key'] == k), None) or next((g for g in lst if key(clean_name(g['name'])) == k), None)
 
-    rel, dev = pick(lists['released']), pick(lists['unreleased']) or pick(lists['testing'])
+    rel, dev = pick(lists['released']), pick(lists['unreleased'])
     found = dev or rel
     return (found['key'] if found else k), rel, dev
 
