@@ -1,6 +1,5 @@
 """The card look for the posts that are still embeds: any embed becomes a card with the title and a date button on the right, a line under the header,
-the body, a line above the footer and the commands in small text. Columns of plain text become an aligned table in a code block (clear columns);
-columns with a tree (games under their dev) become one line per row, with the blank line between devs kept.
+the body, a line above the footer and the commands in small text. Columns become one line per row, with the blank line between devs kept. A post with side-by-side columns (the bug page, the fix log) stays an embed.
 Used for the mockups first; a post only switches when its code builds a card instead of an embed."""
 import re
 
@@ -14,7 +13,6 @@ NL = chr(10)
 ZWS = '​'
 RULE = re.compile(r'^[\s​_─―‾-]+$')  # a line that is only a rule
 SMALL = discord.SeparatorSpacing.small
-TREE = ('├', '└', '<@')  # a column with these is a list under people: it stays a list, not a table
 
 
 def _blank(s):
@@ -46,42 +44,42 @@ def _row_lines(cols):
     return out
 
 
-def _mono(heads, cols):
-    """Columns as an aligned table in a code block."""
-    rows = [[_plain(c[k]) if k < len(c) else '' for c in cols] for k in range(max(len(c) for c in cols))]
-    rows = [r for r in rows if any(r)]
-    heads = [_plain(h) for h in heads]
-    widths = [max([len(heads[i])] + [len(r[i]) for r in rows]) for i in range(len(cols))]
-    fmt = lambda r: '  '.join(r[i].ljust(widths[i]) for i in range(len(cols))).rstrip()
-    return '```' + NL + fmt(heads) + NL + NL.join(fmt(r) for r in rows) + NL + '```'
-
-
 def _table(group):
-    """Consecutive inline fields (columns), three to a row."""
-    real = [f for f in group if not (_blank(f.name) and _blank(f.value))]
+    """Consecutive inline fields (columns), three to a row like Discord lays them out; the empty fillers are dropped after that."""
     out = []
-    for i in range(0, len(real), 3):
-        part = real[i:i + 3]
+    for i in range(0, len(group), 3):
+        part = [f for f in group[i:i + 3] if not (_blank(f.name) and _blank(f.value))]
+        if not part:
+            continue
         cols = [_cells(f.value) for f in part]
         heads = [f.name.strip(' ' + ZWS) for f in part]
-        listy = any(any(t in ln for t in TREE) for c in cols for ln in c)
-        if listy:
-            if any(heads):
-                out.append('**' + '  ·  '.join(h for h in heads if h) + '**')
-            out += _row_lines(cols)
-        else:
-            out.append(_mono(heads, cols))
+        if any(heads):
+            out.append('**' + '  ·  '.join(h for h in heads if h) + '**')
+        out += _row_lines(cols)
     return NL.join(out)
 
 
-def card_from_embed(e, when=None, ping=None, inline_desc=False):
+def _spaced(value):
+    """A long list of people: one blank line before each next person (a line that starts with a mention)."""
+    out = []
+    for ln in str(value).split(NL):
+        if ln.startswith('<@') and out and out[-1].strip(' ' + ZWS):
+            out.append('')
+        out.append(ln)
+    return NL.join(out)
+
+
+def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=False):
     """(view, files) for an embed shown as a card. A thumbnail on the embed goes to the right of the title, else the date does.
-    inline_desc: the first line of the description (the counts) moves into the title."""
+    inline_desc: the first line of the description (the counts) moves into the title; plain_count drops the emoji in front of it."""
     strip_ = width_strip()
     title, desc = e.title or '', (e.description or '').strip(' ' + ZWS + NL)
     if inline_desc and desc:
         first, _, desc = desc.partition(NL)
-        title = f"{title} · {re.sub(r'[*]', '', first).strip()}"
+        first = re.sub(r'[*]', '', first).strip()
+        if plain_count:
+            first = re.sub(r'^[^A-Za-z0-9]+', '', first)
+        title = f'{title} · {first}'
         desc = desc.strip(' ' + ZWS + NL)
     accessory = ui.Thumbnail(e.thumbnail.url) if e.thumbnail and e.thumbnail.url else (date_button(when) if len(title) <= 44 else None)
     items = []
@@ -104,9 +102,9 @@ def card_from_embed(e, when=None, ping=None, inline_desc=False):
             continue
         i += 1
         if not _blank(f.name):
-            items.append(ui.TextDisplay(f'**{f.name.rstrip(":")}**{NL}{f.value}'[:3900]))
+            items.append(ui.TextDisplay(f'**{f.name.rstrip(":")}**{NL}{_spaced(f.value)}'[:3900]))
         elif not _blank(f.value):
-            items.append(ui.TextDisplay(f.value[:3900]))
+            items.append(ui.TextDisplay(_spaced(f.value)[:3900]))
     if e.footer and e.footer.text:
         items += [ui.Separator(visible=True, spacing=SMALL), ui.TextDisplay(NL.join('-# ' + code_chip(x) for x in e.footer.text.split(NL)))]
     view = ui.LayoutView()
