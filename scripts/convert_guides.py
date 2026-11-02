@@ -15,6 +15,10 @@ GAMES_FORUM = '1562961976387174452'
 BUILDERS = {'bugs': bugs_guide_embed, 'suggestions': suggestions_guide_embed, 'games': games_guide_embed, 'testers': lambda: tester_guide_embeds()[0]}
 
 
+FORUM_GUIDE = {str(cfg.bugs_id): bugs_guide_embed, str(cfg.suggestions_id): suggestions_guide_embed, GAMES_FORUM: games_guide_embed,
+               str(cfg.tester_forum_id): lambda: tester_guide_embeds()[0]}
+
+
 async def main():
     client = await boot(claims=False)
     if '--yes' not in sys.argv:
@@ -35,9 +39,10 @@ async def main():
                 msg = await t.fetch_message(t.id)
             except Exception:
                 continue
-            if msg.author.id != client.user.id or not msg.embeds:
+            if msg.author.id != client.user.id:
                 continue
-            build = titles.get(msg.embeds[0].title)
+            # an embed is known by its title; a post that is a card already is known by its forum (one guide per forum)
+            build = titles.get(msg.embeds[0].title) if msg.embeds else FORUM_GUIDE.get(str(fid))
             if not build:
                 print('skipped (not one of the guides):', t.name)
                 continue
