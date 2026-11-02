@@ -200,6 +200,9 @@ async def command_release_new(i, opts, quiet=False):
     studio = (opts.get('studio') or '').strip() or await steam_studio(dev.get('source_link')) or art['studio']
     mine = (opts.get('image') or {}).get('url') if opts.get('image') else None
     from . import reldraft
+    from .cards import _hero
+    await asyncio.to_thread(_hero, reldraft.draft_row({'key': k, 'name': dev['name'], 'owners': '', 'link': link, 'info': info, 'art': art, 'studio': studio,
+                                                       'original': original, 'hero_file': hero_file, 'mine': mine if test else None}))  # the cropped picture is made now, not at Post
     pid = create_pending({'kind': 'release', 'user': str(i.user.id), 'game': name, 'key': k, 'name': dev['name'], 'owners': ','.join(owner_ids(dev)),
                           'since': dev.get('since'), 'quiet': quiet, 'link': link, 'info': info, 'art': art, 'studio': studio, 'original': original,
                           'note': (opts.get('note') or '').strip()[:140] or None, 'ping': ping, 'title': None, 'hero_file': hero_file,

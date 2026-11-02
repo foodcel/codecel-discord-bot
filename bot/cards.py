@@ -2,7 +2,9 @@
 One look: a hero image, a big title, a few grey lines, and a Play button. Nothing here pings in the test channel."""
 import asyncio
 import hashlib
+import io
 import json
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,13 +29,69 @@ _lock = asyncio.Lock()
 NL = chr(10)
 
 
+HERO_RATIO = 3.1  # every new-game picture is cut to the same wide shape (width / height)
+CROP_DIR = Path(__file__).resolve().parent.parent / 'data' / 'heroes' / 'crop'
+
+
+def _cut(data, name):
+    """The picture cut from the middle to the wide shape every new-game card uses. Returns a file path, or None when it cannot be done."""
+    from PIL import Image
+    img = Image.open(io.BytesIO(data))
+    if getattr(img, 'is_animated', False):
+        return None  # a moving picture stays as it is
+    img = img.convert('RGB')
+    w, h = img.size
+    if w / h > HERO_RATIO:
+        nw = int(h * HERO_RATIO)
+        box = ((w - nw) // 2, 0, (w - nw) // 2 + nw, h)
+    else:
+        nh = int(w / HERO_RATIO)
+        box = (0, (h - nh) // 2, w, (h - nh) // 2 + nh)
+    img = img.crop(box)
+    if img.width > 1600:
+        img = img.resize((1600, int(1600 / HERO_RATIO)))
+    CROP_DIR.mkdir(parents=True, exist_ok=True)
+    path = CROP_DIR / f'{name}.jpg'
+    img.save(path, 'JPEG', quality=90)
+    return path
+
+
+def _cropped(source):
+    """(file path of the cropped picture) for a link or a saved file; the link is downloaded once and kept. None: use the original."""
+    try:
+        if str(source).startswith('http'):
+            name = hashlib.sha1(source.encode()).hexdigest()[:16]
+            path = CROP_DIR / f'{name}.jpg'
+            if path.exists():
+                return path
+            req = urllib.request.Request(source, headers={'User-Agent': 'codecel-bot'})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                return _cut(r.read(), name)
+        p = Path(source)
+        name = hashlib.sha1(f'{p}{p.stat().st_mtime}'.encode()).hexdigest()[:16]
+        if (CROP_DIR / f'{name}.jpg').exists():
+            return CROP_DIR / f'{name}.jpg'
+        return _cut(p.read_bytes(), name)
+    except Exception as e:
+        print('hero crop', repr(e))
+        return None
+
+
 def _hero(row):
-    """(media for a gallery, file or None) of a released game: the picture the dev attached, else the original game's wide art, else the one from Roblox."""
+    """(media for a gallery, file or None) of a released game: the picture the dev attached, else the original game's wide art, else the one from Roblox.
+    All of them are cut to the same wide shape."""
     if row.get('hero_file') and Path(row['hero_file']).exists():
-        f = discord.File(row['hero_file'])
+        c = _cropped(row['hero_file'])
+        f = discord.File(c, filename=f'hero-{c.stem}.jpg') if c else discord.File(row['hero_file'])
         return f, f
     url = row.get('art_hero_url') or row.get('hero_url')
-    return (url, None) if url else (None, None)
+    if not url:
+        return None, None
+    c = _cropped(url)
+    if c:
+        f = discord.File(c, filename=f'hero-{c.stem}.jpg')
+        return f, f
+    return url, None
 
 
 def _title(row):
@@ -325,7 +383,7 @@ async def refresh_library(force=False):
                     await m.delete()
         except Exception as e:
             print('rival sweep', repr(e))
-        rows = game_lists()['released']
+        rows = in_library(game_lists()['released'])
         pages = library_pages(rows)
         ids, digests = conf['messages'], conf.get('digests', [])
         shown = [json.dumps([p['kind'], p.get('footer'), p['rows']], default=str) for p in library_plan(rows)]
@@ -387,7 +445,7 @@ async def post_new_game_card(row, ping='everyone'):
                else discord.AllowedMentions(everyone=everyone, roles=[discord.Object(id=int(role))] if role else False))
     sent = await ch.send(view=view, files=files, allowed_mentions=allowed)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_DAYS * 86400000)
-    register_card(sent.id, row['key'], now() + CARD_DAYS * 86400000)
+    register_card(sent.id, row['key'], now() + CARD_DAYS * 86400000, hold=True)
     return sent
 
 
@@ -453,9 +511,15 @@ def _cards_conf():
         return []
 
 
-def register_card(msg_id, game_key, leave_at):
-    cards = [c for c in _cards_conf() if c['leave_at'] > now()] + [{'msg': str(msg_id), 'key': game_key, 'leave_at': leave_at}]
+def register_card(msg_id, game_key, leave_at, hold=False):
+    cards = [c for c in _cards_conf() if c['leave_at'] > now()] + [{'msg': str(msg_id), 'key': game_key, 'leave_at': leave_at, 'hold': hold}]
     kv_set('library_cards', json.dumps(cards))
+
+
+def in_library(rows):
+    """A game with a live new-game card is not in the library yet: it is added when its 3 days are over (the next refresh)."""
+    held = {c['key'] for c in _cards_conf() if c.get('hold') and c['leave_at'] > now()}
+    return [r for r in rows if r['key'] not in held]
 
 
 async def restore_cards(ch, force=False):
