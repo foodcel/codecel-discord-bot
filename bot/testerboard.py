@@ -53,7 +53,7 @@ def can_volunteer(member):
 
 
 def board_view():
-    """The board as a card: the title with the date on the right, a line, the games, the picker, a line, the commands."""
+    """The board as a card: the title with the date on the right, a line, the games, a line, the commands. The picker is below the card."""
     strip_ = strip()
     games = testing_games()
     items = [ui.Section('### 🧪 Tester board', accessory=date_button()), ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]  # the date of the last change, on the right
@@ -63,14 +63,14 @@ def board_view():
         rows = [('Dev', ' '.join(f'<@{o}>' for o in g['owners']) or '—'), ('Since', f"<t:{g['since'] // 1000}:D>")]
         rows += [('Tester', f'<@{u}>') for u in testers_of(g['key'])] or [('Testers', 'nobody yet')]
         items.append(ui.TextDisplay(f"**🎮 {g['name']}**{NL}{tree(*rows)}"))
-    if games:  # one dropdown where you pick every game you test (pick none to leave them all)
-        picks = games[:25]
-        items.append(ui.ActionRow(ui.Select(custom_id='tbd:pick', placeholder='🙋 Pick the games you want to test…', min_values=0, max_values=len(picks),
-                                            options=[discord.SelectOption(label=g['name'][:100], value=g['key'], description=f"testing since {date(g['since'])}") for g in picks])))
     items += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(NL.join('-# ' + x for x in FOOTER))]
     view = ui.LayoutView(timeout=None)
     view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
     view.add_item(ui.Container(*items))
+    if games:  # the picker sits below the card, outside it: one dropdown where you pick every game you test (pick none to leave them all)
+        picks = games[:25]
+        view.add_item(ui.ActionRow(ui.Select(custom_id='tbd:pick', placeholder='🙋 Pick the games you want to test…', min_values=0, max_values=len(picks),
+                                            options=[discord.SelectOption(label=g['name'][:100], value=g['key'], description=f"testing since {date(g['since'])}") for g in picks])))
     return view, [strip_]
 
 
