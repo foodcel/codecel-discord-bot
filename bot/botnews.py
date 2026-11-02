@@ -228,65 +228,42 @@ def release_news_testers_embeds():
 
 
 def testing_news_devs_embeds():
-    """The announcement for devs: everything new since the last one. One embed."""
+    """The announcement for devs: everything new since the last one, short. One embed."""
     owner_id = os.environ.get('OWNER_ID') or ''
-    games = f'<#{GAMES_CHANNEL}>'
     e = flat()
-    e.title = head(E['update'], 'New · testing, previews and more')
+    e.title = head(E['update'], 'New · testing and previews')
     e.set_footer(text='Type /help to see every command you can use.')
-    describe(e, 'Games can be tested before they come out, releasing shows a preview first, and a lot got smoother.')
-    section(e, head('🧪', 'Testing phase'),
-            f'`/progress game:X testing:on` puts a game in testing: the bounty-board shows **🧪 testing** instead of the progress bar, and the game is listed on the testing board in <#{cfg.future_games_id}>. '
-            '`testing:off` ends it. It works for released games too (they get a 🧪 on the released board), so you can keep testing after release.')
+    section(e, head('🧪', 'Testing'),
+            f'`/progress testing:on` shows **🧪 testing** on the board and lists your game in <#{cfg.future_games_id}>. Works for released games too.')
     section(e, head('🏷️', 'Testers forum'),
-            f'Testers report with `/bug` or `!bug` in <#{cfg.testing_id}>. Every report becomes a post in <#{cfg.tester_forum_id}>, tagged with the game, and reaches your dev board like any other bug. '
-            "The game's tag is made the moment you turn testing on. Testers only see games in testing.")
-    section(e, head('👀', 'Preview before it posts'),
-            '`/release new`, `/release quiet` and `/release edit` show a preview first: the new-game card and the library entry exactly as they will look. '
-            '**Post** makes it live, **Edit details** changes the title, link, studio, original name or description, the dropdown picks who it pings, and **Cancel** throws it away.')
+            f'Testers report in <#{cfg.tester_forum_id}>. The game gets its tag when testing starts, and reports reach your board.')
+    section(e, head('👀', 'Previews'),
+            '`/release new`, `quiet` and `edit` show a preview first. **Post**, **Edit details** or **Cancel**.')
     section(e, head('💬', 'Description'),
-            'Add a short line under your game with `description:` on `/release new`, `/release quiet` or `/release edit`, like "Multiplayer + VC" or "Only 1 map so far". `description:-` removes it.')
-    section(e, head('📚', 'New games and the library'),
-            f'A new game shows as its card in {games} for 3 days, then joins the library. Every card picture is cut to the same wide shape. The picture check for nudity and gore is gone. '
-            'A game released before keeps its Roblox link, so you can leave `link:` out when you release it again.')
-    section(e, head('🔴', 'Games going offline'),
-            'The bot checks every game on Roblox every 5 minutes. A game that is taken down is marked **Offline for now** (a grey button) and its dev is pinged in <#1565918318664093766>; it switches back on by itself when the game returns. '
-            'You can also set it by hand with `/release edit online:`.')
-    section(e, head(E['update'], 'Update drafts'),
-            'The `/update` draft is now the real update card with the cover and **Play now**, so what you see is what posts. A game with a different name on the board still gets its cover.')
-    section(e, head('🧹', 'Bounty board'),
-            'The bounty board was cleaned and reposted: top suggestions, unreleased games, released games.')
-    gap(e)
-    columns(e, [
-        {'name': head('⌨️', 'Commands'), 'lines': [
-            '`/progress testing:on` · start testing', '`/progress testing:off` · testing is over', '`/release new` · preview, then post',
-            '`/release edit description:` · the line under your game', '`/release edit online:` · offline or online']},
-        {'name': head(E['user'], 'Who can do what'), 'lines': [
-            '**Devs** · only their own games', '**Admins** · everything']},
-    ], '─' * 28)
+            '`description:` adds a line under your game, like "Multiplayer + VC". `-` removes it.')
+    section(e, head('📚', 'Library'),
+            'A new game is a card for 3 days, then joins the library. Pictures are cropped to one shape, and there is no picture check.')
+    section(e, head('🔴', 'Offline'),
+            f'The bot checks Roblox every 5 minutes, marks a taken-down game offline and pings you in <#1565918318664093766>.')
+    section(e, head(E['update'], 'Updates'),
+            '`/update` drafts now look exactly like the posted card.')
     if owner_id:
         e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
     return [e]
 
 
 def testing_news_testers_embeds():
-    """The announcement for testers: the testers forum and which games they can report. One embed."""
+    """The announcement for testers, short. One embed."""
     owner_id = os.environ.get('OWNER_ID') or ''
     e = flat()
     e.title = head('🧪', 'New · testers forum')
     e.set_footer(text='Type /help to see the commands you can use.')
-    describe(e, 'Your reports now have a home of their own.')
-    section(e, head('🏷️', 'Testers forum'),
-            f'Every bug you report with `/bug` or `!bug` in <#{cfg.testing_id}> becomes a post in <#{cfg.tester_forum_id}>, tagged with the game. The dev is told, and replies in your post.')
-    section(e, head('🎮', 'Which games'),
-            f'The `/bug` list shows the games that are **in testing** right now, plus released games. A game appears the moment its dev puts it in testing. All games in testing are listed in <#{cfg.future_games_id}>.')
-    section(e, head('🔍', 'Bug hunting'),
-            f'Reply to a message in <#{cfg.testing_id}> with `!bug <game>` and it becomes a post in the testers forum, in the name of the player who wrote it. You can only use it in the testing channel.\n'
-            '**Limit:** if 5 of your posts turn out false, you lose the command and an admin will ask what you meant.')
-    section(e, head('📎', 'Add more later'),
-            'Once a report says **LOGGED**, anything you add to it (words, logs, videos) is added to the report and marked with a 📎. The dev is told.')
-    section(e, head('❓', 'Help'),
-            '`/help` shows the commands you can use, one page per role.')
+    section(e, head('🏷️', 'Reports'),
+            f'`/bug` and `!bug` in <#{cfg.testing_id}> now post in <#{cfg.tester_forum_id}>, tagged with the game.')
+    section(e, head('🎮', 'Games'),
+            f'Only games **in testing** (and released ones) are listed. See them in <#{cfg.future_games_id}>.')
+    section(e, head('🔍', '!bug'),
+            'Reply to a message with `!bug <game>`, in the testing channel only. 5 false posts and you lose it.')
     if owner_id:
         e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
     return [e]

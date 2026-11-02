@@ -20,7 +20,7 @@ async def main():
     if '--yes' not in sys.argv:
         print('Not purging. Pass --yes.')
         return await finish(client)
-    for cid in (cfg.future_games_id, cfg.test_id):
+    for cid in ((cfg.test_id,) if '--news-only' in sys.argv else (cfg.future_games_id, cfg.test_id)):
         ch = await fetch_channel(cid)
         n = len(await ch.purge(limit=None, bulk=True, reason='Cleared on request'))
         print('purged', ch.name, n)
@@ -28,7 +28,8 @@ async def main():
     none = discord.AllowedMentions.none()
     await ch.send(content=f'<@&{DEV_ROLE}>', embeds=testing_news_devs_embeds(), allowed_mentions=none)
     await ch.send(content=f'<@&{TESTER_ROLE}>', embeds=testing_news_testers_embeds(), allowed_mentions=none)
-    await refresh_testing_board()
+    if '--news-only' not in sys.argv:
+        await refresh_testing_board()
     print('done')
     await finish(client)
 
