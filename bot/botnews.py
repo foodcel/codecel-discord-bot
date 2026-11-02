@@ -208,3 +208,26 @@ def testing_news_testers_embeds():
             ('Limit', '5 false posts and you lose it')])],
         ['/bug · report a bug in the testing channel', '!bug <game> · reply to a message to report it', '/help · the commands you can use'],
         emoji='🧪')]
+
+
+def tester_guide_embeds():
+    """The pinned "get started" post of the testers forum."""
+    return [make('Get started · testing', [
+        ('🧪', 'Report a bug', [
+            ('1', f'type `/bug` in <#{cfg.testing_id}>'),
+            ('2', 'pick the game'),
+            ('3', 'add screenshots and videos'),
+            ('4', 'fill in the form and send it')]),
+        ('🔍', 'Or reply to a message', [
+            ('!bug <game>', 'reply to it in the testing channel'),
+            ('Limit', '5 false posts and you lose it')]),
+        ('📌', 'This forum', [
+            ('Posts', 'one per bug, tagged with the game'),
+            ('Dev', 'replies in your post, and pings you when fixed'),
+            ('Games', f'only games in testing: <#{cfg.future_games_id}>')]),
+        ('✨', 'A good report', [
+            ('Title', 'short and clear'),
+            ('Steps', 'how to make it happen again'),
+            ('Proof', 'a screenshot or a video')])],
+        ['/bug · report a bug in the testing channel', '!bug <game> · reply to a message to report it', '/help · the commands you can use'],
+        emoji='👋')]
