@@ -147,10 +147,10 @@ def top_embed():
 
 
 async def build_embeds():
-    """The three pinned messages: top suggestions, the games being worked on, and the released games."""
+    """The four pinned messages: top suggestions, the games being worked on, the games in testing, and the released games."""
     from .games import game_embeds
-    released, unreleased = await game_embeds()
-    return [top_embed(), unreleased, released]
+    released, unreleased, testing = await game_embeds()
+    return [top_embed(), unreleased, testing, released]
 
 
 def set_completed(name, done):
@@ -285,7 +285,13 @@ async def refresh_board():
             return
         from . import bounty
         bounty.set_claims(live_claims())  # the embeds read the claims
-        old = [c.get('top'), c.get('claims'), c.get('completed')]
+        old = [c.get('top'), c.get('claims'), c.get('testing'), c.get('completed')]
+        if not c.get('testing') and c.get('completed'):  # the testing message is new: the released games are posted again below it
+            try:
+                await ch.get_partial_message(int(c['completed'])).delete()
+            except discord.HTTPException:
+                pass
+            old[3] = None
         ids = []
         for mid, embed in zip(old, await build_embeds()):
             try:
@@ -302,7 +308,7 @@ async def refresh_board():
                 print('Couldn\'t update the bounty board', e)
             ids.append(str(mid) if mid else None)
         if ids != old:
-            save_cfg({**c, 'top': ids[0], 'claims': ids[1], 'completed': ids[2]})
+            save_cfg({**c, 'top': ids[0], 'claims': ids[1], 'testing': ids[2], 'completed': ids[3]})
 
 
 def schedule_refresh():
@@ -675,10 +681,10 @@ async def command_setup(i, opts):
         except Exception:
             msgs = []
         imported = import_old_board(msgs)
-    new = {'forum_id': str(forum.id), 'channel_id': str(channel.id), 'role_id': str(role), 'top': None, 'claims': None, 'completed': None}
+    new = {'forum_id': str(forum.id), 'channel_id': str(channel.id), 'role_id': str(role), 'top': None, 'claims': None, 'testing': None, 'completed': None}
     save_cfg(new)
     if old:  # retire the previous board's messages
-        for mid in (old.get('top'), old.get('claims'), old.get('completed')):
+        for mid in (old.get('top'), old.get('claims'), old.get('testing'), old.get('completed')):
             if mid:
                 try:
                     och = await fetch_channel(old['channel_id'])

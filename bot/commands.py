@@ -77,6 +77,7 @@ STATUS_CHOICES = [('🟢 Active (open to every dev)', 'active'), ('🟡 Waiting 
                   ('🔒 Private (one dev only)', 'private'), ('💤 On a break', 'inactive')]
 ON_OFF = [('On', 'on'), ('Off', 'off')]
 ONLINE = [('Online', 'online'), ('Offline for now', 'offline')]
+TESTING_PHASE = [('In testing', 'testing'), ('Back to development', 'development')]
 RELEASE_PING = [('@everyone', 'everyone'), ('@Updates', 'updates'), ('@Releases', 'releases'), ('No ping', 'none')]
 
 PREVIEW_CHOICES = [
@@ -133,6 +134,11 @@ COMMANDS = [
             option(STRING, 'studio', 'Original studio (otherwise taken from the Steam page)'),
             option(STRING, 'original', 'Original game name (otherwise the name on the board)'),
             option(STRING, 'description', 'A short line shown under the game, e.g. Multiplayer + VC, or Only 1 map so far', max_length=140),
+        ]),
+        sub('testing', 'Put your game in the testing phase (testers can report bugs on it), or send it back to development', [
+            option(STRING, 'game', 'Game', required=True, autocomplete=True),
+            option(STRING, 'phase', 'In testing (default) or back to development', choices=TESTING_PHASE),
+            option(STRING, 'link', 'Roblox link testers can join with (kept for the release)'),
         ]),
         sub('edit', 'Fix a released game', [
             option(STRING, 'game', 'Released game', required=True, autocomplete=True),

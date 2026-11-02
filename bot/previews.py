@@ -34,7 +34,7 @@ def sample_lists():
             g['progress'], g['working'] = 20 + (n * 17) % 75, 1
         elif n % 3 == 1:
             g['progress'], g['working'] = 10 + (n * 11) % 60, 0
-    return {'released': released, 'unreleased': rest}
+    return {'released': released, 'unreleased': rest, 'testing': []}
 
 
 async def clear_channel(ch):
