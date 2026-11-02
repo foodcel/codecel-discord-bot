@@ -240,3 +240,25 @@ async def set_tags(thread, game=None, device=None, status=KEEP, replace_game=Fal
         await thread.edit(applied_tags=[forum.get_tag(int(i)) for i in nxt if forum.get_tag(int(i))])
     except Exception as e:
         print('setAppliedTags', e)
+
+
+async def ensure_tester_tag(name):
+    """The game's tag in the testers' forum, made when it is missing (unreleased games have no tag in the bugs forum, so this forum has its own).
+    Returns (ForumTag or None, problem text or None). A full forum (20 tags) gives no tag: the post is made without one."""
+    from .games import clean_name
+    forum = await ctx.client.fetch_channel(int(cfg.tester_forum_id))
+    label = clean_name(name)[:20]
+    names = [t.name for t in forum.available_tags]
+    hit = next((t for t in forum.available_tags if _norm(t.name) == _norm(label)), None) or next((t for t in forum.available_tags if _has_game(label, [t.name])), None)
+    if hit:
+        return hit, None
+    if len(names) >= MAX_TAGS:
+        return None, f'The testers forum is full (Discord allows {MAX_TAGS} tags), so **{label}** has no tag there. An admin must remove a tag to make room.'
+    try:
+        forum = await forum.edit(available_tags=[*forum.available_tags, discord.ForumTag(name=label)], reason=f'Tester report for {label}')
+    except Exception as e:
+        print('tester tag', repr(e))
+        return None, f'I could not make the **{label}** tag in the testers forum.'
+    forum = await ctx.client.fetch_channel(int(cfg.tester_forum_id))
+    return next((t for t in forum.available_tags if _norm(t.name) == _norm(label)), None), None
+

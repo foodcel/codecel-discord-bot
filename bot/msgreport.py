@@ -56,6 +56,10 @@ async def handle(m):
     lv = level(member)
     if not is_tester(member):
         return False  # players use /bug and /improvement
+    in_testing = bool(cfg.testing_id) and str(m.channel.id) == str(cfg.testing_id)
+    if lv == 'none' and not in_testing and str(m.channel.id) != str(cfg.test_id):  # testers use bug hunting in the testing channel only
+        await _say(m, f"{E['warn']} Testers use bug hunting in <#{cfg.testing_id}>.")
+        return True
     from .hunting import blocked
     if level(member) != 'admin' and blocked(member.id) and str(m.channel.id) != str(cfg.test_id):
         await _say(m, f"{E['warn']} Bug hunting is switched off for you for now. An admin will talk to you about it.")
@@ -76,6 +80,26 @@ async def handle(m):
         where = 'the bugs forum' if kind == 'bug' else 'the improvements forum'
         await m.channel.send(f"🧪 **TEST**{EM}·{EM}bug hunting would post this in {where} for <@{src.author.id}> (game: {game['name'] if game else 'not found'}). Nothing was saved or posted.",
                              embeds=[card_from_message(src, member, kind, game['id'] if game else None)], allowed_mentions=NO_MENTIONS)
+        await _remove(m)
+        return True
+    if in_testing and kind == 'bug':  # the testing channel: the report goes to the testers' forum, tagged with the game (made when it is missing)
+        from .tester import known_games, report_from_message, resolve_game
+        name, tag_id = resolve_game(typed.strip())
+        if not name and not typed.strip():
+            try:
+                a = await interpret_note(text, text.splitlines()[0][:100] if text else '', '', known_games())
+                name, tag_id = resolve_game(a.get('game'))
+            except Exception as e:
+                print('guess game', repr(e))
+        if not name:
+            await _say(m, f"{E['warn']} Which game is it? Reply again with `!bug <game>`.")
+            return True
+        done = await report_from_message(src, member, name, tag_id)
+        if not done:
+            await _say(m, f"{E['warn']} I could not find the testers forum. Ask a developer.")
+            return True
+        id_, thread = done
+        await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}bug #{id_} is in the testers forum: {thread.jump_url}", keep=True)
         await _remove(m)
         return True
     # the original text is copied into a forum everyone can read: never from a private channel (the testing channel is where testers work, so it is fine)

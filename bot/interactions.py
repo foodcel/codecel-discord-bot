@@ -70,6 +70,11 @@ async def autocomplete(i):
     name = i.data['name']
     sub, _, focused = get_options(i)
     fname, fvalue = focused or ('', '')
+    if name == 'bug' and fname == 'game' and cfg.testing_id and str(i.channel_id) == str(cfg.testing_id):  # testers can report games that are not out yet
+        from .tester import is_tester, known_games
+        if is_tester(i.user):
+            q = str(fvalue).lower()
+            return await i.response.autocomplete([app_commands.Choice(name=n[:100], value=n[:100]) for n in known_games() if q in n.lower()][:25])
     if name in bounty_board_commands.BOARD_NAMES:
         return await bounty_board.autocomplete(i, name, fvalue)
     if name in ('release', 'unrelease', 'games', 'gamelink', 'progress'):
