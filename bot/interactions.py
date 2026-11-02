@@ -425,6 +425,9 @@ async def handle_command(i):
     sub, opts, _ = get_options(i)
     if name == 'tester':  # testers have no dev role: it checks who may do what itself
         return await testers.command_tester(i, sub, opts)
+    if name == 'Mog':  # the right-click app on a message
+        from .mog import app_mog
+        return await app_mog(i)
     if name == 'mog':
         if level(i.user) != 'admin':
             return await deny(i)
