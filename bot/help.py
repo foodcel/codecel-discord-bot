@@ -16,8 +16,7 @@ PAGES = {
     'admin': ('🔑', 'Admin', 'Only admins can use these. You can use every other page too.', [
         ('🎮', 'Games board', ['assign', 'exclude', 'include', 'bounty-board', 'games']),
         ('🧪', 'Testers', ['tester add', 'tester remove', 'tester status', 'tester edit', 'tester post']),
-        ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
-        ('😈', 'Fun', ['mog'])]),
+        ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
         ('🎮', 'Your games', ['claim', 'unclaim', 'release new', 'release quiet', 'release edit', 'unrelease', 'gamelink', 'progress']),
         ('📣', 'Updates and settings', ['update', 'config', 'pings', 'tester find']),
