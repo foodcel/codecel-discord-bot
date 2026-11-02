@@ -46,9 +46,9 @@ async def bug_embeds(bug):
     embed.timestamp = datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc)
     describe(embed, f"### {bug['title']}\n{bug['summary'] or ''}{quote}"[:3900], FILLER_SHORT if media['images'] else FILLER)
     if suggestion:
-        label = {'new': f"{E['new']} New", 'fixed': f"{E['fixed']} Added", 'declined': '❌ Declined'}.get(bug['status']) or STATUS.get(bug['status'], bug['status'])
+        status_text = {'new': f"{E['new']} New", 'fixed': f"{E['fixed']} Added", 'declined': '❌ Declined'}.get(bug['status']) or STATUS.get(bug['status'], bug['status'])
         columns(embed, [
-            {'name': head(E['status'], 'Status'), 'lines': [label, ZW]},
+            {'name': head(E['status'], 'Status'), 'lines': [status_text, ZW]},
             {'name': head('🙏', 'Votes'), 'lines': [str(bug['votes']), ZW]},
             {'name': head(E['game'], 'Game'), 'lines': [bug['game_name'] or 'Not given', ZW]},
         ], '')
