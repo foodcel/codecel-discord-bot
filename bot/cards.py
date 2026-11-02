@@ -243,6 +243,15 @@ def _bullets(lines, limit):
 
 
 def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
+    """The update post as a message: (view, files). See update_card_items."""
+    items, files = update_card_items(game, row, bugfixes, changes, new, version, ping_text, when, poster)
+    view = ui.LayoutView()
+    for it in items:
+        view.add_item(it)
+    return view, files
+
+
+def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
     """An update post: a big title, the date, Fixes / Changes / New, a footer (who posted it, where to report a bug) and a Play now button.
     The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown in the card ('<@&role>'), None for no ping."""
     children = []
@@ -268,15 +277,20 @@ def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, w
     link = (row or {}).get('link') or game.get('link')
     if link and str(link).startswith('http'):
         children.append(ui.ActionRow(_play(link, 'Play now')))
-    view = ui.LayoutView()
-    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip)))  # the same width for every update card
-    view.add_item(ui.Container(*children))
-    return view, [strip]
+    return [ui.MediaGallery(discord.MediaGalleryItem(strip)), ui.Container(*children)], [strip]  # the strip: the same width for every update card
 
 
 def released_row_for(name):
-    """The released-game row of a game name (the hero image, link and credits live there)."""
-    return one('SELECT * FROM game_status WHERE key=? AND status=?', key(name), 'released')
+    """The released-game row of a game name (the hero image, link and credits live there). A game written a little differently on the board
+    ("Deltarune" for "YOU SHOULD MAKE DELTARUNE PLEASE") or by its Roblox name matches too, as long as only one game fits."""
+    k = key(name)
+    rows = all_("SELECT * FROM game_status WHERE status='released'")
+    names = lambda r: [key(r.get(c) or '') for c in ('name', 'title', 'roblox_name')]
+    for r in rows:
+        if k in names(r):
+            return r
+    hits = [r for r in rows if k and any(len(x) >= 4 and (k in x or x in k) for x in names(r))]
+    return hits[0] if len(hits) == 1 else None
 
 
 def test_channel(ch):

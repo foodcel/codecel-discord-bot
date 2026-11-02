@@ -5,6 +5,7 @@ import time
 
 import aiohttp
 import discord
+from discord import ui
 
 from .ai import draft_bug_fixes, draft_new_features, polish_updates
 from .bounty import owners_for
@@ -171,6 +172,7 @@ def item_note(key):
 
 
 def draft_view(id_, p=None):
+    """The dropdown and the buttons under a draft, as rows of a new-layout message."""
     rows = []
     its = items(p)[:25] if p else []
     if its:
@@ -183,7 +185,7 @@ def draft_view(id_, p=None):
         button(f'ann:edit:{id_}', 'Edit', discord.ButtonStyle.primary),
         button(f'ann:later:{id_}', 'Later', discord.ButtonStyle.secondary),
     ])
-    return make_view(rows)
+    return [ui.ActionRow(*r) for r in rows]
 
 
 MERGE_HOURS = 12  # updates of a game this close together become one embed
@@ -202,7 +204,7 @@ def ping_role(game):
     return game.get('ping_role_id') or cfg.updates_role
 
 
-def confirm_view(id_, recent=None, role=None):
+def confirm_view(id_, text, recent=None, role=None):
     """The question when Post is pressed: add to the update posted a few hours ago, or post a new one (with or without a ping)."""
     row = []
     if recent:
@@ -211,7 +213,10 @@ def confirm_view(id_, recent=None, role=None):
         row.append(button(f'ann:go:{id_}:ping', 'Post new and ping', discord.ButtonStyle.success))
     row.append(button(f'ann:go:{id_}:quiet', 'Post new without ping' if role else 'Post new', discord.ButtonStyle.secondary))
     row.append(button(f'ann:back:{id_}', 'Back', discord.ButtonStyle.secondary))
-    return make_view([row])
+    view = ui.LayoutView()
+    view.add_item(ui.TextDisplay(text))
+    view.add_item(ui.ActionRow(*row))
+    return view
 
 
 def _no_channel_warning():
@@ -232,12 +237,20 @@ async def draft_payload(pending_id):
     warn = '' if (game.get('announce_channel_id') or cfg.updates_id) else _no_channel_warning()
     bug_lines, new_lines = chosen(p)
     hint = '' if p.get('offer') else '\n-# Untick what you do not want to post. Edit lets you add extra bug fixes and updates. Post when you are ready.'
-    return {
-        'content': offer_text(game, p) if p.get('offer') else f"{E['update']} **DRAFT**{EM}·{EM}{game['name']}{warn}{hint}",
-        'embeds': await build_embeds(game, bug_lines, list(p['updates']) + new_lines, p.get('version') or ''),
-        'view': draft_view(pending_id, p),
-        'allowed_mentions': NO_MENTIONS,
-    }
+    from .cards import released_row_for, update_card_items
+    head = offer_text(game, p) if p.get('offer') else f"{E['update']} **DRAFT**{EM}·{EM}{game['name']}{warn}{hint}"
+    poster = (p.get('owners') or [None])[0]  # the card is drawn exactly as it will be posted
+    card, files = update_card_items(game, released_row_for(game['name']), bug_lines, list(p['updates']), new_lines, p.get('version') or '', None, poster=poster)
+    view = ui.LayoutView()
+    view.add_item(ui.TextDisplay(head))
+    for it in card + draft_view(pending_id, p):
+        view.add_item(it)
+    return {'view': view, 'files': files, 'allowed_mentions': NO_MENTIONS}
+
+
+def edit_kw(payload):
+    """A draft payload as the arguments of an edit (files become attachments)."""
+    return {('attachments' if k == 'files' else k): v for k, v in payload.items()}
 
 
 def split_kinds(fixes):
@@ -292,7 +305,6 @@ async def maybe_offer(tag_id):
         return
     p = get_pending(pid)
     payload = await draft_payload(pid)
-    payload['content'] = offer_text(game, p)
     payload['allowed_mentions'] = allowed(users=owners)
     sent = await t.send(**payload)
     set_pending(pid, {**p, 'channelId': str(t.id), 'messageId': str(sent.id)})
@@ -336,7 +348,15 @@ async def refresh_draft(pid, p, game, fixes):
         kv_del(f"offer:{p['tagId']}")
         return
     payload = await draft_payload(pid)
-    await msg.edit(content=offer_text(game, nxt), embeds=payload['embeds'], view=payload['view'], allowed_mentions=NO_MENTIONS)
+    try:
+        await msg.edit(**edit_kw(payload))
+    except discord.HTTPException:  # an offer made before the new look is an old-style message: a new one replaces it
+        sent = await ch.send(**{**payload, 'allowed_mentions': NO_MENTIONS})
+        set_pending(pid, {**nxt, 'messageId': str(sent.id)})
+        try:
+            await msg.delete()
+        except discord.HTTPException:
+            pass
 
 
 def all_updates(p):

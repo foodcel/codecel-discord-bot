@@ -116,9 +116,7 @@ async def post_previews(what='all'):
                               'version': 'v1.1', 'owners': [], 'offer': True})
         draft = await draft_payload(pid)
         del_pending(pid)
-        await send('**Announcement draft** · what the dev gets (buttons off)',
-                   content=f"**Announcement draft** · what the dev gets (buttons off)\n{draft['content']}",
-                   embeds=draft['embeds'], view=disable_all(draft['view']))
+        await ch.send(view=draft['view'], files=draft['files'], allowed_mentions=NO_MENTIONS)  # a new-layout message holds no plain text
         n += 1
         await send('**Public announcement** · what players see',
                    embeds=await build_embeds(game, lines, polished, 'v1.1'))

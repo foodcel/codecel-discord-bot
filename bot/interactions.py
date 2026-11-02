@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from .ai import interpret_note
-from .announce import (_ago, chosen, chosen_ids, confirm_view, draft_payload, items, merge_announcement, ping_role, polish_dev_updates,
+from .announce import (_ago, chosen, chosen_ids, confirm_view, draft_payload, edit_kw, items, merge_announcement, ping_role, polish_dev_updates,
                        polish_fixes, post_announcement, recent_announcement, snooze, unannounced)
 from . import board as bounty_board
 from . import testers
@@ -21,6 +21,7 @@ from .fixes import apply_status
 from .fixlog import log_page, open_log, send_fix_transcript
 from .games import autocomplete_games, command_gamelink, command_progress, command_games, command_release
 from .release import command_release_edit, command_release_new
+from .reldraft import text_view
 from .perms import can_confirm, can_manage, level
 from .previews import post_previews
 from .strikes import pardon, resolve_strike, rules_embed, strike_info
@@ -163,7 +164,7 @@ async def command_update(i, opts):
         'newIds': [f['id'] for f in sugs], 'newLines': sug_lines,
         'updates': [], 'version': '', 'owners': owner_of(tag_id), 'off': [],
     })
-    await i.edit_original_response(**await draft_payload(pid))
+    await i.edit_original_response(**edit_kw(await draft_payload(pid)))
     await devlog.update_step(pid, i.user, game['name'],
                              f'Opened the draft with {len(fixes)} bug fix(es) and {len(sugs)} new feature(s) waiting. Nothing posted.')
 
@@ -180,7 +181,7 @@ def lines_of(s):
 async def button_ann(i, action, pid, extra=None):
     p = get_pending(pid)
     if not p:
-        return await i.response.edit_message(content='This draft is gone.', embeds=[], view=None)
+        return await i.response.edit_message(view=text_view('This draft is gone.'), attachments=[])
     if not can_manage(i.user, owner_of(p['tagId'])):
         return await deny(i)
     if action == 'edit':
@@ -194,10 +195,10 @@ async def button_ann(i, action, pid, extra=None):
     if action == 'later':
         snooze(pid)
         await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'], 'Pressed Later.', final='No update posted (snoozed)')
-        return await i.response.edit_message(content=f"{E['update']} **LATER**{EM}·{EM}I will offer this again after 3 more fixes.", embeds=[], view=None)
+        return await i.response.edit_message(view=text_view(f"{E['update']} **LATER**{EM}·{EM}I will offer this again after 3 more fixes."), attachments=[])
     game = get_game(p['tagId'])
     if action == 'back':
-        return await i.response.edit_message(**await draft_payload(pid))
+        return await i.response.edit_message(**edit_kw(await draft_payload(pid)))
     role = ping_role(game)
     recent = recent_announcement(p['tagId'])
     if action == 'post' and (role or recent):  # ask first: add to the earlier update, or post a new one, and ping or not
@@ -207,7 +208,7 @@ async def button_ann(i, action, pid, extra=None):
             text += f"\nThere was already an update {_ago(recent['posted_at'])}. Add to it and it stays one embed, with no new ping. Or post a new one."
         if role:
             text += f"\nA new post can ping <@&{role}>."
-        return await i.response.edit_message(content=text, view=confirm_view(pid, recent, role), allowed_mentions=NO_MENTIONS)
+        return await i.response.edit_message(view=confirm_view(pid, text, recent, role), attachments=[], allowed_mentions=NO_MENTIONS)
     merge = action == 'go' and extra == 'merge'
     ping = action == 'go' and extra == 'ping'
     await i.response.defer()
@@ -221,8 +222,8 @@ async def button_ann(i, action, pid, extra=None):
                              f"Posted {len(bug_lines)} bug fix(es) and {len(p['updates']) + len(new_lines)} update(s), {how}.",
                              final=f"{'Added to the earlier update' if merge else 'Posted'}: {r['url']}" + ('' if merge else (' (pinged)' if ping else ' (no ping)')))
     if merge:
-        return await i.message.edit(content=f"{E['fixed']} **ADDED**{EM}·{EM}to the earlier update: {r['url']}", embeds=[], view=None)
-    return await i.message.edit(content=f"{E['fixed']} **POSTED**{EM}·{EM}{r['url']}", embeds=[], view=None)
+        return await i.message.edit(view=text_view(f"{E['fixed']} **ADDED**{EM}·{EM}to the earlier update: {r['url']}"), attachments=[])
+    return await i.message.edit(view=text_view(f"{E['fixed']} **POSTED**{EM}·{EM}{r['url']}"), attachments=[])
 
 
 async def modal_ann_edit(i, pid, fields):
@@ -245,7 +246,7 @@ async def modal_ann_edit(i, pid, fields):
     await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'],
                              f"Edited the draft: {len(lines_of(fields.get('bugfixes')))} bug fix line(s), {len(updates)} update line(s)"
                              + (f", version {fields.get('version').strip()}" if (fields.get('version') or '').strip() else '') + '.')
-    payload = await draft_payload(pid)
+    payload = edit_kw(await draft_payload(pid))
     if from_message:
         return await i.message.edit(**payload)
     return await i.edit_original_response(**payload)
@@ -255,7 +256,7 @@ async def select_ann(i, pid):
     """The "Choose what to post" dropdown: whatever is not selected is left out of this announcement."""
     p = get_pending(pid)
     if not p:
-        return await i.response.edit_message(content='This draft is gone.', embeds=[], view=None)
+        return await i.response.edit_message(view=text_view('This draft is gone.'), attachments=[])
     if not can_manage(i.user, owner_of(p['tagId'])):
         return await deny(i)
     picked = set(i.data.get('values') or [])
@@ -266,7 +267,7 @@ async def select_ann(i, pid):
     await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'],
                              f"Chose what to post: {len(its) - len(left_out)} of {len(its)} ticked"
                              + (f". Left out: {'; '.join(left_out)[:200]}" if left_out else ' (everything).'))
-    return await i.response.edit_message(**await draft_payload(pid))
+    return await i.response.edit_message(**edit_kw(await draft_payload(pid)))
 
 
 # ---- status buttons on old per-bug messages (kept so nothing breaks) ----
