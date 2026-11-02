@@ -104,22 +104,30 @@ async def refresh_board():
         print('pin tester board', repr(e))
 
 
+def card_view(g, ping=True):
+    """The card of a game that just went into testing: (view, files, role pinged). The ping sits above the card, outside it."""
+    row = one('SELECT art_url, icon_url, hero_url FROM game_status WHERE key=?', g['key']) or {}
+    role = cfg.helpers_role if ping else None
+    text = f"### 🧪 {g['name']} needs testers{NL}-# dev {' '.join(f'<@{o}>' for o in g['owners']) or '—'}"
+    cover = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
+    strip_ = strip()
+    view = ui.LayoutView(timeout=None)
+    if role:
+        view.add_item(ui.TextDisplay(f'<@&{role}>'))
+    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
+    view.add_item(ui.Container(
+        ui.Section(text, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(text),
+        ui.ActionRow(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋'))))
+    return view, [strip_], role
+
+
 async def post_card(g, ping=True):
     """The small card for a game that just went into testing: pings Helpers, has the volunteer button, and goes away after a day."""
     ch = await fetch_channel(cfg.future_games_id)
     if not ch:
         return None
-    row = one('SELECT art_url, icon_url, hero_url FROM game_status WHERE key=?', g['key']) or {}
-    role = cfg.helpers_role if ping else None
-    text = f"### 🧪 {g['name']} needs testers{NL}-# dev {' '.join(f'<@{o}>' for o in g['owners']) or '—'}" + (f' · <@&{role}>' if role else '')
-    cover = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
-    strip_ = strip()
-    view = ui.LayoutView(timeout=None)
-    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
-    view.add_item(ui.Container(
-        ui.Section(text, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(text),
-        ui.ActionRow(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋'))))
-    sent = await ch.send(view=view, files=[strip_], allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(role))]) if role else NO_MENTIONS)
+    view, files, role = card_view(g, ping)
+    sent = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(role))]) if role else NO_MENTIONS)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_HOURS * 3600000)
     return sent
 

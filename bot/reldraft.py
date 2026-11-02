@@ -51,7 +51,9 @@ def payload(pid):
         label = {k: n for k, n, _ in PINGS}[d['ping']]
         text, role, _ = ping_target(d['ping'])
         view.add_item(ui.TextDisplay(f"-# 🎉 New-game card · pings **{label}**" + ('' if text or d['ping'] == 'none' else ' (not set up yet)')))
-        card, fs = new_game_container(row, text)
+        if text:
+            view.add_item(ui.TextDisplay(text))  # the ping sits above the card
+        card, fs = new_game_container(row, None)
         view.add_item(card)
         files += fs
     view.add_item(ui.TextDisplay('-# 📚 In the library'))

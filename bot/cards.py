@@ -269,8 +269,10 @@ def ping_target(choice):
 
 def new_game_card(row, ping_text='@everyone'):
     """The card that appears for 3 days when a game is released. It pings what the dev chose (default @everyone)."""
-    container, files = new_game_container(row, ping_text)
+    container, files = new_game_container(row, None)
     view = ui.LayoutView()
+    if ping_text:  # the ping sits above the card, outside it
+        view.add_item(ui.TextDisplay(ping_text))
     view.add_item(container)
     return view, files
 
@@ -278,8 +280,6 @@ def new_game_card(row, ping_text='@everyone'):
 def new_game_container(row, ping_text='@everyone'):
     media, f = _hero(row)
     children = []
-    if ping_text:
-        children.append(ui.TextDisplay(ping_text))
     if media is not None:
         children.append(ui.MediaGallery(discord.MediaGalleryItem(media)))
     children.append(ui.TextDisplay(NL.join(x for x in ['-# 🎉 NEW GAME', _name_line(row, big=True), PLATFORMS, _credits(row), _note(row)] if x)))
@@ -311,13 +311,12 @@ def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, w
 
 def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
     """An update post: a big title, the date, Fixes / Changes / New, a footer (who posted it, where to report a bug) and a Play now button.
-    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown under the title ('<@&role>'), None for no ping."""
+    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown above the card ('<@&role>'), None for no ping."""
     children = []
     strip = width_strip()
     title = f"# {game['name']} — Update" + (f' {version}' if version else '')
     stamp = int((when or datetime.now(timezone.utc)).timestamp())
-    sub = ' · '.join(x for x in [ping_text, f'<t:{stamp}:R>'] if x)  # the ping and a counting time
-    head = f'ㅤ\n{title}\n-# {sub}'  # the empty line above the title centres it next to the cover
+    head = f'ㅤ\n{title}\n-# <t:{stamp}:R>'  # a counting time under the title; the empty line above it centres the title next to the cover
     cover = (row or {}).get('art_url') or (row or {}).get('icon_url') or (row or {}).get('hero_url')  # a link, so nothing has to be uploaded
     children.append(ui.Section(head, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(head))  # the small picture sits top right
     first = True
@@ -334,7 +333,8 @@ def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=N
     link = (row or {}).get('link') or game.get('link')
     if link and str(link).startswith('http'):
         children.append(ui.ActionRow(_play(link, 'Play now')))
-    return [ui.MediaGallery(discord.MediaGalleryItem(strip)), ui.Container(*children)], [strip]  # the strip: the same width for every update card
+    ping = [ui.TextDisplay(ping_text)] if ping_text else []  # the ping sits above the card, outside it
+    return [*ping, ui.MediaGallery(discord.MediaGalleryItem(strip)), ui.Container(*children)], [strip]  # the strip: the same width for every update card
 
 
 def released_row_for(name):

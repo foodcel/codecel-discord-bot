@@ -254,16 +254,17 @@ def date_button(when=None):
 
 
 def as_card(e, ping=None):
-    """An announcement embed as a card: (view, files). The title with the ping under it and the date on the right, a line under the header and one above the commands."""
+    """An announcement embed as a card: (view, files). The ping above the card, the title with the date on the right, a line under the header and one above the commands."""
     strip_ = width_strip()
-    title = f'### {e.title}' + (f'\n-# {ping}' if ping else '')
-    items = [ui.Section(title, accessory=date_button()), ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]
+    items = [ui.Section(f'### {e.title}', accessory=date_button()), ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]
     for f in e.fields:
         items.append(ui.TextDisplay(f'**{f.name.rstrip(":")}**\n{f.value}') if f.name.strip(' \u200b') else ui.TextDisplay(f.value))
     if e.footer and e.footer.text:
         items += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small),
                   ui.TextDisplay('\n'.join('-# ' + code_chip(x) for x in e.footer.text.split('\n')))]
     view = ui.LayoutView()
+    if ping:  # the ping sits above the card, outside it
+        view.add_item(ui.TextDisplay(ping))
     view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
     view.add_item(ui.Container(*items))
     return view, [strip_]
