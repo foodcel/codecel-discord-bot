@@ -20,7 +20,7 @@ from .ui import E, flat, head, section, gap
 CARD_HOURS = 24
 NL = chr(10)
 FOOTER = [
-    '🙋 · pick a game to join it, pick it again to leave it',
+    '🙋 · pick one or more games to join them, pick a game again to leave it',
     '`/progress testing:on` · put your game in testing',
     '`/bug` · testers report them in the testing channel',
 ]
