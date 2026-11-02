@@ -383,6 +383,8 @@ async def purge_rivals(message):
     if message.author.bot and str(message.author.id) in rival_ids() and in_library_channel(message.channel.id):
         try:
             await message.delete()
+        except discord.NotFound:
+            pass
         except Exception as e:
             print('rival delete', repr(e))
         return True
@@ -450,7 +452,15 @@ async def guard_tick():
     if not ch:
         return
     want = expected_ids()
-    seen = {str(m.id) async for m in ch.history(limit=100)}
+    msgs = [m async for m in ch.history(limit=100)]
+    seen = {str(m.id) for m in msgs}
+    rivals = rival_ids()
+    for m in msgs:  # a rival bot's message is deleted the second it is seen (the gateway event usually deletes it first)
+        if m.author.bot and str(m.author.id) in rivals:
+            try:
+                await m.delete()
+            except discord.NotFound:
+                pass
     for mid in want:
         if mid in seen:
             continue
