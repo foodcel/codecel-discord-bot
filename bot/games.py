@@ -223,7 +223,7 @@ def tree_rows(rows, second, counts=False):
         for k, r in enumerate(g):
             branch = '└─' if k == len(g) - 1 else '├─'
             name = f"[**{cut(r['name'], 18)}**]({short_link(r['link'])})" if http(r['link']) else f"**{cut(r['name'], 18)}**"
-            out.append([f'{branch} {name}', second(r)])
+            out.append([f"{branch} {'🧪 ' if r.get('testing') else ''}{name}", second(r)])  # 🧪: a released game that is still being tested
     return out
 
 
@@ -250,7 +250,7 @@ def _valid_date(s):
 
 async def game_embeds(lists=None):
     lists = lists or game_lists()
-    rel = await rows_by_dev([{'name': r.get('title') or clean_name(r['name']), 'owners': owner_ids(r), 'at': r['released_at'], 'link': r['link']}
+    rel = await rows_by_dev([{'name': r.get('title') or clean_name(r['name']), 'owners': owner_ids(r), 'at': r['released_at'], 'link': r['link'], 'testing': bool(r.get('testing_at'))}
                              for r in lists['released']])
     dev = await rows_by_dev([{'name': clean_name(g['name']), 'owners': g['owners'], 'since': g['since'], 'link': g.get('source_link'),
                              'progress': g.get('progress'), 'working': g.get('working'), 'testing_at': g.get('testing_at')} for g in lists['unreleased']])
