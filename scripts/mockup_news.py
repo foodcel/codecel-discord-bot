@@ -1,82 +1,79 @@
-"""Three looks for the dev announcement, shown in the test channel (no pings). Clears the channel first.   python scripts/mockup_news.py --yes"""
+"""Three looks for the dev announcement, all in the bot's usual embed look with the commands in the footer, shown in the test channel (no pings).
+Clears the channel first.   python scripts/mockup_news.py --yes"""
 import asyncio
 import sys
 
 import discord
-from discord import ui
 
 from _boot import boot, finish
 
-from bot.cards import BLUE
 from bot.ctx import fetch_channel
 from bot.env import cfg
-from bot.ui import flat
+from bot.ui import E, describe, flat, gap, head, section
 
 DEV_ROLE = 1562719404473458778
 NONE = discord.AllowedMentions.none()
-
-
-def url(channel_id):
-    return f'https://discord.com/channels/{cfg.guild_id}/{channel_id}'
-
-
-def items():
-    """(emoji, title, text, link or None)"""
-    return [
-        ('🧪', 'Testing', '`/progress testing:on` shows 🧪 on the board and lists your game in the testing board. Released games too.', url(cfg.future_games_id)),
-        ('🏷️', 'Testers forum', 'Testers report there. The game gets its tag when testing starts.', url(cfg.tester_forum_id)),
-        ('👀', 'Previews', '`/release new`, `quiet` and `edit` show a preview first. Post, edit or cancel.', None),
-        ('💬', 'Description', '`description:` adds a line under your game, like "Multiplayer + VC".', None),
-        ('📚', 'Library', 'A new game is a card for 3 days, then joins the library.', url(1562940878685872149)),
-        ('🔴', 'Offline', 'Taken-down games are marked offline for you, and you get pinged.', url(1565918318664093766)),
-        ('🧾', 'Updates', '`/update` drafts look exactly like the posted card.', None),
-    ]
+NL = chr(10)
+FOOTER = NL.join([
+    '/progress testing:on · put your game in testing',
+    '/progress testing:off · testing is over',
+    '/release new · preview, then post',
+    '/release edit description: · the line under your game',
+    '/help · every command you can use',
+])
+FUTURE, FORUM, GAMES, DEVCHAT = cfg.future_games_id, cfg.tester_forum_id, 1562940878685872149, 1565918318664093766
 
 
 def mock_a():
-    """A · Grid: an embed with the features as small tiles, three to a row."""
+    """A · Sections: the look the announcements had, each feature one short line under its heading."""
     e = flat()
-    e.title = '🆕  What\'s new'
-    e.description = 'Testing, previews and a few smaller things.\n​'
-    for emoji, title, text, _ in items():
-        e.add_field(name=f'{emoji}  {title}', value=text, inline=True)
-    e.set_footer(text='Type /help to see every command you can use.')
+    e.title = head(E['update'], 'New · testing and previews')
+    section(e, head('🧪', 'Testing'), f'**🧪 testing** on the board, and your game is listed in <#{FUTURE}>. Released games too.')
+    section(e, head('🏷️', 'Testers forum'), f'Testers report in <#{FORUM}>. The tag is made when testing starts.')
+    section(e, head('👀', 'Previews'), '`/release new`, `quiet` and `edit` show a preview first: post, edit or cancel.')
+    section(e, head('💬', 'Description'), 'A line under your game, like "Multiplayer + VC".')
+    section(e, head('📚', 'Library'), f'A new game is a card in <#{GAMES}> for 3 days, then joins the library.')
+    section(e, head('🔴', 'Offline'), f'Taken-down games are marked offline for you, and you are pinged in <#{DEVCHAT}>.')
+    gap(e)
+    e.set_footer(text=FOOTER)
     return {'content': f'<@&{DEV_ROLE}>', 'embeds': [e]}
 
 
 def mock_b():
-    """B · Release notes: one card like the update cards. Big title, features as short headed blocks, buttons to the places."""
-    c = [ui.TextDisplay(f'<@&{DEV_ROLE}>'),
-         ui.TextDisplay('-# 🆕 WHAT\'S NEW\n# Testing and previews\n-# Nov 2, 2026'),
-         ui.Separator(visible=True, spacing=discord.SeparatorSpacing.large)]
-    for n, (emoji, title, text, _) in enumerate(items()):
-        c.append(ui.TextDisplay(f'### {emoji} {title}\n{text}'))
-    c += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.large),
-          ui.TextDisplay('-# Type /help to see every command you can use.'),
-          ui.ActionRow(ui.Button(style=discord.ButtonStyle.link, label='Testing board', url=url(cfg.future_games_id), emoji='🧪'),
-                       ui.Button(style=discord.ButtonStyle.link, label='Testers forum', url=url(cfg.tester_forum_id), emoji='🏷️'),
-                       ui.Button(style=discord.ButtonStyle.link, label='Games', url=url(1562940878685872149), emoji='🎮'))]
-    view = ui.LayoutView()
-    view.add_item(ui.Container(*c, accent_colour=BLUE))
-    return {'view': view}
+    """B · Tree: the same layout as /help, three groups with branches."""
+    e = flat()
+    e.title = head(E['update'], 'New · testing and previews')
+    section(e, head('🧪', 'Testing'), NL.join([
+        f'├─ **Board** · 🧪 on the board, listed in <#{FUTURE}>',
+        f'├─ **Forum** · testers report in <#{FORUM}>',
+        '└─ **Released games** · can be in testing too']))
+    section(e, head('🚀', 'Releasing'), NL.join([
+        '├─ **Preview** · `/release new`, `quiet` and `edit` show it first',
+        '├─ **Description** · a line under your game',
+        f'└─ **Library** · a card in <#{GAMES}> for 3 days, then in the library']))
+    section(e, head('🤖', 'Automatic'), NL.join([
+        f'├─ **Offline** · taken-down games are marked, you are pinged in <#{DEVCHAT}>',
+        '└─ **Updates** · `/update` drafts look like the posted card']))
+    gap(e)
+    e.set_footer(text=FOOTER)
+    return {'content': f'<@&{DEV_ROLE}>', 'embeds': [e]}
 
 
 def mock_c():
-    """C · Rows: every feature is a row with its own Open button on the right, so it is clear what to read and where to press."""
-    c = [ui.TextDisplay(f'<@&{DEV_ROLE}>'),
-         ui.TextDisplay('# 🆕 What\'s new\n-# Testing, previews and a few smaller things'),
-         ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]
-    for emoji, title, text, link in items():
-        body = f'**{emoji} {title}**\n{text}'
-        if link:
-            c.append(ui.Section(body, accessory=ui.Button(style=discord.ButtonStyle.link, label='Open', url=link)))
-        else:
-            c.append(ui.TextDisplay(body))
-    c += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small),
-          ui.TextDisplay('-# Type /help to see every command you can use.')]
-    view = ui.LayoutView()
-    view.add_item(ui.Container(*c))
-    return {'view': view}
+    """C · Short: no headings, one line per feature in one block."""
+    e = flat()
+    e.title = head(E['update'], 'New · testing and previews')
+    describe(e, NL.join([
+        f'🧪 **Testing** · 🧪 on the board, listed in <#{FUTURE}>, released games too',
+        f'🏷️ **Testers forum** · testers report in <#{FORUM}>',
+        '👀 **Previews** · `/release new`, `quiet` and `edit` show it first',
+        '💬 **Description** · a line under your game',
+        f'📚 **Library** · a card in <#{GAMES}> for 3 days, then the library',
+        f'🔴 **Offline** · taken-down games are marked, you are pinged in <#{DEVCHAT}>',
+        '🧾 **Updates** · `/update` drafts look like the posted card']))
+    gap(e)
+    e.set_footer(text=FOOTER)
+    return {'content': f'<@&{DEV_ROLE}>', 'embeds': [e]}
 
 
 async def main():
@@ -86,7 +83,7 @@ async def main():
         return await finish(client)
     ch = await fetch_channel(cfg.test_id)
     await ch.purge(limit=None, bulk=True, reason='Mockups')
-    for label, make in (('**A · Tiles**', mock_a), ('**B · Release notes**', mock_b), ('**C · Rows with buttons**', mock_c)):
+    for label, make in (('**A · Sections**', mock_a), ('**B · Tree (like /help)**', mock_b), ('**C · Short list**', mock_c)):
         await ch.send(label, allowed_mentions=NONE)
         await ch.send(allowed_mentions=NONE, **make())
     print('done')
