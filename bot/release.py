@@ -293,6 +293,8 @@ async def command_release_edit(i, opts):
             changes['original_name' if field == 'original' else 'studio'] = v[:100]
     if opts.get('online') in ('online', 'offline'):
         changes['online'] = 1 if opts['online'] == 'online' else 0
+        from .watch import forget
+        forget(k)  # by hand: the automatic watch starts from nothing for this game
     link = (opts.get('link') or '').strip()
     if link and not ROBLOX_GAME.search(link):
         return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)

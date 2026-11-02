@@ -4,7 +4,7 @@ import traceback
 
 import discord
 
-from . import board, cards
+from . import board, cards, watch
 from .bounty import refresh_claims
 from .catchup import catchup
 from .commands_sync import register_commands
@@ -68,6 +68,7 @@ async def on_ready():
     _started = True
     ctx.guild = client.get_guild(int(cfg.guild_id)) or await client.fetch_guild(int(cfg.guild_id))
     print(f'Logged in as {client.user}')
+    asyncio.ensure_future(watch.watch_loop())  # every 5 minutes: is each released game still on Roblox?
     asyncio.ensure_future(cards.guard_loop())  # first thing: the library and its cards are always there, a rival bot's posts never
     await load_tags()
     await ensure_suggest_tags()
