@@ -205,7 +205,7 @@ async def command_release_new(i, opts, quiet=False):
                                                        'original': original, 'hero_file': hero_file, 'mine': mine if test else None}))  # the cropped picture is made now, not at Post
     pid = create_pending({'kind': 'release', 'user': str(i.user.id), 'game': name, 'key': k, 'name': dev['name'], 'owners': ','.join(owner_ids(dev)),
                           'since': dev.get('since'), 'quiet': quiet, 'link': link, 'info': info, 'art': art, 'studio': studio, 'original': original,
-                          'note': (opts.get('note') or '').strip()[:140] or None, 'ping': ping, 'title': None, 'hero_file': hero_file,
+                          'note': (opts.get('description') or '').strip()[:140] or None, 'ping': ping, 'title': None, 'hero_file': hero_file,
                           'mine': mine if test else None, 'test': test})
     return await i.edit_original_response(**reldraft.payload(pid))
 
@@ -315,14 +315,14 @@ async def command_release_edit(i, opts):
             changes['original_name' if field == 'original' else 'studio'] = v[:100]
     if opts.get('online') in ('online', 'offline'):
         changes['online'] = 1 if opts['online'] == 'online' else 0
-    n = (opts.get('note') or '').strip()
+    n = (opts.get('description') or '').strip()
     if n:  # a short line under the game; a single - removes it
         changes['notes'] = None if n == '-' else n[:140]
     link = (opts.get('link') or '').strip()
     if link and not ROBLOX_GAME.search(link):
         return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
     if not changes and not link and not opts.get('image'):
-        return await reply('Nothing to change. Give a title, link, image, studio, original, note or online.', ephemeral=True)
+        return await reply('Nothing to change. Give a title, link, image, studio, original, description or online.', ephemeral=True)
     await i.response.defer(ephemeral=True, thinking=True)
     test = in_test_channel(i)
     if link:

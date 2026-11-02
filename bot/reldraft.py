@@ -106,7 +106,7 @@ async def on_button(i, action, pid):
             spec('link', 'Roblox game link', row.get('link'), 300),
             spec('studio', 'Original studio', row.get('studio')),
             spec('original', 'Original game name', row.get('original_name')),
-            spec('note', 'Heads-up under the game (multiplayer, bugs...)', row.get('notes'), 140)]))
+            spec('note', 'Description (multiplayer, bugs, one map...)', row.get('notes'), 140)]))
     if action == 'post':
         await i.response.defer()
         done, text = await (commit_release(i, d) if d['kind'] == 'release' else commit_edit(i, d))
