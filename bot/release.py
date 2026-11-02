@@ -4,12 +4,13 @@ Only text and the Roblox hero image are used: nothing is taken from Steam but th
 import asyncio
 import json
 import re
+import shutil
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
 from .ctx import fetch_channel
-from .db import now, one, run
+from .db import create_pending, now, one, run
 from .env import cfg
 from .games import NONE, _find, clean_name, http, key, owner_ids, refresh_game_board
 from .perms import level, owns
@@ -123,7 +124,7 @@ async def save_hero(k, att):
         return '!The hero image must be under 8 MB.'
     ext = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp'}.get(att['content_type'].split(';')[0], 'png')
     HERO_DIR.mkdir(parents=True, exist_ok=True)
-    safe = re.sub(r'[^a-z0-9]+', '-', k.lower()).strip('-')[:60] or 'game'
+    safe = _safe(k)
     path = HERO_DIR / f'{safe}.{ext}'
     for old in HERO_DIR.glob(f'{safe}.*'):
         old.unlink(missing_ok=True)
@@ -146,9 +147,30 @@ def summary(row, shown):
     return NL.join(f'{EM}{ln}' if n else ln for n, ln in enumerate(lines))
 
 
+def _safe(k):
+    return re.sub(r'[^a-z0-9]+', '-', k.lower()).strip('-')[:60] or 'game'
+
+
+def finalize_hero(k, draft_path):
+    """A picture saved with a draft becomes the game's hero image when the draft is posted. Returns the final path, or None."""
+    if not draft_path or not Path(draft_path).exists():
+        return None
+    HERO_DIR.mkdir(parents=True, exist_ok=True)
+    safe = _safe(k)
+    dest = HERO_DIR / f'{safe}{Path(draft_path).suffix}'
+    for old in HERO_DIR.glob(f'{safe}.*'):
+        old.unlink(missing_ok=True)
+    shutil.move(draft_path, dest)
+    return str(dest)
+
+
+def in_test_channel(i):
+    return str(getattr(i, 'channel_id', None) or getattr(getattr(i, 'channel', None), 'id', '')) == str(cfg.test_id)
+
+
 async def command_release_new(i, opts, quiet=False):
-    """/release new game link [image] [studio] [original] [ping]. quiet (/release quiet): the same, but nothing is announced:
-    no card, no ping, and the game can never get a card later. It is only added to the library and the boards."""
+    """/release new game link [image] [studio] [original] [ping] [note]. quiet (/release quiet): nothing is announced: no card, no ping, and the
+    game can never get a card later. Nothing is posted by the command itself: the dev gets a preview with Post / Edit / Cancel buttons."""
     reply = i.response.send_message
     name = opts.get('game')
     if name == NONE:
@@ -165,39 +187,55 @@ async def command_release_new(i, opts, quiet=False):
     if not ROBLOX_GAME.search(link):
         return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
     ping = 'none' if quiet else (opts.get('ping') or 'everyone')
-    if (ping == 'releases' and not cfg.releases_role) or (ping == 'updates' and not cfg.updates_role):
-        return await reply(f'The {ping.title()} role is not set up yet, so I cannot ping it. Pick another ping, or ask an admin.', ephemeral=True)
-    from .guard import card_limit_reason, cooldown_left, note
-    admin = level(i.user) == 'admin'
-    wait = 0 if (admin or in_test_channel(i) or quiet) else cooldown_left(i.user.id)
-    if wait:
-        return await reply(f'Slow down: wait {wait // 60 + 1} more minute(s) before the next `/release new`.', ephemeral=True)
+    test = in_test_channel(i)
     await i.response.defer(ephemeral=True, thinking=True)
     info = await roblox_info(link) or {}
     hero_file = None
-    if opts.get('image') and not in_test_channel(i):
-        hero_file = await save_hero(k, opts['image'])
+    if opts.get('image') and not test:
+        hero_file = await save_hero(k + '-draft', opts['image'])
         if hero_file.startswith('!'):
             return await i.edit_original_response(content=hero_file[1:])
     original = (opts.get('original') or '').strip() or clean_name(dev['name'])
     art = await steam_art(dev.get('source_link'), original)
     studio = (opts.get('studio') or '').strip() or await steam_studio(dev.get('source_link')) or art['studio']
     mine = (opts.get('image') or {}).get('url') if opts.get('image') else None
-    blocked = None
-    note_text = (opts.get('note') or '').strip()[:140] or None
-    if in_test_channel(i):  # a dry run: draw the card and the library row, change nothing
-        row = {'key': k, 'name': dev['name'], 'owners': ','.join(owner_ids(dev)), 'link': link, 'place_id': info.get('place_id'), 'roblox_name': info.get('name'),
-               'creator': info.get('creator'), 'hero_url': mine or info.get('hero_url'), 'icon_url': info.get('icon_url'), 'hero_file': None,
-               'studio': studio, 'original_name': original, 'notes': note_text, 'art_url': None if mine else art['art_url'], 'art_hero_url': None if mine else art['art_hero_url'], 'title': None}
-        return await preview(i, row, clean_name(dev['name']), '/release new', blocked or (card_limit_reason(i.user.id, admin) if ping != 'none' else None) or '', ping, quiet)
+    from . import reldraft
+    pid = create_pending({'kind': 'release', 'user': str(i.user.id), 'game': name, 'key': k, 'name': dev['name'], 'owners': ','.join(owner_ids(dev)),
+                          'since': dev.get('since'), 'quiet': quiet, 'link': link, 'info': info, 'art': art, 'studio': studio, 'original': original,
+                          'note': (opts.get('note') or '').strip()[:140] or None, 'ping': ping, 'title': None, 'hero_file': hero_file,
+                          'mine': mine if test else None, 'test': test})
+    return await i.edit_original_response(**reldraft.payload(pid))
+
+
+async def commit_release(i, d):
+    """The Post button of a release draft. Returns (done, text): text is what to show, or why it could not be posted yet (the draft stays)."""
+    from .guard import card_limit_reason, cooldown_left
+    from .guard import note as log_note
+    from .reldraft import draft_row
+    k, quiet, ping, test = d['key'], d['quiet'], d['ping'], d['test']
+    if (ping == 'releases' and not cfg.releases_role) or (ping == 'updates' and not cfg.updates_role):
+        return False, f'The {ping.title()} role is not set up yet, so I cannot ping it. Pick another ping, or ask an admin.'
+    admin = level(i.user) == 'admin'
+    wait = 0 if (admin or test or quiet) else cooldown_left(i.user.id)
+    if wait:
+        return False, f'Slow down: wait {wait // 60 + 1} more minute(s) before the next `/release new`.'
+    row = draft_row(d)
+    shown = clean_name(d['name'])
+    if test:  # a dry run: draw the card and the library row in the test channel, change nothing
+        return True, await preview(row, shown, '/release quiet' if quiet else '/release new', (card_limit_reason(i.user.id, admin) if ping != 'none' else None) or '', ping, quiet)
+    _, rel, dev = _find(d['game'])
+    if not dev:
+        return True, 'That game is already released.'
+    hero_file = finalize_hero(k, d.get('hero_file'))
+    info, art = d['info'], d['art']
     run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name,notes)
         VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by, link=excluded.link,
         owners=excluded.owners, name=excluded.name, place_id=excluded.place_id, roblox_name=excluded.roblox_name, creator=excluded.creator,
         hero_url=excluded.hero_url, icon_url=excluded.icon_url, hero_file=COALESCE(excluded.hero_file, game_status.hero_file), studio=excluded.studio, original_name=excluded.original_name, notes=COALESCE(excluded.notes, game_status.notes)""",
-        k, dev['name'], ','.join(owner_ids(dev)), dev.get('since'), now(), str(i.user.id), link, info.get('place_id'), info.get('name'),
-        info.get('creator'), info.get('hero_url'), info.get('icon_url'), hero_file, studio, original, note_text)
-    run('UPDATE game_status SET art_url=?, art_hero_url=? WHERE key=?', art['art_url'], art['art_hero_url'], k)
+        k, dev['name'], ','.join(owner_ids(dev)), dev.get('since'), now(), str(i.user.id), d['link'], info.get('place_id'), info.get('name'),
+        info.get('creator'), info.get('hero_url'), info.get('icon_url'), hero_file, d['studio'], d['original'], d['note'])
+    run('UPDATE game_status SET art_url=?, art_hero_url=?, title=? WHERE key=?', art['art_url'], art['art_hero_url'], d.get('title'), k)
     from . import board
     if board.is_live():  # releasing a game completes its claim on the bounty board
         board.set_completed(dev['name'], True)
@@ -208,59 +246,53 @@ async def command_release_new(i, opts, quiet=False):
     from .tags import ensure_game_tags
     warn = ''
     try:  # the game gets its tag in the bugs and improvements forums
-        made, problems = await ensure_game_tags(clean_name(dev['name']))
+        made, problems = await ensure_game_tags(shown)
         if made:
-            warn += chr(10) + f"🏷️ Made the **{clean_name(dev['name'])}** tag in the {' and '.join(made)} forum."
-        warn += ''.join(chr(10) + '⚠️ ' + p for p in problems)
+            warn += NL + f"🏷️ Made the **{shown}** tag in the {' and '.join(made)} forum."
+        warn += ''.join(NL + '⚠️ ' + p for p in problems)
     except Exception as e:
         print('game tags', repr(e))
     if quiet:  # nothing is announced, and it can never get a card later
         run('UPDATE game_status SET card_at=? WHERE key=?', now(), k)
-        return await i.edit_original_response(content=f"🔇 **ADDED QUIETLY**{EM}·{EM}{summary(row, clean_name(dev['name']))}{warn}{(chr(10) + blocked) if blocked else ''}\nNo card and no ping: it is only in the library and on the boards.")
-    note(i.user.id, 'release')
-    why_not = blocked or (card_limit_reason(i.user.id, admin) if ping != 'none' else None) or ('this game already had its new-game card' if row.get('card_at') else None)
-    if why_not and not blocked:
-        blocked = f'ℹ️ The game is released, but no new-game card was posted: {why_not}. An admin can post it.'
+        return True, f"🔇 **ADDED QUIETLY**{EM}·{EM}{summary(row, shown)}{warn}\nNo card and no ping: it is only in the library and on the boards."
+    log_note(i.user.id, 'release')
+    why_not = card_limit_reason(i.user.id, admin) if ping != 'none' else None
+    why_not = why_not or ('this game already had its new-game card' if row.get('card_at') else None)
+    blocked = f'ℹ️ The game is released, but no new-game card was posted: {why_not}. An admin can post it.' if why_not else ''
     try:
         sent = None if why_not else await post_new_game_card(row, ping)
         if sent and ping != 'none':
-            note(i.user.id, 'card')
+            log_note(i.user.id, 'card')
         if sent:
             run('UPDATE game_status SET card_at=? WHERE key=?', now(), k)
         if sent and ping == 'everyone' and not test_channel(sent.channel) and not sent.mention_everyone:
-            warn = chr(10) + "⚠️ The card is up, but Discord did not register the @everyone ping. Ask an admin to check the bot's Mention Everyone permission."
+            warn += NL + "⚠️ The card is up, but Discord did not register the @everyone ping. Ask an admin to check the bot's Mention Everyone permission."
     except Exception as e:
         print('new game card', repr(e))
-        warn = chr(10) + "⚠️ The game is released, but I could not post its new-game card."
-    return await i.edit_original_response(content=f"{E['fixed']} **RELEASED**{EM}·{EM}{summary(row, clean_name(dev['name']))}{warn}{(chr(10) + blocked) if blocked else ''}")
+        warn += NL + "⚠️ The game is released, but I could not post its new-game card."
+    return True, f"{E['fixed']} **RELEASED**{EM}·{EM}{summary(row, shown)}{warn}{(NL + blocked) if blocked else ''}"
 
 
-def in_test_channel(i):
-    return str(getattr(i, 'channel_id', None) or getattr(getattr(i, 'channel', None), 'id', '')) == str(cfg.test_id)
-
-
-async def preview(i, row, shown, what, note='', ping='everyone', quiet=False):
+async def preview(row, shown, what, note='', ping='everyone', quiet=False):
     """Test channel: nothing is saved and nothing goes to the real boards or #games. The card and the library row are drawn here instead."""
     import discord
-    from .cards import games_page, new_game_card
+    from .cards import games_page, new_game_card, ping_target
     ch = await fetch_channel(cfg.test_id)
     none = discord.AllowedMentions.none()
-    from .cards import ping_target
     if not quiet:  # a quiet release has no card
         view, files = new_game_card(row, ping_target(ping)[0])
         await ch.send(view=view, files=files, allowed_mentions=none)
     view2, files2 = games_page([row], False, False)
     await ch.send(view=view2, files=files2, allowed_mentions=none)
-    return await i.edit_original_response(content=f"🧪 **TEST**{EM}·{EM}{what}. Nothing was saved, and nothing was posted in #games. Here is what it would look like in <#{cfg.test_id}>:\n{summary(row, shown)}" + (chr(10) + '🛡️ In a real release: ' + note if note else ''))
+    return f"🧪 **TEST**{EM}·{EM}{what}. Nothing was saved, and nothing was posted in #games. It is in <#{cfg.test_id}>:\n{summary(row, shown)}" + (NL + '🛡️ In a real release: ' + note if note else '')
 
 
 def _row(k):
-    from .db import one
     return one('SELECT * FROM game_status WHERE key=?', k)
 
 
 async def command_release_edit(i, opts):
-    """/release edit game [title] [link] [image] [studio] [original]: only what is given changes."""
+    """/release edit game [title] [link] [image] [studio] [original] [online] [note]: only what is given changes. A preview with Save / Cancel comes first."""
     reply = i.response.send_message
     name = opts.get('game')
     if name == NONE:
@@ -280,8 +312,6 @@ async def command_release_edit(i, opts):
             changes['original_name' if field == 'original' else 'studio'] = v[:100]
     if opts.get('online') in ('online', 'offline'):
         changes['online'] = 1 if opts['online'] == 'online' else 0
-        from .watch import forget
-        forget(k)  # by hand: the automatic watch starts from nothing for this game
     n = (opts.get('note') or '').strip()
     if n:  # a short line under the game; a single - removes it
         changes['notes'] = None if n == '-' else n[:140]
@@ -291,6 +321,7 @@ async def command_release_edit(i, opts):
     if not changes and not link and not opts.get('image'):
         return await reply('Nothing to change. Give a title, link, image, studio, original, note or online.', ephemeral=True)
     await i.response.defer(ephemeral=True, thinking=True)
+    test = in_test_channel(i)
     if link:
         info = await roblox_info(link) or {}
         changes.update({'link': link, 'place_id': info.get('place_id'), 'roblox_name': info.get('name'), 'creator': info.get('creator')})
@@ -298,22 +329,36 @@ async def command_release_edit(i, opts):
             changes['hero_url'] = info['hero_url']
         if info.get('icon_url'):
             changes['icon_url'] = info['icon_url']
-    if opts.get('image') and in_test_channel(i):
+    if opts.get('image') and test:
         changes['hero_url'] = opts['image'].get('url')
         changes['art_url'] = None
     elif opts.get('image'):
-        saved = await save_hero(k, opts['image'])
+        saved = await save_hero(k + '-draft', opts['image'])
         if saved.startswith('!'):
             return await i.edit_original_response(content=saved[1:])
         changes['hero_file'] = saved
     if 'original_name' in changes:
         art = await steam_art(rel.get('source_link'), changes['original_name'])
         changes.update({'art_url': art['art_url'], 'art_hero_url': art['art_hero_url']})
-    if in_test_channel(i):  # a dry run: show the result, change nothing
+    from . import reldraft
+    pid = create_pending({'kind': 'edit', 'user': str(i.user.id), 'key': k, 'rel': rel, 'changes': changes, 'test': test})
+    return await i.edit_original_response(**reldraft.payload(pid))
+
+
+async def commit_edit(i, d):
+    """The Save button of an edit draft. Returns (done, text)."""
+    k, changes, rel = d['key'], dict(d['changes']), d['rel']
+    if d['test']:
         merged = {**rel, **changes}
-        return await preview(i, merged, merged.get('title') or clean_name(merged['name']), '/release edit')
-    sets = ','.join(f'{c}=?' for c in changes)
-    run(f'UPDATE game_status SET {sets} WHERE key=?', *changes.values(), k)
+        return True, await preview(merged, merged.get('title') or clean_name(merged['name']), '/release edit')
+    if changes.get('hero_file'):
+        changes['hero_file'] = finalize_hero(k, changes['hero_file'])
+    if 'online' in changes:
+        from .watch import forget
+        forget(k)  # by hand: the automatic watch starts from nothing for this game
+    if changes:
+        sets = ','.join(f'{c}=?' for c in changes)
+        run(f'UPDATE game_status SET {sets} WHERE key=?', *changes.values(), k)
     await refresh_game_board()
     row = _row(k)
-    return await i.edit_original_response(content=f"{E['fixed']} **UPDATED**{EM}·{EM}{summary(row, row.get('title') or clean_name(row['name']))}")
+    return True, f"{E['fixed']} **UPDATED**{EM}·{EM}{summary(row, row.get('title') or clean_name(row['name']))}"

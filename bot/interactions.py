@@ -504,6 +504,9 @@ async def handle_component(i):
     b = parts[2] if len(parts) > 2 else None
     ctype = i.data.get('component_type')
     if ctype == 2:  # button
+        if kind == 'rel':  # the preview of /release new, quiet and edit
+            from .reldraft import on_button
+            return await on_button(i, a, int(b))
         if kind == 'help':
             from .help import button_help
             return await button_help(i, a)
@@ -527,6 +530,9 @@ async def handle_component(i):
             return await button_transcript_all(i, a)
     elif ctype == 3:  # dropdown
         value = (i.data.get('values') or [None])[0]
+        if kind == 'rel' and a == 'ping':
+            from .reldraft import on_select
+            return await on_select(i, int(b), value)
         if kind == 'ann' and a == 'sel':
             return await select_ann(i, int(b))
         if kind == 'trgame':
@@ -563,3 +569,6 @@ async def handle_modal(i):
         return await modal_note(i, a, fields)
     if kind == 'annedit':
         return await modal_ann_edit(i, int(a), fields)
+    if kind == 'reled':
+        from .reldraft import on_modal
+        return await on_modal(i, int(a), fields)

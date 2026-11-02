@@ -211,6 +211,13 @@ def ping_target(choice):
 
 def new_game_card(row, ping_text='@everyone'):
     """The card that appears for 3 days when a game is released. It pings what the dev chose (default @everyone)."""
+    container, files = new_game_container(row, ping_text)
+    view = ui.LayoutView()
+    view.add_item(container)
+    return view, files
+
+
+def new_game_container(row, ping_text='@everyone'):
     media, f = _hero(row)
     children = []
     if ping_text:
@@ -220,9 +227,7 @@ def new_game_card(row, ping_text='@everyone'):
     children.append(ui.TextDisplay(NL.join(x for x in ['-# 🎉 NEW GAME', _name_line(row, big=True), PLATFORMS, _credits(row), _note(row)] if x)))
     if row.get('link'):
         children.append(ui.ActionRow(_play(row['link'], 'Play now')))
-    view = ui.LayoutView()
-    view.add_item(ui.Container(*children))
-    return view, [f] if f else []
+    return ui.Container(*children), [f] if f else []
 
 
 def _bullets(lines, limit):
