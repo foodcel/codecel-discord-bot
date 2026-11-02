@@ -4,7 +4,7 @@ import traceback
 
 import discord
 
-from . import board, cards, watch
+from . import board, cards, mog, watch
 from .bounty import refresh_claims
 from .catchup import catchup
 from .commands_sync import register_commands
@@ -145,6 +145,11 @@ async def on_message(m):
         except Exception:
             pass
         return
+    try:
+        if await mog.maybe_reply(m, client.user.id):  # Redwing Helper talked about Codecel: a GIF back
+            return
+    except Exception:
+        traceback.print_exc()
     if cards.in_library_channel(m.channel.id) and await cards.purge_rivals(m):  # another bot posting in the library channel: gone
         return
     try:
