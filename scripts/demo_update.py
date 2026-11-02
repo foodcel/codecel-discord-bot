@@ -21,7 +21,7 @@ async def main():
                           'newIds': [], 'newLines': [], 'updates': ['Added a second map'], 'version': 'v17', 'owners': owners_for(tag_id, tag_name(tag_id)), 'off': []})
     p = await draft_payload(pid)
     ch = await fetch_channel(cfg.test_id)
-    sent = await ch.send(content=p['content'], embeds=p['embeds'], view=p['view'], allowed_mentions=p['allowed_mentions'])
+    sent = await ch.send(view=p['view'], files=p['files'], allowed_mentions=p['allowed_mentions'])
     print('draft', pid, sent.id)
     await finish(client)
 
