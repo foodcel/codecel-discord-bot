@@ -16,7 +16,8 @@ PAGES = {
     'admin': ('🔑', 'Admin', 'Only admins can use these. You can use every other page too.', [
         ('🎮', 'Games board', ['assign', 'exclude', 'include', 'bounty-board', 'games']),
         ('🧪', 'Testers', ['tester add', 'tester remove', 'tester status', 'tester edit', 'tester post']),
-        ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview'])]),
+        ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
+        ('😈', 'Fun', ['mog'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
         ('🎮', 'Your games', ['claim', 'unclaim', 'release new', 'release quiet', 'release edit', 'unrelease', 'gamelink', 'progress']),
         ('📣', 'Updates and settings', ['update', 'config', 'pings', 'tester find']),
@@ -41,6 +42,7 @@ SHORT = {
     'bounty-board': 'set up the bounty board in a channel', 'games': 'post or refresh the games board',
     'tester add': 'add a tester to the roster', 'tester remove': 'take a tester off the roster', 'tester status': 'active, waiting, private or on a break',
     'tester edit': "change a tester's details", 'tester post': 'post the tester guide and roster', 'strikes': "show a user's troll strikes",
+    'mog': 'Codecel posts a mog GIF and pings Robin and Redwing Helper',
     'pardon': 'remove a strike (and give back bug hunting)', 'botrules': 'post the bug report rules here', 'preview': 'post the finished embeds in the test channel',
     'claim': 'take a game (add its Steam page with link:)', 'unclaim': 'drop a game you claimed', 'release new': 'your game is out: paste its Roblox link',
     'release quiet': 'add a finished game without announcing it', 'release edit': 'fix a released game', 'unrelease': 'move a game back to unreleased',

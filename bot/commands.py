@@ -105,6 +105,7 @@ COMMANDS = [
     _bug_command(),
     _improvement_command(),
     command('help', 'Show the commands you can use'),
+    command('mog', 'Admin: Codecel posts a mog GIF and pings Robin and Redwing Helper'),
     command('pings', 'Choose when the bot pings you', [
         option(STRING, 'bugs', 'Ping me when a new bug arrives on my games', choices=ON_OFF),
         option(STRING, 'exploits', 'Ping me for high-priority exploit reports', choices=ON_OFF),

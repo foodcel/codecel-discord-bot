@@ -425,6 +425,11 @@ async def handle_command(i):
     sub, opts, _ = get_options(i)
     if name == 'tester':  # testers have no dev role: it checks who may do what itself
         return await testers.command_tester(i, sub, opts)
+    if name == 'mog':
+        if level(i.user) != 'admin':
+            return await deny(i)
+        from .mog import command_mog
+        return await command_mog(i)
     if name == 'help':  # for everyone
         from .help import command_help
         return await command_help(i)
