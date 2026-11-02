@@ -5,7 +5,7 @@ import discord
 
 from _boot import boot, finish
 
-from bot.botnews import release_news_devs_embeds, release_news_testers_embeds
+from bot.botnews import testing_news_devs_embeds as release_news_devs_embeds, testing_news_testers_embeds as release_news_testers_embeds
 from bot.ctx import fetch_channel
 from bot.env import cfg
 

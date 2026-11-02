@@ -225,3 +225,58 @@ def release_news_testers_embeds():
         e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
     return [e]
 
+
+
+def testing_news_devs_embeds():
+    """The announcement for devs: the testing phase, the testers forum, previews before posting, descriptions. One embed."""
+    owner_id = os.environ.get('OWNER_ID') or ''
+    e = flat()
+    e.title = head('🧪', 'New · testing, previews and descriptions')
+    e.set_footer(text='Type /help to see every command you can use.')
+    describe(e, 'Games can now be tested before they come out, and releasing shows you a preview first.')
+    section(e, head('🧪', 'Testing phase'),
+            f'`/progress game:X testing:on` puts a game in testing. The bounty-board shows **🧪 testing** instead of the progress bar, and the game is listed on the testing board in <#{cfg.future_games_id}>. '
+            '`testing:off` ends it. It works for released games too, so you can keep testing after release.')
+    section(e, head('🏷️', 'Testers forum'),
+            f'Testers report with `/bug` or `!bug` in <#{cfg.testing_id}>, and every report becomes a post in <#{cfg.tester_forum_id}>, tagged with the game. The tag is made for you the moment a game goes into testing. Reports reach your dev board like any other bug.')
+    section(e, head('👀', 'Preview before it posts'),
+            '`/release new`, `/release quiet` and `/release edit` now show a preview first: the new-game card and the library entry exactly as they will look. '
+            '**Post** makes it live, **Edit details** changes the title, link, studio, original name or description, the dropdown picks who it pings, and **Cancel** throws it away.')
+    section(e, head('💬', 'Description'),
+            'Add a short line under your game with `description:` on `/release new`, `/release quiet` or `/release edit`, like "Multiplayer + VC" or "Only 1 map so far". `description:-` removes it.')
+    section(e, head('📚', 'New games and the library'),
+            'A new game shows only as its card for 3 days, then it joins the library. Every card picture is cut to the same wide shape, and the picture check for nudity and gore is gone.')
+    section(e, head(E['update'], 'Update drafts'),
+            'The `/update` draft is now the real update card with the cover and **Play now**, so what you see is what posts.')
+    gap(e)
+    columns(e, [
+        {'name': head('⌨️', 'Commands'), 'lines': [
+            '`/progress testing:on` · start testing', '`/progress testing:off` · testing is over', '`/release new` · preview, then post',
+            '`/release edit description:` · the line under your game']},
+        {'name': head(E['user'], 'Who can do what'), 'lines': [
+            '**Devs** · only their own games', '**Admins** · everything']},
+    ], '─' * 28)
+    if owner_id:
+        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    return [e]
+
+
+def testing_news_testers_embeds():
+    """The announcement for testers: the testers forum and which games they can report. One embed."""
+    owner_id = os.environ.get('OWNER_ID') or ''
+    e = flat()
+    e.title = head('🧪', 'New · testers forum')
+    e.set_footer(text='Type /help to see the commands you can use.')
+    describe(e, 'Your reports now have a home of their own.')
+    section(e, head('🏷️', 'Testers forum'),
+            f'Every bug you report with `/bug` or `!bug` in <#{cfg.testing_id}> becomes a post in <#{cfg.tester_forum_id}>, tagged with the game. The dev is told, and replies in your post.')
+    section(e, head('🎮', 'Which games'),
+            'The `/bug` list shows the games that are **in testing** right now, plus released games. A game appears the moment its dev puts it in testing.')
+    section(e, head('🔍', 'Bug hunting'),
+            f'Reply to a message in <#{cfg.testing_id}> with `!bug <game>` and it becomes a post in the testers forum, in the name of the player who wrote it. You can only use it in the testing channel.\n'
+            '**Limit:** if 5 of your posts turn out false, you lose the command and an admin will ask what you meant.')
+    section(e, head('❓', 'Help'),
+            '`/help` shows the commands you can use, one page per role.')
+    if owner_id:
+        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    return [e]
