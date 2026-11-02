@@ -263,8 +263,8 @@ def as_card(e, ping=None):
         items += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small),
                   ui.TextDisplay('\n'.join('-# ' + code_chip(x) for x in e.footer.text.split('\n')))]
     view = ui.LayoutView()
-    if ping:  # the ping sits above the card, outside it
+    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))  # first, so there is no gap between the ping and the card
+    if ping:  # the ping sits right above the card, outside it
         view.add_item(ui.TextDisplay(ping))
-    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
     view.add_item(ui.Container(*items))
     return view, [strip_]

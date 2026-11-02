@@ -105,15 +105,14 @@ async def refresh_board():
 
 
 def card_view(g, ping=True):
-    """The card of a game that just went into testing: (view, files, role pinged). The ping sits above the card, outside it."""
+    """The card of a game that just went into testing: (view, files, role pinged). The ping and the date are inside the card."""
     row = one('SELECT art_url, icon_url, hero_url FROM game_status WHERE key=?', g['key']) or {}
     role = cfg.helpers_role if ping else None
-    text = f"### 🧪 {g['name']} needs testers{NL}-# dev {' '.join(f'<@{o}>' for o in g['owners']) or '—'}"
+    text = (f"### 🧪 {g['name']} needs testers{NL}-# dev {' '.join(f'<@{o}>' for o in g['owners']) or '—'}"
+            + (f' · <@&{role}>' if role else '') + f' · <t:{int(time.time())}:D>')  # the ping and the date are in the card
     cover = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
     strip_ = strip()
     view = ui.LayoutView(timeout=None)
-    if role:
-        view.add_item(ui.TextDisplay(f'<@&{role}>'))
     view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
     view.add_item(ui.Container(
         ui.Section(text, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(text),
