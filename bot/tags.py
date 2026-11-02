@@ -13,7 +13,9 @@ STATUS_TAG = {
     'needs_info': 'Needs Info', 'investigating': 'Investigating', 'fixing': 'Fix in Progress',
     'fixed': 'Fixed', 'duplicate': 'Duplicate', 'not_a_bug': 'Not a Bug',
 }
-SUGGEST_STATUS_TAG = {'needs_info': 'Needs Info', 'fixed': 'Added', 'declined': 'Declined', 'duplicate': 'Duplicate'}
+SUGGEST_STATUS_TAG = {'fixed': 'Added', 'declined': 'Declined'}  # the suggestions forum keeps just these two
+STATUS_EMOJI = {'Fixed': '✅', 'Added': '✅', 'Declined': '❌'}
+OLD_SUGGEST_TAGS = {'needs info', 'duplicate'}  # taken out of the suggestions forum
 DEVICES = ['Mobile', 'Computer', 'Controller']
 KEEP = object()  # status=KEEP means "leave the status tags alone", status=None means "clear them"
 
@@ -32,18 +34,64 @@ async def load_tags():
         _stags = _read(await ctx.client.fetch_channel(int(cfg.suggestions_id)))
 
 
+def _status_tag(name, emoji, id_=0):
+    """A moderated tag with its emoji; with the id of an existing tag it replaces that tag in place (posts keep it)."""
+    t = discord.ForumTag(name=name, emoji=discord.PartialEmoji(name=emoji), moderated=True)
+    t.id = id_
+    return t
+
+
+def _has_emoji(tag, emoji):
+    return bool(tag.emoji) and tag.emoji.name == emoji
+
+
 async def ensure_suggest_tags():
-    """Makes the status tags of the suggestions forum (Added, Declined, Duplicate, Needs Info) if they are missing."""
+    """The suggestions forum has two status tags: Added ✅ and Declined ❌. Needs Info and Duplicate are taken out; missing ones are made and get their emoji."""
     if not cfg.suggestions_id:
         return
     forum = await ctx.client.fetch_channel(int(cfg.suggestions_id))
-    have = {t.name.lower() for t in forum.available_tags}
-    missing = [discord.ForumTag(name=n, moderated=True) for n in SUGGEST_STATUS_TAG.values() if n.lower() not in have]
-    if missing:  # one edit with the whole list: creating them one by one overwrites each other
+    tags, changed = [], False
+    for t in forum.available_tags:
+        if t.name.lower() in OLD_SUGGEST_TAGS:
+            changed = True
+            continue
+        want = STATUS_EMOJI.get(t.name) if t.name in SUGGEST_STATUS_TAG.values() else None
+        if want and not _has_emoji(t, want):
+            t = _status_tag(t.name, want, t.id)
+            changed = True
+        tags.append(t)
+    have = {t.name for t in tags}
+    for name in SUGGEST_STATUS_TAG.values():
+        if name not in have:
+            tags.append(_status_tag(name, STATUS_EMOJI[name]))
+            changed = True
+    if changed:  # one edit with the whole list: creating tags one by one overwrites each other
         try:
-            await forum.edit(available_tags=[*forum.available_tags, *missing], reason='Status tags for suggestions')
+            await forum.edit(available_tags=tags, reason='Status tags for suggestions')
         except Exception as e:
-            print('create tags', e)
+            print('suggestion tags', repr(e))
+    await load_tags()
+
+
+async def ensure_fixed_tag():
+    """The bugs forum has one status tag: Fixed ✅. It is made when missing and gets its emoji."""
+    forum = await ctx.client.fetch_channel(int(cfg.bugs_id))
+    tags, changed, seen = [], False, False
+    for t in forum.available_tags:
+        if t.name.lower() == 'fixed':
+            seen = True
+            if not _has_emoji(t, '✅') or not t.moderated:
+                t = _status_tag(t.name, '✅', t.id)
+                changed = True
+        tags.append(t)
+    if not seen and len(tags) < 20:
+        tags.append(_status_tag('Fixed', '✅'))
+        changed = True
+    if changed:
+        try:
+            await forum.edit(available_tags=tags, reason='Fixed tag')
+        except Exception as e:
+            print('fixed tag', repr(e))
     await load_tags()
 
 

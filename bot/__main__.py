@@ -17,7 +17,7 @@ from .intake import intake_thread
 from .interactions import handle_interaction
 from .router import handle_message
 from . import devlog, msgreport, suggest, testers
-from .tags import ensure_suggest_tags, load_tags
+from .tags import ensure_fixed_tag, ensure_suggest_tags, load_tags
 from .timers import run_timers
 
 devlog.install()
@@ -73,6 +73,7 @@ async def on_ready():
     asyncio.ensure_future(cards.guard_loop())  # first thing: the library and its cards are always there, a rival bot's posts never
     await load_tags()
     await ensure_suggest_tags()
+    await ensure_fixed_tag()
     await register_commands()
     if board.is_live():  # this bot runs the bounty board: read the forum again before anything uses the claims
         try:
