@@ -43,7 +43,7 @@ async def main():
         for e in (await bug_embeds(bug[0]))[:1]:
             await show('Dev board · one bug page', e)
     await show('Fix log', fixlog.log_embed())
-    await show('Strike card (mod log)', strikes.strike_embed(int(ASHER), 2, '1-day mute', 'Spam in the bugs forum'))
+    await show('Strike card (mod log)', strikes.strike_embed(int(ASHER), 2, 'timeout', 'Spam in the bugs forum'))
     await show('Bot rules', strikes.rules_embed())
     await show('Tester roster', testers.roster_embed())
     await show('Tester roster guide', testers.guide_embed())
