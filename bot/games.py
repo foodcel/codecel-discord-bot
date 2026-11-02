@@ -493,6 +493,8 @@ async def command_progress(i, opts):
         return await reply('The percent must be between 0 and 100.', ephemeral=True)
     if working is None and percent is not None and g.get('working') is None:
         working = True  # giving a percent means it is being worked on
+    await i.response.defer(ephemeral=True, thinking=True)  # the tag and the boards below take longer than the 3 seconds Discord waits
+    reply = i.edit_original_response
     if percent is not None or working is not None:
         set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
     tag_note = ''
@@ -506,9 +508,9 @@ async def command_progress(i, opts):
     await refresh_game_board()
     shown = clean_name(g['name'])
     if rel and not dev:
-        return await reply(f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {'🧪 testing' if testing == 'on' else 'not in testing'}{tag_note}", ephemeral=True)
+        return await reply(content=f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {'🧪 testing' if testing == 'on' else 'not in testing'}{tag_note}")
     now_ = [x for x in game_lists()['unreleased'] if x['key'] == k][0]
-    return await reply(f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {progress_cell(now_)}{tag_note}", ephemeral=True)
+    return await reply(content=f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {progress_cell(now_)}{tag_note}")
 
 
 async def _tester_tag_note(name):
