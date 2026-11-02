@@ -27,6 +27,7 @@ intents.guild_messages = True
 intents.message_content = True
 intents.members = True
 intents.guild_reactions = True
+intents.webhooks = True  # a webhook made in the library channel is deleted at once
 client = discord.Client(intents=intents, activity=discord.CustomActivity(name='*tokenmogs the loser below me*'), status=discord.Status.online)
 ctx.client = client
 
@@ -137,6 +138,12 @@ async def on_thread_create(thread):
 
 @client.event
 async def on_message(m):
+    if m.guild and cards.in_library_channel(m.channel.id) and cards.is_foreign(m):  # first thing, before anything else: a foreign bot or webhook post in the library channel
+        try:
+            await m.delete()
+        except Exception:
+            pass
+        return
     if str(m.channel.id) == cfg.bounty_id and not board.is_live():
         return schedule_claims()
     if m.type == discord.MessageType.pins_add and cards.in_library_channel(m.channel.id):  # the "pinned a message" line of the library
@@ -213,6 +220,15 @@ async def on_raw_bulk_message_delete(p):
 async def on_message_edit(before, after):
     if cards.in_library_channel(after.channel.id):
         await cards.purge_rivals(after)
+
+
+@client.event
+async def on_webhooks_update(channel):
+    if cards.in_library_channel(channel.id):
+        try:
+            await cards.purge_webhooks(channel)
+        except Exception:
+            traceback.print_exc()
 
 
 @client.event

@@ -297,7 +297,7 @@ async def refresh_library(force=False):
             return
         try:  # a rival bot's posts in this channel are removed on every refresh too
             async for m in ch.history(limit=60):
-                if is_rival(m):
+                if is_foreign(m):
                     await m.delete()
         except Exception as e:
             print('rival sweep', repr(e))
@@ -382,6 +382,22 @@ def is_rival(m):
     return str(m.author.id) in rival_ids() or str(m.webhook_id or '') in rival_ids() or (m.author.name or '').lower().startswith('redwing')
 
 
+def is_foreign(m):
+    """In the library channel only this bot and people may speak: any other bot or webhook message is foreign."""
+    if ctx.client and ctx.client.user and m.author.id == ctx.client.user.id:
+        return False
+    return bool(m.author.bot or m.webhook_id)
+
+
+async def purge_webhooks(ch):
+    """Deletes every webhook of the library channel (a webhook is how a bot posts around the channel permissions)."""
+    for w in await ch.webhooks():
+        try:
+            await w.delete(reason='The library channel belongs to the library bot')
+        except Exception as e:
+            print('webhook delete', repr(e))
+
+
 def in_library_channel(channel_id):
     conf = library_config()
     return bool(conf) and str(channel_id) == str(conf['channel'])
@@ -389,7 +405,7 @@ def in_library_channel(channel_id):
 
 async def purge_rivals(message):
     """Deletes a message of a rival bot in the library channel. True when it was one."""
-    if is_rival(message) and in_library_channel(message.channel.id):
+    if is_foreign(message) and in_library_channel(message.channel.id):
         try:
             await message.delete()
         except discord.NotFound:
@@ -460,11 +476,15 @@ async def guard_tick():
     ch = ctx.client.get_channel(int(conf['channel'])) or await fetch_channel(conf['channel'])
     if not ch:
         return
+    try:
+        await purge_webhooks(ch)
+    except Exception as e:
+        print('webhook sweep', repr(e))
     want = expected_ids()
     msgs = [m async for m in ch.history(limit=100)]
     seen = {str(m.id) for m in msgs}
     for m in msgs:  # a rival bot's message is deleted the second it is seen (the gateway event usually deletes it first)
-        if is_rival(m):
+        if is_foreign(m):
             try:
                 await m.delete()
             except discord.NotFound:
