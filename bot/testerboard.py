@@ -2,12 +2,13 @@
 mentions), a dropdown to volunteer for a game and a button to leave one. When a game goes into testing a small card with an "I want to test"
 button is posted for a day and pings Helpers. Everything is answered by custom id (tbd:...), so the buttons keep working after a restart."""
 import json
+import time
 from datetime import datetime, timezone
 
 import discord
 from discord import ui
 
-from .botnews import make, strip, tree
+from .botnews import strip, tree
 from .components import NO_MENTIONS
 from .ctx import fetch_channel
 from .db import add_timer, all_, kv_get, kv_set, now, one, run
@@ -19,9 +20,9 @@ from .ui import E, flat, head, section, gap
 CARD_HOURS = 24
 NL = chr(10)
 FOOTER = [
-    '🙋 · pick the games you test: pick again to change the list',
-    '/progress testing:on · put your game in testing',
-    '/bug · testers report them in the testing channel',
+    '🙋 · pick the games you want to test: pick again to change the list',
+    '`/progress testing:on` · put your game in testing',
+    '`/bug` · testers report them in the testing channel',
 ]
 
 
@@ -51,46 +52,48 @@ def can_volunteer(member):
     return bool(roles & set(cfg.tester_roles)) or cfg.helpers_role in roles
 
 
-def board_embed():
-    e = flat()
-    e.title = head('🧪', 'Tester board')
-    games = testing_games()
-    if not games:
-        e.description = 'No game is in testing right now.'
-    for g in games:
-        rows = [('Dev', ' '.join(f'<@{o}>' for o in g['owners']) or '—'), ('Since', date(g['since']))]
-        rows += [('Tester', f'<@{u}>') for u in testers_of(g['key'])] or [('Testers', 'nobody yet')]
-        section(e, head('🎮', g['name']), tree(*rows))
-    gap(e)
-    e.set_footer(text=NL.join(FOOTER))
-    e.set_image(url='attachment://width.png')
-    return e
-
-
 def board_view():
-    """One dropdown where you pick every game you test (pick none to leave them all). Nobody needs a leave button."""
-    view = ui.View(timeout=None)
-    games = testing_games()[:25]
-    if games:
-        view.add_item(ui.Select(custom_id='tbd:pick', placeholder='🙋 Pick the games you test…', min_values=0, max_values=len(games),
-                                options=[discord.SelectOption(label=g['name'][:100], value=g['key'], description=f"testing since {date(g['since'])}") for g in games]))
-    return view
+    """The board as a card: the title with a counting time, a line, the games, the picker, a line, the commands."""
+    strip_ = strip()
+    games = testing_games()
+    items = [ui.TextDisplay(f'### 🧪 Tester board\n-# Updated <t:{int(time.time())}:R>'), ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]
+    if not games:
+        items.append(ui.TextDisplay('No game is in testing right now.'))
+    for g in games:
+        rows = [('Dev', ' '.join(f'<@{o}>' for o in g['owners']) or '—'), ('Since', f"<t:{g['since'] // 1000}:D>")]
+        rows += [('Tester', f'<@{u}>') for u in testers_of(g['key'])] or [('Testers', 'nobody yet')]
+        items.append(ui.TextDisplay(f"**🎮 {g['name']}**{NL}{tree(*rows)}"))
+    if games:  # one dropdown where you pick every game you test (pick none to leave them all)
+        picks = games[:25]
+        items.append(ui.ActionRow(ui.Select(custom_id='tbd:pick', placeholder='🙋 Pick the games you want to test…', min_values=0, max_values=len(picks),
+                                            options=[discord.SelectOption(label=g['name'][:100], value=g['key'], description=f"testing since {date(g['since'])}") for g in picks])))
+    items += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(NL.join('-# ' + x for x in FOOTER))]
+    view = ui.LayoutView(timeout=None)
+    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
+    view.add_item(ui.Container(*items))
+    return view, [strip_]
 
 
 async def refresh_board():
-    """Keeps one pinned message in #future-games up to date; posted again when it was deleted."""
+    """Keeps one pinned message in #future-games up to date. The old board was an embed: it is replaced by this card once."""
     ch = await fetch_channel(cfg.future_games_id)
     if not ch:
         return
-    embed, view = board_embed(), board_view()
     ref = json.loads(kv_get('testing_board') or '{}')
+    view, files = board_view()
     if ref.get('message') and str(ref.get('channel')) == str(ch.id):
         try:
-            await ch.get_partial_message(int(ref['message'])).edit(embeds=[embed], view=view, attachments=[strip()])
+            await ch.get_partial_message(int(ref['message'])).edit(view=view, attachments=files, allowed_mentions=NO_MENTIONS)
             return
         except Exception:
             pass
-    msg = await ch.send(embeds=[embed], view=view, files=[strip()])
+        view, files = board_view()  # the files can be sent once
+    msg = await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
+    if ref.get('message'):
+        try:
+            await ch.get_partial_message(int(ref['message'])).delete()
+        except Exception:
+            pass
     kv_set('testing_board', json.dumps({'channel': str(ch.id), 'message': str(msg.id)}))
     try:
         await msg.pin()
@@ -107,17 +110,16 @@ async def post_card(g, ping=True):
     if not ch:
         return None
     row = one('SELECT art_url, icon_url, hero_url FROM game_status WHERE key=?', g['key']) or {}
-    e = make(g['name'] + ' needs testers', [
-        ('🙋', 'Volunteer', [('Dev', ' '.join(f'<@{o}>' for o in g['owners']) or '—'), ('Testers', 'press the button to join')])],
-        ['🙋 · volunteer as a tester', 'The tester board is updated by itself'], emoji='🧪')
-    cover = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
-    if cover:
-        e.set_thumbnail(url=cover)
-    view = ui.View(timeout=None)
-    view.add_item(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋'))
     role = cfg.helpers_role if ping else None
-    sent = await ch.send(content=f'<@&{role}>' if role else None, embeds=[e], files=[strip()], view=view,
-                         allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(role))]) if role else NO_MENTIONS)
+    text = f"### 🧪 {g['name']} needs testers{NL}-# dev {' '.join(f'<@{o}>' for o in g['owners']) or '—'}" + (f' · <@&{role}>' if role else '')
+    cover = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
+    strip_ = strip()
+    view = ui.LayoutView(timeout=None)
+    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
+    view.add_item(ui.Container(
+        ui.Section(text, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(text),
+        ui.ActionRow(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋'))))
+    sent = await ch.send(view=view, files=[strip_], allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(role))]) if role else NO_MENTIONS)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_HOURS * 3600000)
     return sent
 

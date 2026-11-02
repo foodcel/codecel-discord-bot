@@ -2,6 +2,10 @@
 in the footer, one per line. Every branch is kept short enough to stay on one line, so nothing wraps back under the tree.
 Built here so the preview and the real post are identical."""
 import re
+import time
+
+import discord
+from discord import ui
 
 from .env import cfg
 from .pngs import width_strip
@@ -235,3 +239,25 @@ def tester_guide_embeds():
             ('Proof', 'a screenshot or a video')])],
         ['/bug · report a bug in the testing channel', '!bug <game> · reply to a message to report it', '/help · the commands you can use'],
         emoji='👋')]
+
+
+def code_chip(line):
+    """"/cmd · text" becomes "`/cmd` · text": the command in a grey box."""
+    first, sep, rest = line.partition(' · ')
+    return f'`{first}` · {rest}' if sep and first[:1] in '/!' else line
+
+
+def as_card(e, ping=None):
+    """An announcement embed as a card: (view, files). Under the title the ping and a counting time, a line under the header and one above the commands."""
+    strip_ = width_strip()
+    sub = ' · '.join(x for x in [ping, f'<t:{int(time.time())}:R>'] if x)
+    items = [ui.TextDisplay(f'### {e.title}\n-# {sub}'), ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]
+    for f in e.fields:
+        items.append(ui.TextDisplay(f'**{f.name.rstrip(":")}**\n{f.value}') if f.name.strip(' \u200b') else ui.TextDisplay(f.value))
+    if e.footer and e.footer.text:
+        items += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small),
+                  ui.TextDisplay('\n'.join('-# ' + code_chip(x) for x in e.footer.text.split('\n')))]
+    view = ui.LayoutView()
+    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
+    view.add_item(ui.Container(*items))
+    return view, [strip_]

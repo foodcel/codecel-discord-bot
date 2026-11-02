@@ -311,12 +311,13 @@ def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, w
 
 def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
     """An update post: a big title, the date, Fixes / Changes / New, a footer (who posted it, where to report a bug) and a Play now button.
-    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown at the end of the footer ('<@&role>'), None for no ping."""
+    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown under the title ('<@&role>'), None for no ping."""
     children = []
     strip = width_strip()
     title = f"# {game['name']} — Update" + (f' {version}' if version else '')
-    date = (when or datetime.now(timezone.utc)).strftime('%b %d, %Y').replace(' 0', ' ')
-    head = f'{title}\n-# {date}'
+    stamp = int((when or datetime.now(timezone.utc)).timestamp())
+    sub = ' · '.join(x for x in [ping_text, f'<t:{stamp}:R>'] if x)  # the ping and a counting time
+    head = f'ㅤ\n{title}\n-# {sub}'  # the empty line above the title centres it next to the cover
     cover = (row or {}).get('art_url') or (row or {}).get('icon_url') or (row or {}).get('hero_url')  # a link, so nothing has to be uploaded
     children.append(ui.Section(head, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(head))  # the small picture sits top right
     first = True
@@ -329,7 +330,7 @@ def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=N
         children.append(ui.TextDisplay('Small improvements.'))
     who = f'Posted by <@{poster}> · ' if poster else ''
     children += [ui.Separator(visible=True, spacing=LONG),
-                 ui.TextDisplay(f'-# Thanks to everyone who reported these.\n-# {who}Found a bug? <#{cfg.bugs_id}>' + (f' · {ping_text}' if ping_text else ''))]  # the ping sits at the end of the footer
+                 ui.TextDisplay(f'-# Thanks to everyone who reported these.\n-# {who}Found a bug? <#{cfg.bugs_id}>')]
     link = (row or {}).get('link') or game.get('link')
     if link and str(link).startswith('http'):
         children.append(ui.ActionRow(_play(link, 'Play now')))

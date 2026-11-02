@@ -7,7 +7,7 @@ import discord
 
 from _boot import boot, finish
 
-from bot.botnews import strip, testing_news_devs_embeds, testing_news_testers_embeds
+from bot.botnews import as_card, testing_news_devs_embeds, testing_news_testers_embeds
 from bot.ctx import fetch_channel
 from bot.env import cfg
 from bot.games import refresh_testing_board
@@ -26,8 +26,9 @@ async def main():
         print('purged', ch.name, n)
     ch = await fetch_channel(cfg.test_id)
     none = discord.AllowedMentions.none()
-    await ch.send(content=f'<@&{DEV_ROLE}>', embeds=testing_news_devs_embeds(), files=[strip()], allowed_mentions=none)
-    await ch.send(content=f'<@&{TESTER_ROLE}>', embeds=testing_news_testers_embeds(), files=[strip()], allowed_mentions=none)
+    for role, build in ((DEV_ROLE, testing_news_devs_embeds), (TESTER_ROLE, testing_news_testers_embeds)):
+        view, files = as_card(build()[0], ping=f'<@&{role}>')
+        await ch.send(view=view, files=files, allowed_mentions=none)
     if '--news-only' not in sys.argv:
         await refresh_testing_board()
     print('done')

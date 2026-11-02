@@ -102,6 +102,11 @@ async def command_bug(i, opts):
     ]))
 
 
+def quote(text):
+    """What the player wrote, with a quote bar."""
+    return '\n'.join('> ' + line for line in str(text).split('\n'))
+
+
 def tester_report_embed(bug, form, tester_id, too_big=None, image=None, origin=None):
     """The report card posted inside the tester thread."""
     e = flat()
@@ -110,9 +115,9 @@ def tester_report_embed(bug, form, tester_id, too_big=None, image=None, origin=N
     columns(e, [
         {'name': head(E['user'], 'Tester'), 'lines': [f'<@{tester_id}>']},
         {'name': head(E['severity'], 'Severity'), 'lines': [SEVERITY.get(bug['severity']) or '?']},
-        {'name': head(E['device'], 'Device'), 'lines': [form['device'] or 'Not given']},
+        {'name': head(E['device'], 'Device'), 'lines': [f"`{form['device']}`" if form['device'] else 'Not given']},
     ])
-    labeled(e, head(E['note'], 'What happened'), sentence(form['what']))
+    labeled(e, head(E['note'], 'What happened'), quote(sentence(form['what'])))
     if form['steps']:
         labeled(e, head('🔁', 'Steps to reproduce'), form['steps'])
     if origin:

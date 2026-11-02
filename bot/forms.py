@@ -13,7 +13,7 @@ from .ctx import fetch_channel
 from .db import bug_by_id, now, run, update_bug
 from .env import cfg
 from .tags import find_device_tag, tag_name, to_suggest_tag_id
-from .tester import _keep, _pending, safe
+from .tester import _keep, _pending, quote, safe
 from .transcript import download, upload_limit
 from .ui import E, EM, columns, cut, describe, flat, head, labeled, sentence
 
@@ -95,9 +95,9 @@ def _card(kind, user_id, game, form, too_big=None, image=None):
     if kind == 'bug':
         columns(e, [
             {'name': head(E['user'], 'Reporter'), 'lines': [f'<@{user_id}>']},
-            {'name': head(E['device'], 'Device'), 'lines': [form['device'] or 'Not given']},
+            {'name': head(E['device'], 'Device'), 'lines': [f"`{form['device']}`" if form['device'] else 'Not given']},
         ])
-        labeled(e, head(E['note'], 'What happened'), sentence(form['what']))
+        labeled(e, head(E['note'], 'What happened'), quote(sentence(form['what'])))
         labeled(e, head('🔁', 'How to make it happen'), form['steps'])
         if form['expected']:
             labeled(e, head(E['fixed'], 'Should happen'), sentence(form['expected']))
