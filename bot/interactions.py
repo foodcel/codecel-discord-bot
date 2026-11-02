@@ -547,7 +547,7 @@ async def handle_component(i):
             return await on_select(i, int(b), value)
         if kind == 'tbd':
             from .testerboard import on_select
-            return await on_select(i, a, value)
+            return await on_select(i, a, i.data.get('values') or [])
         if kind == 'ann' and a == 'sel':
             return await select_ann(i, int(b))
         if kind == 'trgame':

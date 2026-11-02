@@ -19,8 +19,7 @@ from .ui import E, flat, head, section, gap
 CARD_HOURS = 24
 NL = chr(10)
 FOOTER = [
-    '🙋 · pick a game in the list to volunteer',
-    '🚪 · leave a game you no longer test',
+    '🙋 · pick the games you test: pick again to change the list',
     '/progress testing:on · put your game in testing',
     '/bug · testers report them in the testing channel',
 ]
@@ -69,12 +68,12 @@ def board_embed():
 
 
 def board_view():
+    """One dropdown where you pick every game you test (pick none to leave them all). Nobody needs a leave button."""
     view = ui.View(timeout=None)
     games = testing_games()[:25]
     if games:
-        view.add_item(ui.Select(custom_id='tbd:pick', placeholder='🙋 Volunteer to test a game…',
+        view.add_item(ui.Select(custom_id='tbd:pick', placeholder='🙋 Pick the games you test…', min_values=0, max_values=len(games),
                                 options=[discord.SelectOption(label=g['name'][:100], value=g['key'], description=f"testing since {date(g['since'])}") for g in games]))
-    view.add_item(ui.Button(custom_id='tbd:leave', label='Leave a game', style=discord.ButtonStyle.secondary, emoji='🚪', row=1))
     return view
 
 
@@ -137,24 +136,26 @@ async def _join(i, k):
 
 
 async def on_button(i, action, arg):
-    if action == 'join':
+    if action == 'join':  # the button on the card of a game that just went into testing
         await i.response.defer(ephemeral=True)
         return await _join(i, arg)
-    if action == 'leave':
-        mine = [g for g in testing_games() if str(i.user.id) in testers_of(g['key'])]
-        if not mine:
-            return await i.response.send_message('You are not testing any game.', ephemeral=True)
-        view = ui.View(timeout=300)
-        view.add_item(ui.Select(custom_id='tbd:leavepick', placeholder='Which game?',
-                                options=[discord.SelectOption(label=g['name'][:100], value=g['key']) for g in mine[:25]]))
-        return await i.response.send_message('Leave which game?', view=view, ephemeral=True)
 
 
-async def on_select(i, action, value):
-    if action == 'pick':
-        await i.response.defer(ephemeral=True)
-        return await _join(i, value)
-    if action == 'leavepick':
-        run('DELETE FROM game_testers WHERE game_key=? AND user_id=?', value, str(i.user.id))
-        await i.response.edit_message(content=f'{E["fixed"]} You no longer test it.', view=None)
-        await refresh_board()
+async def on_select(i, action, values):
+    """The dropdown on the board: the games you picked are the games you test (what you picked before is replaced)."""
+    if action != 'pick':
+        return
+    await i.response.defer(ephemeral=True)
+    if not can_volunteer(i.user):
+        return await i.edit_original_response(content='Only testers and helpers can volunteer.')
+    shown = {g['key']: g for g in testing_games()[:25]}
+    chosen = [v for v in values if v in shown]
+    me = str(i.user.id)
+    for k in shown:
+        if k not in chosen:
+            run('DELETE FROM game_testers WHERE game_key=? AND user_id=?', k, me)
+    for k in chosen:
+        run('INSERT OR IGNORE INTO game_testers(game_key,user_id,at) VALUES(?,?,?)', k, me, now())
+    await refresh_board()
+    text = (f"{E['fixed']} You test " + ', '.join(f"**{shown[k]['name']}**" for k in chosen) + '. Pick again any time to change the list.') if chosen else 'You no longer test any game.'
+    return await i.edit_original_response(content=text)
