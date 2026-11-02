@@ -228,42 +228,46 @@ def release_news_testers_embeds():
 
 
 def testing_news_devs_embeds():
-    """The announcement for devs: everything new since the last one, short. One embed."""
-    owner_id = os.environ.get('OWNER_ID') or ''
+    """The announcement for devs, in the /help tree look. One embed; the commands are listed in the footer."""
+    games = f'<#{GAMES_CHANNEL}>'
     e = flat()
     e.title = head(E['update'], 'New · testing and previews')
-    e.set_footer(text='Type /help to see every command you can use.')
-    section(e, head('🧪', 'Testing'),
-            f'`/progress testing:on` shows **🧪 testing** on the board and lists your game in <#{cfg.future_games_id}>. Works for released games too.')
-    section(e, head('🏷️', 'Testers forum'),
-            f'Testers report in <#{cfg.tester_forum_id}>. The game gets its tag when testing starts, and reports reach your board.')
-    section(e, head('👀', 'Previews'),
-            '`/release new`, `quiet` and `edit` show a preview first. **Post**, **Edit details** or **Cancel**.')
-    section(e, head('💬', 'Description'),
-            '`description:` adds a line under your game, like "Multiplayer + VC". `-` removes it.')
-    section(e, head('📚', 'Library'),
-            'A new game is a card for 3 days, then joins the library. Pictures are cropped to one shape, and there is no picture check.')
-    section(e, head('🔴', 'Offline'),
-            f'The bot checks Roblox every 5 minutes, marks a taken-down game offline and pings you in <#1565918318664093766>.')
-    section(e, head(E['update'], 'Updates'),
-            '`/update` drafts now look exactly like the posted card.')
-    if owner_id:
-        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    section(e, head('🧪', 'Testing'), '\n'.join([
+        f'├─ **Board** · 🧪 on the board, listed in <#{cfg.future_games_id}>',
+        f'├─ **Forum** · testers report in <#{cfg.tester_forum_id}>',
+        '└─ **Released games** · can be in testing too']))
+    section(e, head('🚀', 'Releasing'), '\n'.join([
+        '├─ **Preview** · `/release new`, `quiet` and `edit` show it first',
+        '├─ **Description** · a line under your game',
+        f'└─ **Library** · a card in {games} for 3 days, then in the library']))
+    section(e, head('🤖', 'Automatic'), '\n'.join([
+        '├─ **Offline** · taken-down games are marked, you are pinged in <#1565918318664093766>',
+        '└─ **Updates** · `/update` drafts look like the posted card']))
+    gap(e)
+    e.set_footer(text='\n'.join([
+        '/progress testing:on · put your game in testing',
+        '/progress testing:off · testing is over',
+        '/release new · preview, then post',
+        '/release edit description: · the line under your game',
+        '/help · every command you can use',
+    ]))
     return [e]
 
 
 def testing_news_testers_embeds():
-    """The announcement for testers, short. One embed."""
-    owner_id = os.environ.get('OWNER_ID') or ''
+    """The announcement for testers, in the /help tree look. One embed; the commands are listed in the footer."""
     e = flat()
     e.title = head('🧪', 'New · testers forum')
-    e.set_footer(text='Type /help to see the commands you can use.')
-    section(e, head('🏷️', 'Reports'),
-            f'`/bug` and `!bug` in <#{cfg.testing_id}> now post in <#{cfg.tester_forum_id}>, tagged with the game.')
-    section(e, head('🎮', 'Games'),
-            f'Only games **in testing** (and released ones) are listed. See them in <#{cfg.future_games_id}>.')
-    section(e, head('🔍', '!bug'),
-            'Reply to a message with `!bug <game>`, in the testing channel only. 5 false posts and you lose it.')
-    if owner_id:
-        e.add_field(name=ZW, value=f'Report any bugs to <@{owner_id}>', inline=False)
+    section(e, head('🏷️', 'Reports'), '\n'.join([
+        f'├─ **Forum** · `/bug` and `!bug` post in <#{cfg.tester_forum_id}>, tagged with the game',
+        f'└─ **Games** · only games in testing (and released ones), listed in <#{cfg.future_games_id}>']))
+    section(e, head('🔍', 'Bug hunting'), '\n'.join([
+        '├─ **!bug <game>** · reply to a message, in the testing channel only',
+        '└─ **Limit** · 5 false posts and you lose it']))
+    gap(e)
+    e.set_footer(text='\n'.join([
+        '/bug · report a bug in the testing channel',
+        '!bug <game> · reply to a message to report it',
+        '/help · the commands you can use',
+    ]))
     return [e]
