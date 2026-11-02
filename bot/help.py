@@ -55,7 +55,7 @@ SHORT = {
 def descriptions():
     out = {}
     for c in COMMANDS + BOARD_COMMANDS:
-        out[c['name']] = c['description']
+        out[c['name']] = c.get('description', '')  # the right-click Mog app has none
         for o in c.get('options') or []:
             if o.get('type') == 1:
                 out[f"{c['name']} {o['name']}"] = o['description']
