@@ -120,5 +120,5 @@ async def handle_message(msg):
         return await handle_dev(msg, 'suggestion')
     if cfg.suggestions_id and parent == cfg.suggestions_id:
         return await handle_suggestion_thread(msg)
-    if parent == cfg.bugs_id or (cfg.testing_id and parent == cfg.testing_id):
+    if parent == cfg.bugs_id or parent in (cfg.testing_id, cfg.tester_forum_id):  # the bugs forum, and the testers' reports (the testing channel and the testers forum)
         return await handle_bug_thread(msg)
