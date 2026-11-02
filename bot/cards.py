@@ -311,11 +311,9 @@ def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, w
 
 def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
     """An update post: a big title, the date, Fixes / Changes / New, a footer (who posted it, where to report a bug) and a Play now button.
-    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown in the card ('<@&role>'), None for no ping."""
+    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown at the end of the footer ('<@&role>'), None for no ping."""
     children = []
     strip = width_strip()
-    if ping_text:
-        children.append(ui.TextDisplay(ping_text))
     title = f"# {game['name']} — Update" + (f' {version}' if version else '')
     date = (when or datetime.now(timezone.utc)).strftime('%b %d, %Y').replace(' 0', ' ')
     head = f'{title}\n-# {date}'
@@ -331,7 +329,7 @@ def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=N
         children.append(ui.TextDisplay('Small improvements.'))
     who = f'Posted by <@{poster}> · ' if poster else ''
     children += [ui.Separator(visible=True, spacing=LONG),
-                 ui.TextDisplay(f'-# Thanks to everyone who reported these.\n-# {who}Found a bug? <#{cfg.bugs_id}>')]
+                 ui.TextDisplay(f'-# Thanks to everyone who reported these.\n-# {who}Found a bug? <#{cfg.bugs_id}>' + (f' · {ping_text}' if ping_text else ''))]  # the ping sits at the end of the footer
     link = (row or {}).get('link') or game.get('link')
     if link and str(link).startswith('http'):
         children.append(ui.ActionRow(_play(link, 'Play now')))
