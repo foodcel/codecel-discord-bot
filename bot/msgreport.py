@@ -57,9 +57,6 @@ async def handle(m):
     if not is_tester(member):
         return False  # players use /bug and /improvement
     in_testing = bool(cfg.testing_id) and str(m.channel.id) == str(cfg.testing_id)
-    if lv == 'none' and not in_testing and str(m.channel.id) != str(cfg.test_id):  # testers use bug hunting in the testing channel only
-        await _say(m, f"{E['warn']} Testers use bug hunting in <#{cfg.testing_id}>.")
-        return True
     from .hunting import blocked
     if level(member) != 'admin' and blocked(member.id) and str(m.channel.id) != str(cfg.test_id):
         await _say(m, f"{E['warn']} Bug hunting is switched off for you for now. An admin will talk to you about it.")

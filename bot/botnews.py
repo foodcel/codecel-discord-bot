@@ -167,7 +167,8 @@ def release_news_testers_embeds():
     return [make('New · for testers', [
         ('🔍', 'Bug hunting', [
             ('!bug', 'reply to a message with `!bug <game>`'),
-            ('Where', f'only in <#{cfg.testing_id}>'),
+            ('Anywhere', f'a post in <#{cfg.bugs_id}>'),
+            ('Testing channel', 'a post in the testers forum'),
             ('Limit', '5 false posts and you lose it')]),
         ('📎', 'Your reports', [
             ('Add more', 'after LOGGED, extras get a 📎'),
@@ -199,12 +200,13 @@ def testing_news_testers_embeds():
     """The announcement for testers about the testers forum."""
     return [make('New · testers forum', [
         ('🏷️', 'Reports', [
-            ('Forum', f'`/bug` and `!bug` post in <#{cfg.tester_forum_id}>'),
+            ('Forum', f'testing channel reports: <#{cfg.tester_forum_id}>'),
             ('Tags', 'each report is tagged with the game'),
             ('Games', f'only games in testing: <#{cfg.future_games_id}>')]),
         ('🔍', 'Bug hunting', [
             ('!bug <game>', 'reply to a message'),
-            ('Where', 'in the testing channel only'),
+            ('Anywhere', f'a post in <#{cfg.bugs_id}>'),
+            ('Testing channel', 'a post in the testers forum'),
             ('Limit', '5 false posts and you lose it')])],
         ['/bug · report a bug in the testing channel', '!bug <game> · reply to a message to report it', '/help · the commands you can use'],
         emoji='🧪')]
@@ -219,7 +221,9 @@ def tester_guide_embeds():
             ('3', 'add screenshots and videos'),
             ('4', 'fill in the form and send it')]),
         ('🔍', 'Or reply to a message', [
-            ('!bug <game>', 'reply to it in the testing channel'),
+            ('!bug <game>', 'reply to a message, anywhere'),
+            ('Anywhere', 'a post in the public bugs forum'),
+            ('Testing channel', 'a post in this forum'),
             ('Limit', '5 false posts and you lose it')]),
         ('📌', 'This forum', [
             ('Posts', 'one per bug, tagged with the game'),

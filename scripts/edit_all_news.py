@@ -13,7 +13,7 @@ POSTS = [
     (DEVS, 1566057077431083215, n.suggestion_news_embeds), (DEVS, 1566164080023044239, n.roster_news_devs_embeds),
     (DEVS, 1566414001368338563, n.release_news_devs_embeds),
     (TESTERS, 1565993946704912460, n.tester_news_embeds), (TESTERS, 1566164064906907839, n.roster_news_testers_embeds),
-    (TESTERS, 1566414002332901479, n.release_news_testers_embeds),
+    (TESTERS, 1566414002332901479, n.release_news_testers_embeds), (TESTERS, 1566680708695461978, n.testing_news_testers_embeds),
 ]
 
 
