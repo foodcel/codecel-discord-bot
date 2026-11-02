@@ -144,7 +144,9 @@ def describe_interaction(i):
         if name in ('bug', 'improvement', 'update'):  # a tester's report is not a dev action; /update has its own single entry (update_step)
             return None
         sub, opts, _ = get_options(i)
-        details = '\n'.join(f'**{k}** · {_option(k, v)}' for k, v in opts.items() if not isinstance(v, dict))
+        from .games import clean_name
+        proper = lambda k, v: clean_name(v) if k == 'game' and isinstance(v, str) and name in ('release', 'progress', 'unrelease', 'gamelink') else v  # the proper name, not the bounty-board post title
+        details = '\n'.join(f'**{k}** · {_option(k, proper(k, v))}' for k, v in opts.items() if not isinstance(v, dict))
         title = f'/{name}' + (f' {sub}' if sub else '')
         return title, details, READ_ONLY.get(title)
     parts = (i.data.get('custom_id') or '').split(':')
