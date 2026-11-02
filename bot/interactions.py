@@ -509,6 +509,8 @@ async def handle_component(i):
     a = parts[1] if len(parts) > 1 else None
     b = parts[2] if len(parts) > 2 else None
     ctype = i.data.get('component_type')
+    if kind == 'mock':  # the buttons of a mockup in the test channel
+        return await i.response.send_message('This is only a mockup, the buttons do nothing yet.', ephemeral=True)
     if ctype == 2:  # button
         if kind == 'rel':  # the preview of /release new, quiet and edit
             from .reldraft import on_button
