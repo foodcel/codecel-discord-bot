@@ -53,6 +53,8 @@ def _table(group):
             continue
         cols = [_cells(f.value) for f in part]
         heads = [f.name.strip(' ' + ZWS) for f in part]
+        if out:  # the table was cut here between two devs: a blank line keeps them apart
+            out.append('')
         if any(heads):
             out.append('**' + '  ·  '.join(h for h in heads if h) + '**')
         out += _row_lines(cols)
