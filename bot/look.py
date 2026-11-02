@@ -59,6 +59,47 @@ def _table(group):
     return NL.join(out)
 
 
+def _tidy(value):
+    """A field's text without the empty lines at its end."""
+    lines = str(value).split(NL)
+    while lines and _blank(lines[-1]):
+        lines.pop()
+    return NL.join(lines)
+
+
+def clone_rows(view):
+    """The buttons and dropdowns of a classic view as rows for a card."""
+    rows = []
+    for c in view.children if view is not None else []:
+        if isinstance(c, discord.ui.Select):
+            item = ui.Select(custom_id=c.custom_id, placeholder=c.placeholder, min_values=c.min_values, max_values=c.max_values,
+                             options=[discord.SelectOption(label=o.label, value=o.value, description=o.description, default=o.default, emoji=o.emoji) for o in c.options])
+        elif c.url:
+            item = ui.Button(style=discord.ButtonStyle.link, label=c.label, url=c.url, emoji=c.emoji, disabled=c.disabled)
+        else:
+            item = ui.Button(custom_id=c.custom_id, label=c.label, style=c.style, emoji=c.emoji, disabled=c.disabled)
+        rows.append((getattr(c, 'row', None), item))
+    out, last = [], object()
+    for row, item in rows:  # items that were on the same row stay together
+        if out and row is not None and row == last and not isinstance(item, ui.Select) and not isinstance(out[-1].children[0], ui.Select):
+            out[-1].add_item(item)
+        else:
+            out.append(ui.ActionRow(item))
+        last = row
+    return out
+
+
+async def edit_card(msg, embed, fallback_view=None, **opts):
+    """Edits a message that is an embed into a card, in place. If Discord refuses, the embed is edited as it was."""
+    below = opts.pop('below', None)
+    try:
+        view, files = card_from_embed(embed, below=below, **opts)
+        await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=discord.AllowedMentions.none())
+    except discord.HTTPException as e:
+        print('card edit failed, keeping the embed', repr(e)[:150])
+        await msg.edit(embeds=[embed], view=fallback_view)
+
+
 def _spaced(value):
     """A long list of people: one blank line before each next person (a line that starts with a mention)."""
     out = []
@@ -69,14 +110,17 @@ def _spaced(value):
     return NL.join(out)
 
 
-def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=False):
+def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=False, below=None, first_sub=None):
     """(view, files) for an embed shown as a card. A thumbnail on the embed goes to the right of the title, else the date does.
-    inline_desc: the first line of the description (the counts) moves into the title; plain_count drops the emoji in front of it."""
+    inline_desc: the first line of the description (the counts) moves into the title; plain_count drops the emoji in front of it;
+    first_sub: [(old, new)] changes to that line. below: components (rows) shown under the card, like a picker."""
     strip_ = width_strip()
     title, desc = e.title or '', (e.description or '').strip(' ' + ZWS + NL)
     if inline_desc and desc:
         first, _, desc = desc.partition(NL)
         first = re.sub(r'[*]', '', first).strip()
+        for old, new in first_sub or []:
+            first = first.replace(old, new)
         if plain_count:
             first = re.sub(r'^[^A-Za-z0-9]+', '', first)
         title = f'{title} · {first}'
@@ -88,10 +132,24 @@ def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=Fals
         items.append(ui.Separator(visible=True, spacing=SMALL))
     if desc:
         items.append(ui.TextDisplay(desc[:3900]))
-    fields, i = list(e.fields), 0
+    fields, i, buf = list(e.fields), 0, None
+
+    def flush():
+        nonlocal buf
+        if buf:
+            header, vals = buf
+            if header:  # a heading, then its entries; a list of people gets a blank line under the heading and between the people
+                sep = '\n\n' if vals and vals[0].startswith('<@') else '\n'
+                text = header + sep + '\n\n'.join(vals)
+            else:
+                text = '\n\n'.join(vals)
+            items.append(ui.TextDisplay(text[:3900]))
+            buf = None
+
     while i < len(fields):
         f = fields[i]
         if f.inline:
+            flush()
             group = []
             while i < len(fields) and fields[i].inline:
                 group.append(fields[i])
@@ -101,10 +159,13 @@ def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=Fals
                 items.append(ui.TextDisplay(text[:3900]))
             continue
         i += 1
+        value = _tidy(f.value)
         if not _blank(f.name):
-            items.append(ui.TextDisplay(f'**{f.name.rstrip(":")}**{NL}{_spaced(f.value)}'[:3900]))
-        elif not _blank(f.value):
-            items.append(ui.TextDisplay(_spaced(f.value)[:3900]))
+            flush()
+            buf = (f'**{f.name.rstrip(":")}**', [value])
+        elif not _blank(value):
+            buf = (buf[0], buf[1] + [value]) if buf else (None, [value])
+    flush()
     if e.footer and e.footer.text:
         items += [ui.Separator(visible=True, spacing=SMALL), ui.TextDisplay(NL.join('-# ' + code_chip(x) for x in e.footer.text.split(NL)))]
     view = ui.LayoutView()
@@ -112,4 +173,6 @@ def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=Fals
     if ping:
         view.add_item(ui.TextDisplay(ping))
     view.add_item(ui.Container(*items))
+    for row in below or []:  # a picker or buttons sit under the card, outside it
+        view.add_item(row)
     return view, [strip_]

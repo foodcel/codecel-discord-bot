@@ -148,11 +148,13 @@ async def refresh_roster():
     ch = await fetch_channel(b['channelId'])
     if ch is None:
         return
-    for key, embed in (('guide', guide_embed()), ('roster', roster_embed())):
+    from .look import card_from_embed, edit_card
+    for key, embed, opts in (('guide', guide_embed(), {}), ('roster', roster_embed(), {'inline_desc': True})):
         try:
-            await ch.get_partial_message(int(b[key])).edit(embed=embed)
+            await edit_card(ch.get_partial_message(int(b[key])), embed, **opts)
         except discord.NotFound:
-            msg = await ch.send(embed=embed)
+            view, files = card_from_embed(embed, **opts)
+            msg = await ch.send(view=view, files=files)
             b[key] = str(msg.id)
             kv_set('testerboard', json.dumps(b))
         except Exception as e:
@@ -180,8 +182,11 @@ async def post_board(ch):
     await import_old()  # the old roster message is read before it is replaced
     await sync_members()
     old = _board()
-    g = await ch.send(embed=guide_embed())
-    r = await ch.send(embed=roster_embed())
+    from .look import card_from_embed
+    gv, gf = card_from_embed(guide_embed())
+    g = await ch.send(view=gv, files=gf)
+    rv, rf = card_from_embed(roster_embed(), inline_desc=True)
+    r = await ch.send(view=rv, files=rf)
     kv_set('testerboard', json.dumps({'channelId': str(ch.id), 'guide': str(g.id), 'roster': str(r.id)}))
     removed = 0
     if old and (old['channelId'], old['roster']) != (str(ch.id), str(r.id)):  # the earlier copy stops updating: remove it

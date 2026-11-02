@@ -499,7 +499,9 @@ async def handle_command(i):
     if name == 'botrules':
         if level(i.user) != 'admin':
             return await deny(i)
-        await i.channel.send(embeds=[rules_embed()])
+        from .look import card_from_embed
+        view, files = card_from_embed(rules_embed())
+        await i.channel.send(view=view, files=files)
         return await i.response.send_message('Posted.', ephemeral=True)
 
 

@@ -115,10 +115,18 @@ def _page(member, n):
 
 
 async def command_help(i):
+    from .look import card_from_embed, clone_rows
     e, view = _page(i.user, 0)
-    await i.response.send_message(embeds=[e], view=view, ephemeral=True)
+    card, files = card_from_embed(e, below=clone_rows(view))
+    await i.response.send_message(view=card, files=files, ephemeral=True)
 
 
 async def button_help(i, n):
+    from .look import card_from_embed, clone_rows
     e, view = _page(i.user, n)
-    await i.response.edit_message(embeds=[e], view=view)
+    try:
+        card, files = card_from_embed(e, below=clone_rows(view))
+        await i.response.edit_message(content=None, embeds=[], view=card, attachments=files)
+    except Exception as ex:  # an old help message that Discord will not turn into a card keeps the old look
+        print('help card', repr(ex)[:120])
+        await i.response.edit_message(embeds=[e], view=view)

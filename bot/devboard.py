@@ -90,6 +90,52 @@ def board_embed(key):
     return e
 
 
+def board_card(key):
+    """A dev's board as a card: the counts in the title, the open reports in a tree under each game, the commands in the footer, the pickers below."""
+    import discord
+    from discord import ui
+    from .look import clone_rows
+    from .nums import label
+    from .pngs import width_strip
+    from .botnews import date_button
+    bugs = open_bugs_for(key)
+    kind, base = kind_of(key), base_key(key)
+    suggestion = kind == 'suggestion'
+    if suggestion:
+        title = f"{'🎮 Unclaimed games' if base == 'unclaimed' else '💡 Your suggestion board'} · {len(bugs)} open · 🙏 {sum(b['votes'] for b in bugs)} votes"
+        foot = 'Pick a game below to browse its suggestions. Type `sonic 3 added`, `sonic 1-5 added` or `sonic 7 declined` here.'
+    else:
+        n = lambda s: len([b for b in bugs if b['status'] == s])
+        title = f"{'🎮 Unclaimed games' if base == 'unclaimed' else '😊 Your bug board'} · 🐛 {n('new')} open · 🔎 {n('investigating')} investigating · 🛠️ {n('fixing')} fixing"
+        foot = 'Pick a game below to browse its bugs. Type `sonic 3 fixed`, `sonic 1-5 fixed` or `sonic 7 investigating` here.'
+    by = {}
+    for b in sorted(bugs, key=lambda b: (lkey(b['game_name'] or ''), -b['votes'] if suggestion else 0, b['id'])):
+        by.setdefault(b['game_name'] or 'Unknown game', []).append(b)
+    blocks, shown = [], 0
+    for game, lst in by.items():
+        lines = []
+        for k, b in enumerate(lst):
+            if shown >= 36:
+                break
+            shown += 1
+            tail = f"🙏 {b['votes']}" if suggestion else STATUS.get(b['status'], b['status'])
+            lines.append(f"{'└─' if k == len(lst) - 1 else '├─'} **{label(b)}** · {'⚠️ ' if b['low_info'] else ''}{cut(b['title'], 30)} · {tail}")
+        if lines:
+            blocks.append(f'**🎮 {game}** · {len(lst)}' + chr(10) + chr(10).join(lines))
+    if len(bugs) > shown:
+        blocks.append(f'…and {len(bugs) - shown} more. Pick a game below to see them.')
+    body = (chr(10) * 2).join(blocks) or ('No open suggestions 🎉' if suggestion else 'No open bugs 🎉')
+    strip_ = width_strip()
+    head = ui.Section(f'### {title}', accessory=date_button()) if len(title) <= 44 else ui.TextDisplay(f'### {title}')
+    view = ui.LayoutView(timeout=None)
+    view.add_item(ui.MediaGallery(discord.MediaGalleryItem(strip_)))
+    view.add_item(ui.Container(head, ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(body),
+                               ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay('-# ' + foot)))
+    for row in clone_rows(board_components(key)):
+        view.add_item(row)
+    return view, [strip_]
+
+
 def board_components(key):
     """Game picker + transcript picker. None when there is nothing open."""
     bugs = open_bugs_for(key)
@@ -140,7 +186,12 @@ async def _dev_thread(key, create):
     if forum is None:
         return None
     name = await board_name(key)
-    made = await forum.create_thread(name=name[:100], embeds=[board_embed(key)], view=board_components(key))
+    try:  # the board is a card; if Discord refuses a card in a new post it is an embed as before
+        view, files = board_card(key)
+        made = await forum.create_thread(name=name[:100], view=view, files=files)
+    except Exception as e:
+        print('board card post failed, using the embed', repr(e)[:150])
+        made = await forum.create_thread(name=name[:100], embeds=[board_embed(key)], view=board_components(key))
     kv_set('devthread:' + key, made.thread.id)
     try:
         await made.thread.edit(pinned=True)
@@ -165,7 +216,12 @@ async def refresh_board(key):
             print('board rename', e)
     try:
         starter = await t.fetch_message(t.id)
-        await starter.edit(embeds=[board_embed(key)], view=board_components(key))
+        try:  # the board becomes a card in place; if Discord refuses, the embed stays
+            view, files = board_card(key)
+            await starter.edit(content=None, embeds=[], view=view, attachments=files)
+        except Exception as e:
+            print('board card edit failed, keeping the embed', repr(e)[:150])
+            await starter.edit(embeds=[board_embed(key)], view=board_components(key))
     except Exception as e:
         print('board edit', e)
 

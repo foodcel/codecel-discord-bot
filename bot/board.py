@@ -287,15 +287,18 @@ async def refresh_board():
         bounty.set_claims(live_claims())  # the embeds read the claims
         old = [c.get('top'), c.get('claims'), c.get('completed')]
         ids = []
-        for mid, embed in zip(old, await build_embeds()):
+        from .look import card_from_embed, edit_card
+        opts = [{'inline_desc': True, 'first_sub': [(' open suggestions', ' open')]}, {'inline_desc': True, 'plain_count': True}, {'inline_desc': True, 'plain_count': True}]
+        for n, (mid, embed) in enumerate(zip(old, await build_embeds())):
             try:
                 if mid:
                     try:
-                        await ch.get_partial_message(int(mid)).edit(embed=embed)
+                        await edit_card(ch.get_partial_message(int(mid)), embed, **opts[n])  # the embed becomes a card in place
                     except discord.NotFound:
                         mid = None
                 if not mid:
-                    msg = await ch.send(embed=embed)
+                    view, files = card_from_embed(embed, **opts[n])
+                    msg = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions.none())
                     mid = str(msg.id)
                     await msg.pin()
             except discord.HTTPException as e:
