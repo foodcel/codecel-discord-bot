@@ -1,4 +1,5 @@
-"""Dev commands typed in chat: "1 fixed", "bug 3 fixed", "1-5 bugs fixed", "7 not a bug", "fixed 3", "1, 3 and 5 investigating"."""
+"""Dev commands typed in chat: "1 fixed", "bug 3 fixed", "1-5 bugs fixed", "7 not a bug", "fixed 3", "1, 3 and 5 investigating".
+The numbers belong to a game: inside a post they are that post's game, in a board with several games type the game first: "sonic 3 fixed"."""
 import re
 
 _KEYS = [
@@ -28,18 +29,21 @@ def parse_command(text):
     t = re.sub(r'\bbugs?\b|\bsuggestions?\b|#|[.!:]', ' ', t)
     t = re.sub(r'\s*(?:-|–|—|\bto\b|\bthrough\b)\s*', '-', t)
     t = re.sub(r'\band\b|&|,', ' ', t)
-    ids = []
+    ids, words = [], []
     for p in [x for x in t.strip().split() if x]:
         if re.fullmatch(r'\d+', p):
             ids.append(int(p))
         else:
             m = re.fullmatch(r'(\d+)-(\d+)', p)
             if not m:
-                return None
+                words.append(p)  # the game: "sonic 3 fixed"
+                continue
             a, b = int(m.group(1)), int(m.group(2))
             if b < a:
                 a, b = b, a
             if b - a > 100:
                 return None
             ids.extend(range(a, b + 1))
-    return {'status': status, 'ids': list(dict.fromkeys(ids))}
+    if words and not ids:
+        return None
+    return {'status': status, 'ids': list(dict.fromkeys(ids)), 'game': ' '.join(words) or None}

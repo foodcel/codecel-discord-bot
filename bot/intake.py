@@ -4,6 +4,7 @@ import re
 
 import discord
 
+from .nums import label
 from .ai import analyze_report, still_broken
 from .components import allowed
 from .ctx import dm, get_member, sleep, thread_link
@@ -134,8 +135,8 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
     dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') and a['duplicate_of'] != bug['id'] else None
     if dup and dup['kind'] == 'bug' and not silent:
         update_bug(bug['id'], {'status': 'duplicate', 'dup_of': dup['id']})
-        ref = (f"#{dup['id']} \"{dup['title']}\"" if dup['deleted']
-               else f"[#{dup['id']} {dup['title']}]({thread_link(dup['thread_id'])})")
+        ref = (f"{label(dup)} \"{dup['title']}\"" if dup['deleted']
+               else f"[{label(dup)} {dup['title']}]({thread_link(dup['thread_id'])})")
         if dup['status'] == 'fixed':
             text = f"<@{bug['reporter_id']}> {E['duplicate']} **DUPLICATE**{EM}·{EM}already fixed on <t:{(dup['fixed_at'] or now()) // 1000}:D>: {ref}."
         else:
@@ -185,14 +186,14 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         await set_tags(thread, game=gid, device=did, status=None)
         if not re.match(r'^#\d+\s', thread.name):
             try:
-                await thread.edit(name=f"#{bug['id']} {thread.name}"[:100])
+                await thread.edit(name=f"{label(bug_by_id(bug['id']))} {thread.name}"[:100])
             except Exception:
                 pass
         if low_info:
-            msg = (f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} Thanks! Some details are still missing, so a developer will come and check this out "
+            msg = (f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} Thanks! Some details are still missing, so a developer will come and check this out "
                    'themselves, or ask you here.')
         else:
-            msg = f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} is sent to the developer. {'Thanks, that covers it.' if was_asked else 'Thanks for the report!'}"
+            msg = f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} is sent to the developer. {'Thanks, that covers it.' if was_asked else 'Thanks for the report!'}"
         if a['personal_info']:
             msg += f"\n{E['warn']} Your screenshot may show personal information. Please hide it."
         try:

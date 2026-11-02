@@ -6,6 +6,7 @@ from datetime import datetime
 
 import discord
 
+from .nums import label
 from .components import button, make_view, select
 from .ctx import ctx, fetch_channel
 from .db import DATA_DIR, all_, bug_by_id, kv_get, kv_set
@@ -186,7 +187,7 @@ async def render_log(tag, page=0):
     describe(e, f"{E['fixed']} **{n_fixed}** fixed{GAP}{E['update']} **{n_upd}** update{'' if n_upd == 1 else 's'}{GAP}{E['open']} **{n_open}** open")
     if sl:
         columns(e, [
-            {'name': head(E['fix'], 'Fix'), 'lines': [f"**#{b['id']}**{EN}{cut(b['title'], 28)}{f' {E['update']}' if b['announced'] else ''}" for b in sl]},
+            {'name': head(E['fix'], 'Fix'), 'lines': [f"**{label(b)}**{EN}{cut(b['title'], 28)}{f' {E['update']}' if b['announced'] else ''}" for b in sl]},
             {'name': head(E['date'], 'Fixed'), 'lines': [f"<t:{b['fixed_at'] // 1000}:d>" for b in sl]},
             {'name': head(E['game'], 'Game') if tag == 'all' else head(E['user'], 'Fixed by'),
              'lines': [cut(b['game_name'] or 'Unknown', 18) if tag == 'all' else names[i] for i, b in enumerate(sl)]},
@@ -204,7 +205,7 @@ async def render_log(tag, page=0):
     ]]
     if sl:
         rows.append([select(f'flt:{tag}', '📋 Transcript of a fix',
-                            [{'label': f"#{b['id']} {b['title']}"[:100], 'value': str(b['id'])} for b in sl])])
+                            [{'label': f"{label(b)} {b['title']}"[:100], 'value': str(b['id'])} for b in sl])])
     return {'content': None, 'embeds': [e], 'view': make_view(rows)}
 
 
@@ -229,5 +230,5 @@ async def send_fix_transcript(i, id_):
     t = stored_transcript(int(id_))
     if not t:
         bug = bug_by_id(int(id_))
-        return await i.edit_original_response(content=f'No stored transcript for #{id_}.' if bug else 'That bug is not in the log.')
-    return await i.edit_original_response(content=f"Transcript of fix #{id_}. {t['note']}".strip(), attachments=[t['file']])
+        return await i.edit_original_response(content=f'No stored transcript for {label(int(id_))}.' if bug else 'That bug is not in the log.')
+    return await i.edit_original_response(content=f"Transcript of fix {label(int(id_))}. {t['note']}".strip(), attachments=[t['file']])

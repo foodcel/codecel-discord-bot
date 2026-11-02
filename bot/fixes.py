@@ -1,6 +1,7 @@
 """Marking bugs fixed, changing statuses, reopening."""
 import asyncio
 
+from .nums import label
 from .announce import maybe_offer
 from .bounty import owners_for
 from .components import allowed
@@ -58,10 +59,10 @@ async def mark_fixed(bug, actor_id):
                 extra = []
         pings = [bug['reporter_id'], *extra]
         if bug['kind'] == 'suggestion':
-            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **ADDED**{EM}·{EM}{bug['title']} (#{bug['id']}). Thanks for the idea!\n"
+            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **ADDED**{EM}·{EM}{bug['title']} ({label(bug)}). Thanks for the idea!\n"
                     'This post closes now and is deleted in 24 hours.')
         else:
-            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **FIXED**{EM}·{EM}{bug['title']} (#{bug['id']}). Thanks for reporting!\n"
+            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **FIXED**{EM}·{EM}{bug['title']} ({label(bug)}). Thanks for reporting!\n"
                     'This post closes now and is deleted in 24 hours. If it is still broken, reply here before then.')
         try:
             await thread.send(content=text, allowed_mentions=allowed(users=pings))
@@ -109,7 +110,7 @@ async def reopen(bug):
     if thread:
         await set_tags(thread, status=None)
         try:
-            await thread.send(f"{E['duplicate']} **REOPENED**{EM}·{EM}#{bug['id']} is back on the board. The developer has been notified.")
+            await thread.send(f"{E['duplicate']} **REOPENED**{EM}·{EM}{label(bug)} is back on the board. The developer has been notified.")
         except Exception:
             pass
     await route_bug(bug_by_id(bug['id']))
@@ -137,25 +138,27 @@ async def _apply_one(id_, bug, status, member, kind, done, skipped):
     if not bug or bug['status'] in ('removed', 'closed') or bug['status'].startswith('exploit'):
         skipped.append(f'#{id_} not found')
         return
+    from .nums import full
+    lab = full(bug)
     if kind and bug['kind'] != kind:
-        skipped.append(f"#{id_} is a {bug['kind']}")
+        skipped.append(f"{lab} is a {bug['kind']}")
         return
     if bug['kind'] == 'suggestion' and status not in ('fixed', 'declined', 'duplicate', 'new'):
-        skipped.append(f'#{id_} is a suggestion: use added, declined or duplicate')
+        skipped.append(f'{lab} is a suggestion: use added, declined or duplicate')
         return
     if bug['kind'] == 'bug' and status == 'declined':
-        skipped.append(f'#{id_} is a bug: use fixed, not a bug or duplicate')
+        skipped.append(f'{lab} is a bug: use fixed, not a bug or duplicate')
         return
     owners = owners_for(bug['game_tag_id'], bug['game_name'])
     if not can_manage(member, owners):
-        skipped.append(f'#{id_} not your game')
+        skipped.append(f'{lab} not your game')
         return
     try:
         await set_bug_status(bug, status, str(member.id))
-        done.append(f'#{id_}')
+        done.append(lab)
         if status in ('not_a_bug', 'declined'):  # bug hunting: this may be someone's 5th false report
             from .hunting import after_false
             asyncio.ensure_future(after_false(bug_by_id(id_)))
     except Exception as e:
         print('applyStatus', repr(e))
-        skipped.append(f'#{id_} error')
+        skipped.append(f'{lab} error')

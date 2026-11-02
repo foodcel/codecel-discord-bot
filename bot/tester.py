@@ -8,6 +8,7 @@ import time
 
 import discord
 
+from .nums import label
 from .ai import summarize_tester_report
 from .components import NO_MENTIONS, FormModal
 from .ctx import fetch_channel
@@ -104,7 +105,7 @@ async def command_bug(i, opts):
 def tester_report_embed(bug, form, tester_id, too_big=None, image=None, origin=None):
     """The report card posted inside the tester thread."""
     e = flat()
-    e.title = head('🧪', f"#{bug['id']} · {bug['game_name']}")
+    e.title = head('🧪', f"{label(bug)} · {bug['game_name']}")
     describe(e, f"### {bug['title']}\n{bug['summary'] or ''}")
     columns(e, [
         {'name': head(E['user'], 'Tester'), 'lines': [f'<@{tester_id}>']},
@@ -144,7 +145,7 @@ async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, i
     bug = bug_by_id(id_)
     try:
         created = await forum.create_thread(
-            name=cut(f"#{id_} {bug['title']}", 100), embeds=[tester_report_embed(bug, form, reporter_id, too_big, image, origin)], files=batches[0],
+            name=cut(f"{label(bug)} {bug['title']}", 100), embeds=[tester_report_embed(bug, form, reporter_id, too_big, image, origin)], files=batches[0],
             applied_tags=[tag] if tag else [], allowed_mentions=NO_MENTIONS, reason=f'Tester report for {game}')
     except Exception:
         run('DELETE FROM bugs WHERE id=?', id_)
@@ -181,7 +182,7 @@ async def modal_bug(i, tag_id, token, fields):
     if not done:
         return await i.edit_original_response(content='I could not find the testers forum. Ask a developer.')
     id_, thread = done
-    return await i.edit_original_response(content=f"{E['fixed']} **SENT**{EM}·{EM}#{id_} went to the {game} developer. Follow it here: {thread.jump_url}")
+    return await i.edit_original_response(content=f"{E['fixed']} **SENT**{EM}·{EM}{label(id_)} went to the {game} developer. Follow it here: {thread.jump_url}")
 
 
 async def report_from_message(src, saver, game, tag_id):

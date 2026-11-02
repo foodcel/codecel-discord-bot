@@ -7,6 +7,7 @@ import aiohttp
 import discord
 from discord import ui
 
+from .nums import label
 from .ai import draft_bug_fixes, draft_new_features, polish_updates
 from .bounty import owners_for
 from .components import NO_MENTIONS, allowed, button, make_view, select
@@ -168,7 +169,7 @@ def item_note(key):
     who = m.display_name if m else 'a dev'
     done = 'added' if bug['kind'] == 'suggestion' else 'fixed'
     sure = '✅ confirmed'
-    return f"#{bug['id']} · {done} by {who} {_ago(bug['fixed_at'])} · {sure}"[:100]
+    return f"{label(bug)} · {done} by {who} {_ago(bug['fixed_at'])} · {sure}"[:100]
 
 
 def draft_view(id_, p=None):

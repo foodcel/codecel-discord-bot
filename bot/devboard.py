@@ -4,6 +4,7 @@ import asyncio
 
 import discord
 
+from .nums import label
 from .bounty import all_owner_ids, owners_for
 from .components import allowed, button, make_view, select
 from .ctx import ctx, fetch_channel
@@ -53,14 +54,14 @@ def board_embed(key):
     e = flat()
     if kind == 'suggestion':
         e.title = head(E['game'] if base == 'unclaimed' else '💡', 'Unclaimed games' if base == 'unclaimed' else 'Your suggestion board')
-        e.set_footer(text='Pick a game below to browse its suggestions. You can also type "12 added", "1-5 added", "7 declined" here.')
+        e.set_footer(text='Pick a game below to browse its suggestions. You can also type "sonic 3 added", "sonic 1-5 added", "sonic 7 declined" here.')
         if not bugs:
             return describe(e, 'No open suggestions 🎉')
         ordered = sorted(bugs, key=lambda b: (-b['votes'], b['id']))  # most votes at the top
         describe(e, f"{E['new']} **{len(bugs)}** open{GAP}🙏 **{sum(b['votes'] for b in bugs)}** votes")
         lst = ordered[:15]
         columns(e, [
-            {'name': head('💡', 'Suggestion'), 'lines': [f"**#{b['id']}**{EN}{'⚠️ ' if b['low_info'] else ''}{cut(b['title'], 24 if b['low_info'] else 26)}" for b in lst]},
+            {'name': head('💡', 'Suggestion'), 'lines': [f"**{label(b)}**{EN}{'⚠️ ' if b['low_info'] else ''}{cut(b['title'], 24 if b['low_info'] else 26)}" for b in lst]},
             {'name': head(E['game'], 'Game'), 'lines': [cut(b['game_name'] or 'Unknown', 18) for b in lst]},
             {'name': head('🙏', 'Votes'), 'lines': [str(b['votes']) for b in lst]},
         ])
@@ -68,7 +69,7 @@ def board_embed(key):
             e.add_field(name=ZW, value=f'…and {len(ordered) - 15} more. Pick a game below to see them.', inline=False)
         return e
     e.title = head(E['game'] if base == 'unclaimed' else '😊', 'Unclaimed games' if base == 'unclaimed' else 'Your bug board')
-    e.set_footer(text='Pick a game below to browse its bugs. You can also type "12 fixed", "1-5 fixed", "7 investigating" here.')
+    e.set_footer(text='Pick a game below to browse its bugs. You can also type "sonic 3 fixed", "sonic 1-5 fixed", "sonic 7 investigating" here.')
     if not bugs:
         return describe(e, 'No open bugs 🎉')
     ordered = sorted(bugs, key=lambda b: (lkey(b['game_name'] or ''), b['id']))
@@ -80,7 +81,7 @@ def board_embed(key):
     describe(e, f"{E['open']} **{n('new')}** open{GAP}{E['investigating']} **{n('investigating')}** investigating{GAP}{E['fixing']} **{n('fixing')}** fixing")
     lst = ordered[:15]
     columns(e, [
-        {'name': head(E['open'], 'Bug'), 'lines': [f"**#{b['id']}**{EN}{'⚠️ ' if b['low_info'] else ''}{cut(b['title'], 24 if b['low_info'] else 26)}" for b in lst]},
+        {'name': head(E['open'], 'Bug'), 'lines': [f"**{label(b)}**{EN}{'⚠️ ' if b['low_info'] else ''}{cut(b['title'], 24 if b['low_info'] else 26)}" for b in lst]},
         {'name': head(E['game'], 'Game'), 'lines': [cut(b['game_name'] or 'Unknown', 18) for b in lst]},
         {'name': head(E['status'], 'Status'), 'lines': [STATUS.get(b['status'], b['status']) for b in lst]},
     ])
@@ -243,7 +244,7 @@ async def route_bug(bug, silent=False):
             continue  # devs can turn this ping off with /pings
         try:
             m = await t.send(
-                content=f"<@{base}> {E['new']} **{'NEW SUGGESTION' if suggestion else 'NEW BUG'}**{EM}·{EM}#{bug['id']}{EM}·{EM}{bug['game_name'] or 'Unknown game'}"
+                content=f"<@{base}> {E['new']} **{'NEW SUGGESTION' if suggestion else 'NEW BUG'}**{EM}·{EM}{label(bug)}{EM}·{EM}{bug['game_name'] or 'Unknown game'}"
                         f"{f'{EM}·{EM}⚠️ low info' if bug.get('low_info') else ''}",
                 allowed_mentions=allowed(users=[base]))
         except Exception as e:
@@ -359,7 +360,7 @@ async def notify_info(bug, msg):
         if not t:
             continue
         try:
-            m = await t.send(content=f"<@{o}> 📎 **NEW INFO**{EM}·{EM}#{bug['id']}{EM}·{EM}{bug['game_name'] or 'Unknown game'}{EM}·{EM}{msg.jump_url}",
+            m = await t.send(content=f"<@{o}> 📎 **NEW INFO**{EM}·{EM}{label(bug)}{EM}·{EM}{bug['game_name'] or 'Unknown game'}{EM}·{EM}{msg.jump_url}",
                              allowed_mentions=allowed(users=[o]))
         except Exception as e:
             print('info ping', e)

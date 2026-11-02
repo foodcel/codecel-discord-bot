@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import discord
 
+from .nums import label
 from .bounty import owners_for
 from .components import FormModal, button, link_button, make_view
 from .ctx import ctx, fetch_channel, thread_link
@@ -40,8 +41,8 @@ async def bug_embeds(bug):
     embed = flat()
     embed.url = url
     suggestion = bug.get('kind') == 'suggestion'
-    embed.title = head('💡' if suggestion else E['open'], f"#{bug['id']} · {bug['game_name'] or 'Unknown game'}")
-    embed.set_footer(text=f"{'Suggestion' if suggestion else 'Bug'} #{bug['id']} · {'posted' if suggestion else 'reported'}")
+    embed.title = head('💡' if suggestion else E['open'], f"{label(bug)} · {bug['game_name'] or 'Unknown game'}")
+    embed.set_footer(text=f"{'Suggestion' if suggestion else 'Bug'} {label(bug)} · {'posted' if suggestion else 'reported'}")
     embed.timestamp = datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc)
     describe(embed, f"### {bug['title']}\n{bug['summary'] or ''}{quote}"[:3900], FILLER_SHORT if media['images'] else FILLER)
     if suggestion:
@@ -141,7 +142,7 @@ async def handle_view(i):
         bug = bug_by_id(bug_id)
         if not bug or not can_manage(i.user, owners_for(bug['game_tag_id'], bug['game_name'])):
             return await i.response.send_message('You cannot change this bug.', ephemeral=True)
-        return await i.response.send_modal(FormModal(f'note:{bug_id}', f'Note for bug #{bug_id}', [{
+        return await i.response.send_modal(FormModal(f'note:{bug_id}', f'Note for bug {label(int(bug_id))}', [{
             'id': 'note', 'label': 'Tell the bot what this is', 'style': 'paragraph', 'required': True, 'max': 500,
             'placeholder': 'e.g. This is Vyra Station. Happens on PS5 only.'}]))
     await i.response.defer()
@@ -153,5 +154,5 @@ async def handle_view(i):
     if act == 'st':
         done, skipped = await apply_status([bug_id], status, i.user, via='bug page')
         if not done:
-            await i.followup.send(f"Could not change #{bug_id}: {skipped[0] if skipped else 'unknown'}", ephemeral=True)
+            await i.followup.send(f"Could not change {label(int(bug_id))}: {skipped[0] if skipped else 'unknown'}", ephemeral=True)
         return await i.edit_original_response(**await render_view(i.user, key, game, bug_id))

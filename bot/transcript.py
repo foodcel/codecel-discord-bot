@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import aiohttp
 import discord
 
+from .nums import label
 from .ctx import ctx, fetch_channel, thread_link
 from .db import bug_by_id
 from .tags import applied_ids, device_tags, tag_name
@@ -103,7 +104,7 @@ async def bug_bundle(bug):
     except Exception:
         reporter = None
     md = [
-        f"# Bug #{bug['id']}: {bug['title'] or 'untitled'}",
+        f"# Bug {label(bug)} ({bug['game_name'] or 'unknown game'}): {bug['title'] or 'untitled'}",
         f"- Game: {bug['game_name'] or 'unknown'}",
         f"- Device: {', '.join(devices) or 'not given'}",
         f"- Severity: {bug['severity'] or '?'}  ·  Status: {bug['status']}",

@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 import discord
 
+from .nums import label
 from .ctx import fetch_channel
 from .db import kv_del, kv_get, kv_set
 from .env import cfg
@@ -190,7 +191,7 @@ def log_status(member, bug_id, status, bug, outcome, ok, via):
     """A status change (or a refused attempt), however it was made."""
     if not cfg.devlog_id:
         return
-    what = f"#{bug_id}" + (f" · {bug['game_name'] or 'Unknown game'} · {_cut(bug['title'], 80)}" if bug else '')
+    what = (label(bug) if bug else f"#{bug_id}") + (f" · {bug['game_name'] or 'Unknown game'} · {_cut(bug['title'], 80)}" if bug else '')
     kind = (bug or {}).get('kind') or 'bug'
     words = {'fixed': 'ADDED' if kind == 'suggestion' else 'FIXED'}
     title = f"Status · {words.get(status, status.upper().replace('_', ' '))}"

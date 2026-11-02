@@ -3,6 +3,7 @@ custom_id, so buttons on old messages keep working after a restart."""
 import discord
 from discord import app_commands
 
+from .nums import label
 from .ai import interpret_note
 from .announce import (_ago, chosen, chosen_ids, confirm_view, draft_payload, edit_kw, items, merge_announcement, ping_role, polish_dev_updates,
                        polish_fixes, post_announcement, recent_announcement, snooze, unannounced)
@@ -283,7 +284,7 @@ async def button_bug(i, id_, status):
     await i.response.defer(ephemeral=True, thinking=True)
     done, skipped = await apply_status([bug['id']], status, i.user, via='button')
     return await i.edit_original_response(
-        content=f"#{bug['id']} → {status.replace('_', ' ', 1)}" if done else f"Could not change #{bug['id']}: {skipped[0] if skipped else 'unknown'}")
+        content=f"{label(bug)} → {status.replace('_', ' ', 1)}" if done else f"Could not change {label(bug)}: {skipped[0] if skipped else 'unknown'}")
 
 
 # ---- a dev's note on a bug ----
@@ -316,10 +317,10 @@ async def modal_note(i, bug_id, fields):
     if not game_tag:
         schedule_boards()
         return await i.edit_original_response(
-            content=f"Saved your note on #{bug['id']}, but it does not say which game. Name the game directly, like \"Vyra Station\".")
+            content=f"Saved your note on {label(bug)}, but it does not say which game. Name the game directly, like \"Vyra Station\".")
     await route_bug(bug_by_id(bug['id']))
     owners = owners_for(game_tag['id'], game_tag['name'])
-    text = (f"✅ #{bug['id']} is now **{game_tag['name']}**{f' · {r['device']}' if r.get('device') else ''}"
+    text = (f"✅ {label(bug)} is now **{game_tag['name']}**{f' · {r['device']}' if r.get('device') else ''}"
             f"{f' · {r['severity']}' if r.get('severity') else ''}. ")
     text += (f"Sent to {' '.join(f'<@{o}>' for o in owners)}." if owners else 'Nobody has claimed that game yet, so it stays in Unclaimed.')
     return await i.edit_original_response(content=text)

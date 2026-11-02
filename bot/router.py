@@ -10,6 +10,10 @@ from .env import cfg
 from .fixes import apply_status
 from .intake import handle_bug_message
 from .parse import parse_command
+from . import nums
+from .db import all_
+from .perms import can_manage
+from .bounty import owners_for
 from .perms import level
 from .suggest import handle_suggestion_message
 
@@ -46,7 +50,20 @@ async def handle_dev(msg, kind='bug'):
     cmd = parse_command(msg.content)
     if not cmd or not cmd['ids']:
         return
-    done, skipped = await apply_status(cmd['ids'], cmd['status'], member, kind, via='typed in the board')
+    mine = [b for b in all_("SELECT * FROM bugs WHERE kind=? AND routed=1 AND deleted=0 AND status IN ('new','investigating','fixing')", kind)
+            if can_manage(member, owners_for(b['game_tag_id'], b['game_name']))]
+    r = nums.resolve(cmd, kind, candidates=mine)
+    if r['unknown_game']:
+        return  # words that name no game: not a command
+    if r['ambiguous']:
+        try:
+            n = await msg.reply(f"Which game? Type it first, like `{(mine[0]['game_name'] or 'sonic')[:20].lower()} {r['ambiguous'][0]} {cmd['status'].replace('_', ' ')}`.", allowed_mentions=discord.AllowedMentions(replied_user=False))
+            asyncio.ensure_future(_delete_later(n, 10))
+        except Exception:
+            pass
+        return
+    done, skipped = await apply_status(r['ids'], cmd['status'], member, kind, via='typed in the board')
+    skipped = r['skipped'] + skipped
     try:
         await msg.add_reaction('✅' if done else '❌')
     except Exception:
@@ -67,6 +84,9 @@ async def handle_bug_thread(msg):
     member = await _member_of(msg)
     if level(member) in ('admin', 'dev'):
         cmd = parse_command(msg.content)
+        if cmd and cmd['ids'] and bug:  # the numbers belong to this post's game
+            r = nums.resolve(cmd, bug['kind'], here=bug)
+            cmd = None if (r['unknown_game'] or not r['ids']) else {**cmd, 'ids': r['ids']}  # numbers that fit no report are not a command
         if cmd:
             ids = cmd['ids'] if cmd['ids'] else ([bug['id']] if bug else [])
             if ids:
@@ -92,6 +112,9 @@ async def handle_suggestion_thread(msg):
     member = await _member_of(msg)
     if level(member) in ('admin', 'dev'):
         cmd = parse_command(msg.content)
+        if cmd and cmd['ids']:
+            r = nums.resolve(cmd, bug['kind'], here=bug)
+            cmd = None if (r['unknown_game'] or not r['ids']) else {**cmd, 'ids': r['ids']}
         if cmd:
             done, _ = await apply_status(cmd['ids'] or [bug['id']], cmd['status'], member, 'suggestion', via='typed in the post')
             if done:

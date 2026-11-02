@@ -4,6 +4,7 @@ the game. A post that is really a bug becomes a normal bug. Statuses, dev boards
 import asyncio
 import re
 
+from .nums import label
 from .ai import analyze_suggestion
 from .board import vote_count
 from .components import allowed
@@ -78,7 +79,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
             await set_tags(thread, game=gid, kind='bug')
             try:
                 await thread.send(
-                    content=f"<@{bug['reporter_id']}> 🐛 **THIS IS A BUG**{EM}·{EM}That is something broken, not a suggestion. I logged it as bug #{bug['id']} "
+                    content=f"<@{bug['reporter_id']}> 🐛 **THIS IS A BUG**{EM}·{EM}That is something broken, not a suggestion. I logged it as bug {label(bug)} "
                             f"and sent it to the developer. Next time please post bugs in <#{cfg.bugs_id}>.",
                     allowed_mentions=ping)
             except Exception:
@@ -106,8 +107,8 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
     dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') and a['duplicate_of'] != bug['id'] else None
     if dup and dup['kind'] == 'suggestion' and not silent:
         update_bug(bug['id'], {'status': 'duplicate', 'dup_of': dup['id']})
-        ref = (f"#{dup['id']} \"{dup['title']}\"" if dup['deleted']
-               else f"[#{dup['id']} {dup['title']}]({thread_link(dup['thread_id'])})")
+        ref = (f"{label(dup)} \"{dup['title']}\"" if dup['deleted']
+               else f"[{label(dup)} {dup['title']}]({thread_link(dup['thread_id'])})")
         if dup['status'] == 'fixed':
             text = f"<@{bug['reporter_id']}> {E['duplicate']} **DUPLICATE**{EM}·{EM}already added on <t:{(dup['fixed_at'] or now()) // 1000}:D>: {ref}."
         else:
@@ -153,15 +154,15 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         await set_tags(thread, game=gid, status=None, kind='suggestion')
         if not re.match(r'^#\d+\s', thread.name):
             try:
-                await thread.edit(name=f"#{bug['id']} {thread.name}"[:100])
+                await thread.edit(name=f"{label(bug_by_id(bug['id']))} {thread.name}"[:100])
             except Exception:
                 pass
         try:
             if low_info:
-                await thread.send(f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} Thanks! Some details are still missing, so a developer "
+                await thread.send(f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} Thanks! Some details are still missing, so a developer "
                                   'will come and look at it themselves, or ask you here.')
             else:
-                await thread.send(f"{E['new']} **LOGGED**{EM}·{EM}#{bug['id']} is sent to the developer. "
+                await thread.send(f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} is sent to the developer. "
                                   f"{'Thanks, that covers it.' if was_asked else 'Thanks for the idea!'} Votes help it get noticed.")
         except Exception:
             pass

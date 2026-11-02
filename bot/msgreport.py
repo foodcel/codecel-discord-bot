@@ -5,6 +5,7 @@ import re
 
 import discord
 
+from .nums import label
 from .ai import interpret_note
 from .env import cfg
 from .components import NO_MENTIONS
@@ -96,7 +97,7 @@ async def handle(m):
             await _say(m, f"{E['warn']} I could not find the testers forum. Ask a developer.")
             return True
         id_, thread = done
-        await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}bug #{id_} is in the testers forum: {thread.jump_url}", keep=True)
+        await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}bug {label(id_)} is in the testers forum: {thread.jump_url}", keep=True)
         await _remove(m)
         return True
     # the original text is copied into a forum everyone can read: never from a private channel (the testing channel is where testers work, so it is fine)
@@ -112,6 +113,6 @@ async def handle(m):
     id_, thread = done
     where = 'the bugs forum' if kind == 'bug' else 'the improvements forum'
     noun = 'bug' if kind == 'bug' else 'improvement'
-    await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}{noun} #{id_} is in {where}: {thread.jump_url}", keep=True)
+    await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}{noun} {label(id_)} is in {where}: {thread.jump_url}", keep=True)
     await _remove(m)
     return True
