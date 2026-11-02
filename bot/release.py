@@ -167,7 +167,7 @@ async def command_release_new(i, opts, quiet=False):
     ping = 'none' if quiet else (opts.get('ping') or 'everyone')
     if (ping == 'releases' and not cfg.releases_role) or (ping == 'updates' and not cfg.updates_role):
         return await reply(f'The {ping.title()} role is not set up yet, so I cannot ping it. Pick another ping, or ask an admin.', ephemeral=True)
-    from .guard import card_limit_reason, check_release, cooldown_left, note
+    from .guard import card_limit_reason, cooldown_left, note
     admin = level(i.user) == 'admin'
     wait = 0 if (admin or in_test_channel(i) or quiet) else cooldown_left(i.user.id)
     if wait:
@@ -183,33 +183,20 @@ async def command_release_new(i, opts, quiet=False):
     art = await steam_art(dev.get('source_link'), original)
     studio = (opts.get('studio') or '').strip() or await steam_studio(dev.get('source_link')) or art['studio']
     mine = (opts.get('image') or {}).get('url') if opts.get('image') else None
-    verdict = await check_release([art['art_hero_url'], art['art_url'], info.get('hero_url'), info.get('icon_url'), mine],
-                                  [original, info.get('name'), studio], hero_file)
     blocked = None
-    if verdict['flagged']:  # nothing from this release is shown: the pictures are removed and there is no card
-        blocked = f"🚫 A picture or word looks like **{verdict['reason']}**, so I removed the pictures and did not post the card or the @everyone ping."
-    elif not verdict['ok']:
-        blocked = '⚠️ I could not check the pictures, so I did not post the card or the @everyone ping. An admin can post it.'
-    if blocked:
-        if hero_file:
-            Path(hero_file).unlink(missing_ok=True)
-        hero_file = None
-        if verdict['flagged']:
-            info = {**info, 'hero_url': None, 'icon_url': None}
-            art = {**art, 'art_url': None, 'art_hero_url': None}
-            mine = None
+    note_text = (opts.get('note') or '').strip()[:140] or None
     if in_test_channel(i):  # a dry run: draw the card and the library row, change nothing
         row = {'key': k, 'name': dev['name'], 'owners': ','.join(owner_ids(dev)), 'link': link, 'place_id': info.get('place_id'), 'roblox_name': info.get('name'),
                'creator': info.get('creator'), 'hero_url': mine or info.get('hero_url'), 'icon_url': info.get('icon_url'), 'hero_file': None,
-               'studio': studio, 'original_name': original, 'art_url': None if mine else art['art_url'], 'art_hero_url': None if mine else art['art_hero_url'], 'title': None}
+               'studio': studio, 'original_name': original, 'notes': note_text, 'art_url': None if mine else art['art_url'], 'art_hero_url': None if mine else art['art_hero_url'], 'title': None}
         return await preview(i, row, clean_name(dev['name']), '/release new', blocked or (card_limit_reason(i.user.id, admin) if ping != 'none' else None) or '', ping, quiet)
-    run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name)
-        VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?)
+    run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name,notes)
+        VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by, link=excluded.link,
         owners=excluded.owners, name=excluded.name, place_id=excluded.place_id, roblox_name=excluded.roblox_name, creator=excluded.creator,
-        hero_url=excluded.hero_url, icon_url=excluded.icon_url, hero_file=COALESCE(excluded.hero_file, game_status.hero_file), studio=excluded.studio, original_name=excluded.original_name""",
+        hero_url=excluded.hero_url, icon_url=excluded.icon_url, hero_file=COALESCE(excluded.hero_file, game_status.hero_file), studio=excluded.studio, original_name=excluded.original_name, notes=COALESCE(excluded.notes, game_status.notes)""",
         k, dev['name'], ','.join(owner_ids(dev)), dev.get('since'), now(), str(i.user.id), link, info.get('place_id'), info.get('name'),
-        info.get('creator'), info.get('hero_url'), info.get('icon_url'), hero_file, studio, original)
+        info.get('creator'), info.get('hero_url'), info.get('icon_url'), hero_file, studio, original, note_text)
     run('UPDATE game_status SET art_url=?, art_hero_url=? WHERE key=?', art['art_url'], art['art_hero_url'], k)
     from . import board
     if board.is_live():  # releasing a game completes its claim on the bounty board
@@ -295,11 +282,14 @@ async def command_release_edit(i, opts):
         changes['online'] = 1 if opts['online'] == 'online' else 0
         from .watch import forget
         forget(k)  # by hand: the automatic watch starts from nothing for this game
+    n = (opts.get('note') or '').strip()
+    if n:  # a short line under the game; a single - removes it
+        changes['notes'] = None if n == '-' else n[:140]
     link = (opts.get('link') or '').strip()
     if link and not ROBLOX_GAME.search(link):
         return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
     if not changes and not link and not opts.get('image'):
-        return await reply('Nothing to change. Give a title, link, image, studio, original or online.', ephemeral=True)
+        return await reply('Nothing to change. Give a title, link, image, studio, original, note or online.', ephemeral=True)
     await i.response.defer(ephemeral=True, thinking=True)
     if link:
         info = await roblox_info(link) or {}
@@ -315,12 +305,6 @@ async def command_release_edit(i, opts):
         saved = await save_hero(k, opts['image'])
         if saved.startswith('!'):
             return await i.edit_original_response(content=saved[1:])
-        from .guard import check_release
-        verdict = await check_release([], [title], saved)
-        if verdict['flagged'] or not verdict['ok']:
-            Path(saved).unlink(missing_ok=True)
-            return await i.edit_original_response(content=(f"🚫 That picture looks like **{verdict['reason']}**, so I did not save it." if verdict['flagged']
-                                                         else '⚠️ I could not check that picture, so I did not save it. Try again in a moment.'))
         changes['hero_file'] = saved
     if 'original_name' in changes:
         art = await steam_art(rel.get('source_link'), changes['original_name'])

@@ -124,6 +124,7 @@ COMMANDS = [
             option(STRING, 'studio', 'Original studio (otherwise taken from the Steam page)'),
             option(STRING, 'original', 'Original game name (otherwise the name on the board)'),
             option(STRING, 'ping', 'Who the new-game card pings (default: everyone)', choices=RELEASE_PING),
+            option(STRING, 'note', 'A short heads-up shown under the game, e.g. Multiplayer + VC, or Only 1 map so far', max_length=140),
         ]),
         sub('quiet', 'Add a finished game to the library without announcing it (no card, no ping)', [
             option(STRING, 'game', 'Game', required=True, autocomplete=True),
@@ -131,6 +132,7 @@ COMMANDS = [
             option(ATTACHMENT, 'image', 'Your own picture (otherwise the one from Roblox)'),
             option(STRING, 'studio', 'Original studio (otherwise taken from the Steam page)'),
             option(STRING, 'original', 'Original game name (otherwise the name on the board)'),
+            option(STRING, 'note', 'A short heads-up shown under the game, e.g. Multiplayer + VC, or Only 1 map so far', max_length=140),
         ]),
         sub('edit', 'Fix a released game', [
             option(STRING, 'game', 'Released game', required=True, autocomplete=True),
@@ -140,6 +142,7 @@ COMMANDS = [
             option(STRING, 'studio', 'Original studio'),
             option(STRING, 'original', 'Original game name'),
             option(STRING, 'online', 'Is the game up? Offline shows a grey Offline button instead of Play', choices=ONLINE),
+            option(STRING, 'note', 'A short heads-up under the game (a single - removes it)', max_length=140),
         ]),
     ]),
     command('unrelease', 'Move a released game back to unreleased', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),

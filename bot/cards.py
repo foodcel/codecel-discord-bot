@@ -61,6 +61,11 @@ def _name_line(row, big=False):
     return f'{pre}**[{title}]({link})**' if link and not big else (f'# {title}' if big else f'**{title}**')
 
 
+def _note(row):
+    """The dev's short heads-up under a game (multiplayer, bugs, one map only...)."""
+    return f"💬 {row['notes']}" if row.get('notes') else ''
+
+
 def _offline(label):
     """A grey button that does nothing: the game is down for now."""
     return ui.Button(style=discord.ButtonStyle.link, label=label, url='https://www.roblox.com', emoji='⏸️', disabled=True)
@@ -99,7 +104,7 @@ def _icon(row):
 def game_row(row):
     """One game: its name, the platforms, the original game's studio and who made it, a picture on the right, and a Play now button."""
     icon, f = _icon(row)
-    text = NL.join(x for x in [_name_line(row), PLATFORMS, _credits(row)] if x)
+    text = NL.join(x for x in [_name_line(row), PLATFORMS, _credits(row), _note(row)] if x)
     items = [ui.Section(text, accessory=icon)] if icon else [ui.TextDisplay(text)]
     if row.get('online') == 0:
         items.append(ui.ActionRow(_offline('Offline for now')))
@@ -212,7 +217,7 @@ def new_game_card(row, ping_text='@everyone'):
         children.append(ui.TextDisplay(ping_text))
     if media is not None:
         children.append(ui.MediaGallery(discord.MediaGalleryItem(media)))
-    children.append(ui.TextDisplay(NL.join(x for x in ['-# 🎉 NEW GAME', _name_line(row, big=True), PLATFORMS, _credits(row)] if x)))
+    children.append(ui.TextDisplay(NL.join(x for x in ['-# 🎉 NEW GAME', _name_line(row, big=True), PLATFORMS, _credits(row), _note(row)] if x)))
     if row.get('link'):
         children.append(ui.ActionRow(_play(row['link'], 'Play now')))
     view = ui.LayoutView()
