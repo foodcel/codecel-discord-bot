@@ -1,16 +1,31 @@
 """The announcements for devs and testers, all in one look: a short title, sections whose lines branch like the /help tree, and the commands
-in the footer, one per line. Built here so the preview and the real post are identical."""
+in the footer, one per line. Every branch is kept short enough to stay on one line, so nothing wraps back under the tree.
+Built here so the preview and the real post are identical."""
+import re
+
 from .env import cfg
 from .ui import E, ZW, flat, head, section, gap
 
 GAMES_CHANNEL = 1562940878685872149  # #games
 DEV_CHAT = 1565918318664093766       # #developer-chat
+MAX_LINE = 56                        # characters a branch may take before it wraps (a channel link counts as 16)
 
 
 def tree(*rows):
     """(name, text) pairs as branches: ├─ **name** · text, the last one └─."""
     last = len(rows) - 1
     return '\n'.join(f"{'└─' if n == last else '├─'} **{name}** · {text}" for n, (name, text) in enumerate(rows))
+
+
+def too_long(embed):
+    """The branches of an embed that would wrap (for the tests of this file)."""
+    out = []
+    for f in embed.fields:
+        for line in f.value.split('\n'):
+            plain = re.sub(r'<#\d+>', 'x' * 16, line).replace('**', '').replace('`', '')
+            if len(plain) > MAX_LINE and line[:1] in '├└':
+                out.append((len(plain), plain))
+    return out
 
 
 def make(title, groups, footer, emoji=None):
@@ -29,17 +44,19 @@ def bot_news_embeds():
     board, bugs, modlog = f'<#{cfg.dev_forum_id}>', f'<#{cfg.bugs_id}>', f'<#{cfg.modlog_id}>'
     return [make('New · the bug bot', [
         ('😊', 'Your board', [
-            ('Board', f'a post in {board} with your open bugs, a dropdown per game and status buttons'),
-            ('Pings', 'a quick ping for each new bug'),
-            ('Transcripts', 'a zip per bug or game, ready for your AI agent')]),
+            ('Board', f'your post in {board}'),
+            ('Dropdown', 'pick a game, browse its bugs'),
+            ('Pings', 'a quick ping per new bug'),
+            ('Transcripts', 'a zip for your AI agent')]),
         (E['fixed'], 'Fixing bugs', [
-            ('Fixed', 'press the button, or type `12 fixed` or `1-5 fixed`. The reporter is pinged'),
-            ('Reopen', 'a reply of "still broken" reopens it'),
-            ('Exploits', f'removed from {bugs} at once and shown as **HIGH PRIORITY** on your board')]),
+            ('Fixed', 'press it, or type `12 fixed`'),
+            ('Several', '`1-5 fixed` does a range'),
+            ('Reopen', '"still broken" reopens it'),
+            ('Exploits', f'hidden from {bugs} at once')]),
         ('🤖', 'Automatic', [
-            ('Fix log', f'pinned in {board}: counts per game and each fix'),
-            ('Updates', 'after 3 fixes the bot drafts an update: Post, Edit or Later'),
-            ('Trolls', f'warning, 1-day mute, kick, 7-day ban, ban. Kicks and bans wait for Confirm in {modlog}')])],
+            ('Fix log', 'pinned: counts and each fix'),
+            ('Updates', 'after 3 fixes, a draft to post'),
+            ('Trolls', f'warn, mute, kick, ban: see {modlog}')])],
         ['/pings · choose your pings', '/update · post an update', '/config set · game link, icon, channel', "/strikes · a user's strikes", '/pardon · remove a strike'])]
 
 
@@ -49,13 +66,14 @@ def tester_news_embeds():
     return [make('New · report bugs with /bug', [
         ('🧪', 'How to report', [
             ('1', f'type `/bug` in {testing}'),
-            ('2', 'pick the game, attach up to **10 screenshots** and **5 videos**'),
-            ('3', 'fill in the form and send it')]),
+            ('2', 'pick the game'),
+            ('3', 'add up to 10 screenshots, 5 videos'),
+            ('4', 'fill in the form and send it')]),
         ('🧵', 'After you send it', [
-            ('Post', f'it becomes a post in <#{cfg.tester_forum_id}> and the dev replies there'),
+            ('Post', f'it becomes a post in <#{cfg.tester_forum_id}>'),
             ('Fixed', 'you are pinged when it is fixed'),
-            ('Still broken', 'reply in the post and it reopens'),
-            ('Exploit', 'report it like any other bug, with all the details')])],
+            ('Reopen', 'still broken? reply in the post'),
+            ('Exploit', 'report it like any other bug')])],
         ['/bug · report a bug in the testing channel', '/help · the commands you can use'])]
 
 
@@ -63,9 +81,9 @@ def board_news_embeds():
     """For devs: the bounty board that runs from this bot."""
     e = make('New · the bounty board', [
         ('🏆', 'The board', [
-            ('Top suggestions', 'the best-voted games nobody has claimed yet'),
-            ('Unreleased', 'every claimed game under its dev: how far it is, or 🧪 testing'),
-            ('Released', 'games that are out, with a link to play them')])],
+            ('Top suggestions', 'best-voted, not claimed yet'),
+            ('Unreleased', "each dev's games: progress or 🧪"),
+            ('Released', 'games that are out, with a link')])],
         ['/claim · take a game, add its Steam page with link:', '/unclaim · drop a game you claimed', '/progress · how far it is, if you are on it, testing:on',
          '/release new · the game is out', '/unrelease · move a game back', "/gamelink · change a game's link"])
     e.add_field(name=ZW, value='Credits to <@1134858072989376644> for the original bounty board', inline=False)
@@ -77,12 +95,14 @@ def suggestion_news_embeds():
     suggestions, board = f'<#{cfg.suggestions_id}>', f'<#{cfg.dev_suggestions_id}>'
     return [make('New · suggestion boards', [
         ('💡', 'Your board', [
-            ('Board', f'a post per dev in {board}, ranked by 🙏 votes, with a dropdown per game'),
-            ('Pings', 'a quick ping for each new suggestion')]),
+            ('Board', f'your post in {board}'),
+            ('Ranked', 'by 🙏 votes, a dropdown per game'),
+            ('Pings', 'a quick ping per new suggestion')]),
         (E['fixed'], 'Handling them', [
-            ('Added or declined', 'press the button, or type `12 added` or `7 declined`. The player is pinged'),
-            ('Bugs', f'a bug posted in {suggestions} becomes a bug on your board'),
-            ('Duplicates', 'the same idea points to the first, and a vague post gets a question')])],
+            ('Added', 'press it, or type `12 added`'),
+            ('Declined', 'press it, or type `7 declined`'),
+            ('Bugs', f'a bug from {suggestions} moves to your bugs'),
+            ('Duplicates', 'point to the first post')])],
         ['12 added · the idea is in the game', '7 declined · we are not adding it', '3 duplicate · already suggested', '1-5 added · several at once'])]
 
 
@@ -91,8 +111,9 @@ def roster_news_testers_embeds():
     where = f'<#{cfg.tester_info_id}>' if cfg.tester_info_id else 'the tester-information channel'
     return [make('New · the tester roster', [
         ('👤', 'Your profile', [
-            ('Profile', f'`/tester profile`: what you test on, how you record, when you are free. The list is in {where}'),
-            ('Active', 'a complete profile moves you from 🟡 waiting to 🟢 active')]),
+            ('Profile', '`/tester profile` makes you active'),
+            ('Fill in', 'devices, recording tool, free time'),
+            ('List', f'everyone is in {where}')]),
         ('🟢', 'The marks', [
             ('🟢', 'open to every dev'), ('🟡', 'waiting for a reply'), ('🔒', "only tests one dev's games"), ('💤', 'on a break: tell an admin')])],
         ['/tester profile · fill in your profile'])]
@@ -103,11 +124,12 @@ def roster_news_devs_embeds():
     where = f'<#{cfg.tester_info_id}>' if cfg.tester_info_id else 'the tester-information channel'
     return [make('New · the tester roster', [
         ('🔍', 'Find a tester', [
-            ('List', f'{where} shows every tester with their devices, recording tool and free time'),
-            ('Find', '`/tester find device:Xbox` lists the open testers for that device')]),
+            ('List', f'everyone is in {where}'),
+            ('Find', '`/tester find device:Xbox`')]),
         ('🔒', 'Who to ask', [
-            ('🔒 and 💤', 'private testers and testers on a break are never offered, so do not ask them'),
-            ('🟡', 'a new tester waits until they fill in their profile')])],
+            ('🔒', "only tests one dev's games: do not ask"),
+            ('💤', 'on a break: do not ask'),
+            ('🟡', 'new, waiting for their profile')])],
         ['/tester find device: · find a tester', '/tester add · add a tester (admins)', '/tester status · change a mark (admins)'])]
 
 
@@ -116,17 +138,19 @@ def release_news_devs_embeds():
     games = f'<#{GAMES_CHANNEL}>'
     return [make('New · game library and releases', [
         ('🎮', 'Library', [
-            ('Cards', f'every game is a card in {games}: cover, **Play now**, studio and who ported it'),
+            ('Cards', f'each game in {games}'),
+            ('Credits', 'the original studio and who ported it'),
             ('Hubs', 'the console hubs sit on top')]),
         ('🚀', 'Releasing', [
-            ('New', 'paste your Roblox link: name, creator and picture are filled in, and a new-game card runs for 3 days'),
-            ('Ping', '@everyone, @Updates or @Releases, or nobody'),
-            ('Quiet', 'add a game with no card and no ping'),
-            ('Edit', "fix a released game's title, link, picture, studio or original name")]),
+            ('New', 'paste the Roblox link, the rest is filled in'),
+            ('Card', 'a new-game card for 3 days'),
+            ('Ping', '@everyone, @Updates, @Releases or nobody'),
+            ('Quiet', 'no card, no ping'),
+            ('Edit', "fix a released game's details")]),
         ('🔧', 'More', [
-            ('Updates', 'an update is a card with fixes, changes, new and the cover'),
-            ('Logged', 'anything a player adds to a LOGGED bug is saved with a 📎'),
-            ('Bug hunting', 'reply `!bug` or `!improve` to a message to report it')])],
+            ('Updates', 'fixes, changes and new, with the cover'),
+            ('Logged', 'what players add after LOGGED gets a 📎'),
+            ('Bug hunting', 'reply `!bug` or `!improve`')])],
         ['/release new · the game is out', '/release quiet · add it without announcing', '/release edit · fix a released game', '/help · the commands you can use'])]
 
 
@@ -135,30 +159,31 @@ def release_news_testers_embeds():
     games = f'<#{GAMES_CHANNEL}>'
     return [make('New · for testers', [
         ('🔍', 'Bug hunting', [
-            ('!bug', f'reply to a message with `!bug <game>` in <#{cfg.testing_id}> and it becomes a report'),
+            ('!bug', 'reply to a message with `!bug <game>`'),
+            ('Where', f'only in <#{cfg.testing_id}>'),
             ('Limit', '5 false posts and you lose it')]),
         ('📎', 'Your reports', [
-            ('Add more', 'after **LOGGED**, anything you add is saved with a 📎 and the dev is told'),
-            ('Numbers', 'every report has its number, like **#38**')]),
-        ('🎮', 'Games', [('Library', f'every released game is in {games} with **Play now**')])],
+            ('Add more', 'after LOGGED, extras get a 📎'),
+            ('Numbers', 'every report has one, like **#38**')]),
+        ('🎮', 'Games', [('Library', f'every released game is in {games}')])],
         ['!bug <game> · reply to a message to report it', '/help · the commands you can use'])]
 
 
 def testing_news_devs_embeds():
     """The announcement for devs about testing and previews."""
-    games = f'<#{GAMES_CHANNEL}>'
     return [make('New · testing and previews', [
         ('🧪', 'Testing', [
-            ('Board', f'🧪 on the board, listed in <#{cfg.future_games_id}>'),
+            ('Board', f'🧪 on the board and in <#{cfg.future_games_id}>'),
             ('Forum', f'testers report in <#{cfg.tester_forum_id}>'),
             ('Released games', 'can be in testing too')]),
         ('🚀', 'Releasing', [
-            ('Preview', '`/release new`, `quiet` and `edit` show it first'),
+            ('Preview', 'every `/release` shows it first'),
             ('Description', 'a line under your game'),
-            ('Library', f'a card in {games} for 3 days, then in the library')]),
+            ('Library', 'new games join after 3 days')]),
         ('🤖', 'Automatic', [
-            ('Offline', f'taken-down games are marked, you are pinged in <#{DEV_CHAT}>'),
-            ('Updates', '`/update` drafts look like the posted card')])],
+            ('Offline', 'taken-down games are marked offline'),
+            ('Pings', f'you are pinged in <#{DEV_CHAT}>'),
+            ('Updates', '`/update` drafts look like the post')])],
         ['/progress testing:on · put your game in testing', '/progress testing:off · testing is over', '/release new · preview, then post',
          '/release edit description: · the line under your game', '/help · every command you can use'])]
 
@@ -167,10 +192,12 @@ def testing_news_testers_embeds():
     """The announcement for testers about the testers forum."""
     return [make('New · testers forum', [
         ('🏷️', 'Reports', [
-            ('Forum', f'`/bug` and `!bug` post in <#{cfg.tester_forum_id}>, tagged with the game'),
-            ('Games', f'only games in testing (and released ones), listed in <#{cfg.future_games_id}>')]),
+            ('Forum', f'`/bug` and `!bug` post in <#{cfg.tester_forum_id}>'),
+            ('Tags', 'each report is tagged with the game'),
+            ('Games', f'only games in testing: <#{cfg.future_games_id}>')]),
         ('🔍', 'Bug hunting', [
-            ('!bug <game>', 'reply to a message, in the testing channel only'),
+            ('!bug <game>', 'reply to a message'),
+            ('Where', 'in the testing channel only'),
             ('Limit', '5 false posts and you lose it')])],
         ['/bug · report a bug in the testing channel', '!bug <game> · reply to a message to report it', '/help · the commands you can use'],
         emoji='🧪')]
