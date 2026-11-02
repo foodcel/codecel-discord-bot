@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import discord
 from discord import ui
 
-from .botnews import strip, tree
+from .botnews import date_button, strip, tree
 from .components import NO_MENTIONS
 from .ctx import fetch_channel
 from .db import add_timer, all_, kv_get, kv_set, now, one, run
@@ -53,10 +53,10 @@ def can_volunteer(member):
 
 
 def board_view():
-    """The board as a card: the title with a counting time, a line, the games, the picker, a line, the commands."""
+    """The board as a card: the title with the date on the right, a line, the games, the picker, a line, the commands."""
     strip_ = strip()
     games = testing_games()
-    items = [ui.TextDisplay(f'### 🧪 Tester board\n-# Updated <t:{int(time.time())}:R>'), ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]
+    items = [ui.Section('### 🧪 Tester board', accessory=date_button()), ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]  # the date of the last change, on the right
     if not games:
         items.append(ui.TextDisplay('No game is in testing right now.'))
     for g in games:

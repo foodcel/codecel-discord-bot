@@ -247,11 +247,17 @@ def code_chip(line):
     return f'`{first}` · {rest}' if sep and first[:1] in '/!' else line
 
 
+def date_button(when=None):
+    """The date as a greyed-out button: the only thing Discord puts on the right of a title."""
+    d = (when or __import__('datetime').datetime.now()).strftime('%b %d, %Y').replace(' 0', ' ')
+    return ui.Button(style=discord.ButtonStyle.secondary, label=d, disabled=True, custom_id='date')
+
+
 def as_card(e, ping=None):
-    """An announcement embed as a card: (view, files). Under the title the ping and a counting time, a line under the header and one above the commands."""
+    """An announcement embed as a card: (view, files). The title with the ping under it and the date on the right, a line under the header and one above the commands."""
     strip_ = width_strip()
-    sub = ' · '.join(x for x in [ping, f'<t:{int(time.time())}:R>'] if x)
-    items = [ui.TextDisplay(f'### {e.title}\n-# {sub}'), ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]
+    title = f'### {e.title}' + (f'\n-# {ping}' if ping else '')
+    items = [ui.Section(title, accessory=date_button()), ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small)]
     for f in e.fields:
         items.append(ui.TextDisplay(f'**{f.name.rstrip(":")}**\n{f.value}') if f.name.strip(' \u200b') else ui.TextDisplay(f.value))
     if e.footer and e.footer.text:
