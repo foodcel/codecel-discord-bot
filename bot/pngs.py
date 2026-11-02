@@ -12,13 +12,14 @@ def _chunk(kind, data):
     return struct.pack('>I', len(data)) + body + struct.pack('>I', zlib.crc32(body) & 0xFFFFFFFF)
 
 
-def _png(width, height):
-    rows = b''.join(b'\x00' + b'\x00\x00\x00\x00' * width for _ in range(height))  # filter byte, then transparent pixels
+def _png(width, height, rgba=(0, 0, 0, 0)):
+    rows = b''.join(b'\x00' + bytes(rgba) * width for _ in range(height))  # filter byte, then the pixels (transparent unless a colour is given)
     return (b'\x89PNG\r\n\x1a\n' + _chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0))
             + _chunk(b'IDAT', zlib.compress(rows)) + _chunk(b'IEND', b''))
 
 
 STRIP = _png(1400, 2)
+LINE = _png(1400, 2, (255, 255, 255, 38))  # the same strip as a faint line: it widens the card and is the line above the footer
 
 
 def width_strip():
@@ -26,18 +27,23 @@ def width_strip():
     return discord.File(io.BytesIO(STRIP), filename='width.png')
 
 
+def line_strip():
+    return discord.File(io.BytesIO(LINE), filename='line.png')
+
+
 def with_strip(items):
-    """(items with the width strip put in, the strip file). The strip keeps every card the same width. It goes in front of the last line of the card
-    (or in front of its last button row): there is a gap there anyway, so it leaves no dead space of its own."""
+    """(items with the width strip put in, the strip file). The strip keeps every card the same width. It replaces the last divider line of the card:
+    it is a faint line itself, so the card is wide and has its footer line with no dead space of its own. A card without a divider gets the
+    invisible strip in front of its last button row."""
     from discord import ui
-    strip = width_strip()
-    gallery = ui.MediaGallery(discord.MediaGalleryItem(strip))
     items = list(items)
     for k in range(len(items) - 1, -1, -1):
         if isinstance(items[k], ui.Separator):
-            items.insert(k, gallery)
+            strip = line_strip()
+            items[k] = ui.MediaGallery(discord.MediaGalleryItem(strip))
             return items, strip
+    strip = width_strip()
+    gallery = ui.MediaGallery(discord.MediaGalleryItem(strip))
     k = next((k for k in range(len(items) - 1, -1, -1) if isinstance(items[k], ui.ActionRow)), len(items))
     items.insert(k, gallery)
     return items, strip
-
