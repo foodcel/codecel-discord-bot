@@ -319,7 +319,7 @@ def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=N
     children.append(ui.Section(head, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(head))  # the small picture sits top right
     children.append(ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))  # the line between the header and the body
     first = True
-    for heading, lines in (('🐛 Fixes', bugfixes), ('🔧 Changes', changes), ('✨ New', new)):
+    for heading, lines in (('🐛 Fixes', bugfixes), ('🔧 Changes', changes), ("✨ What's new", new)):
         if lines:
             # one blank line (an invisible character) above every section after the first
             children.append(ui.TextDisplay(('' if first else 'ㅤ\n') + f'### {heading}\n' + _bullets(lines, 1200)))
