@@ -67,10 +67,13 @@ def owner_of(tag_id):
 
 
 # ---- autocomplete ----
+DEV_ONLY = {'config', 'update', 'strikes', 'pardon', 'pings', 'preview', 'release', 'unrelease', 'progress', 'gamelink', 'games', 'botrules', 'mog'}  # the commands behind the dev-only gate in handle_command
 async def autocomplete(i):
     name = i.data['name']
     sub, _, focused = get_options(i)
     fname, fvalue = focused or ('', '')
+    if name in DEV_ONLY and level(i.user) in ('jr', 'none'):  # the pick list would show every game to someone who may not run the command
+        return await i.response.autocomplete([app_commands.Choice(name='Only developers can use this command', value='none')])
     if name == 'bug' and fname == 'game' and cfg.testing_id and str(i.channel_id) == str(cfg.testing_id):  # testers can report games that are not out yet
         from .tester import is_tester, known_games
         if is_tester(i.user):
