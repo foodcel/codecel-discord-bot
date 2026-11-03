@@ -1,4 +1,4 @@
-"""/mog: Codecel posts one of the GIFs in assets/mog at random and pings Robin and Redwing Helper. Admins only.
+"""/mog: Codecel posts one of the GIFs or pictures in assets/mog at random and pings Robin and Redwing Helper. Admins only.
 And when Redwing Helper talks about Codecel or pings it, Codecel answers with one of them (maybe_reply)."""
 import random
 from pathlib import Path
@@ -10,7 +10,7 @@ PING = (941724517481463888, 1565900080894967809)  # Robin, Redwing Helper
 
 
 def pick():
-    files = sorted(FOLDER.glob('*.gif'))
+    files = sorted(p for p in FOLDER.iterdir() if p.suffix.lower() in ('.gif', '.png'))
     return random.choice(files) if files else None
 
 
