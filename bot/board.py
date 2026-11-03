@@ -288,21 +288,21 @@ async def refresh_board():
         old = [c.get('top'), c.get('claims'), c.get('completed')]
         ids = []
         from .look import card_from_embed, edit_card
-        card_opts = {'inline_desc': True, 'first_sub': [(' open suggestions', ' open')]}
+        card_opts_all = [{'inline_desc': True, 'first_sub': [(' open suggestions', ' open')]}, {'inline_desc': True, 'plain_count': True}, {'inline_desc': True, 'plain_count': True}]
         for n, (mid, embed) in enumerate(zip(old, await build_embeds())):
-            as_card = n == 0  # the two game lists have columns, which only an embed can show
+            as_card = True  # all three are cards: lines under the title and above the commands, the counts in the title
             try:
                 if mid:
                     try:
                         if as_card:
-                            await edit_card(ch.get_partial_message(int(mid)), embed, **card_opts)
+                            await edit_card(ch.get_partial_message(int(mid)), embed, **card_opts_all[n])
                         else:
                             await ch.get_partial_message(int(mid)).edit(content=None, embeds=[embed], attachments=[])
                     except discord.NotFound:
                         mid = None
                 if not mid:
                     if as_card:
-                        view, files = card_from_embed(embed, **card_opts)
+                        view, files = card_from_embed(embed, **card_opts_all[n])
                         msg = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions.none())
                     else:
                         msg = await ch.send(embed=embed)
