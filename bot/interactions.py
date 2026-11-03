@@ -194,11 +194,12 @@ async def button_ann(i, action, pid, extra=None):
     if not can_manage(i.user, owner_of(p['tagId'])):
         return await deny(i)
     if action == 'edit':
-        bug_lines, new_lines = chosen(p)  # only what is ticked; add extra bug fixes or updates in the boxes
+        bug_lines, new_lines = chosen(p)  # only what is ticked; add extra bug fixes, changes or new things in the boxes
         await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'], 'Opened the editor.')
         return await i.response.send_modal(FormModal(f'annedit:{pid}', 'Edit announcement', [
             form_input('bugfixes', 'Bug fixes (one per line)', 'paragraph', '\n'.join(bug_lines)),
-            form_input('updates', 'Updates (one per line)', 'paragraph', '\n'.join(list(p['updates']) + new_lines)),
+            form_input('changes', 'Changes (one per line)', 'paragraph', '\n'.join(p['updates'])),
+            form_input('new', "What's new (one per line)", 'paragraph', '\n'.join(new_lines)),
             form_input('version', 'Version (optional)', 'short', p.get('version')),
         ]))
     if action == 'later':
@@ -246,12 +247,16 @@ async def modal_ann_edit(i, pid, fields):
         await i.response.defer(thinking=True)
     bug_lines, new_lines = chosen(p)
     bug_ids, new_ids = chosen_ids(p)
-    # Only update lines the dev changed get rewritten again; untouched ones keep their wording.
-    typed = lines_of(fields.get('updates'))
-    same = '\n'.join(typed) == '\n'.join(list(p['updates']) + new_lines)
-    updates = list(p['updates']) + new_lines if same else await polish_dev_updates(get_game(p['tagId'])['name'], typed)
-    set_pending(pid, {**p, 'bugfixes': lines_of(fields.get('bugfixes')), 'updates': updates, 'bugIds': bug_ids, 'newIds': new_ids,
-                      'newLines': [], 'off': [], 'version': (fields.get('version') or '').strip()})
+    # Only the lines the dev changed get rewritten again; untouched ones keep their wording.
+    typed_changes, typed_new = lines_of(fields.get('changes')), lines_of(fields.get('new'))
+    changes = list(p['updates']) if typed_changes == list(p['updates']) else await polish_dev_updates(get_game(p['tagId'])['name'], typed_changes)
+    kept = dict(zip(new_lines, new_ids)) if len(new_lines) == len(new_ids) else {}
+    fresh = [l for l in typed_new if l not in kept]
+    polished = iter(await polish_dev_updates(get_game(p['tagId'])['name'], fresh)) if fresh else iter(())
+    news = [l if l in kept else next(polished) for l in typed_new]  # what the dev typed fresh is polished, the rest stays
+    set_pending(pid, {**p, 'bugfixes': lines_of(fields.get('bugfixes')), 'updates': changes, 'bugIds': bug_ids,
+                      'newIds': [kept[l] for l in typed_new if l in kept], 'newLines': news, 'off': [], 'version': (fields.get('version') or '').strip()})
+    updates = changes + news
     await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'],
                              f"Edited the draft: {len(lines_of(fields.get('bugfixes')))} bug fix line(s), {len(updates)} update line(s)"
                              + (f", version {fields.get('version').strip()}" if (fields.get('version') or '').strip() else '') + '.')
