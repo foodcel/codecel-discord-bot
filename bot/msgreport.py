@@ -14,6 +14,13 @@ from .perms import level
 from .tags import find_game_tag, game_tags
 from .ui import E, EM
 
+def for_game(id_):
+    """ for Peggle"""
+    from .db import bug_by_id
+    g = (bug_by_id(id_) or {}).get('game_name')
+    return f' for {g}' if g else ''
+
+
 COMMAND = re.compile(r'^!(bug|improve|improvement)\b\s*(.*)$', re.I | re.S)
 
 
@@ -97,7 +104,7 @@ async def handle(m):
             await _say(m, f"{E['warn']} I could not find the testers forum. Ask a developer.")
             return True
         id_, thread = done
-        await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}bug {label(id_)} is in the testers forum: {thread.jump_url}", keep=True)
+        await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}bug {label(id_)} for {name} is in the testers forum: {thread.jump_url}", keep=True)
         await _remove(m)
         return True
     # the original text is copied into a forum everyone can read: never from a private channel (the testing channel is where testers work, so it is fine)
@@ -113,6 +120,6 @@ async def handle(m):
     id_, thread = done
     where = 'the bugs forum' if kind == 'bug' else 'the improvements forum'
     noun = 'bug' if kind == 'bug' else 'improvement'
-    await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}{noun} {label(id_)} is in {where}: {thread.jump_url}", keep=True)
+    await _say(m, f"{E['fixed']} **SAVED**{EM}·{EM}{noun} {label(id_)}{for_game(id_)} is in {where}: {thread.jump_url}", keep=True)
     await _remove(m)
     return True
