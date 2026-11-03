@@ -9,9 +9,20 @@ from .db import kv_get, kv_set
 from .env import cfg
 
 
+# Who sees a command in the picker. Discord hides it from everyone without the permission (admins always see it). The bot still checks the role when it is run.
+ADMIN = '8'                     # Administrator
+DEV = str(1 << 51)              # Pin Messages: the Developers role has it, Tester and @everyone do not
+LOCKED = {**{n: ADMIN for n in ('mog', 'Mog', 'preview', 'botrules', 'games', 'bounty-board', 'assign', 'exclude', 'include')},
+          **{n: DEV for n in ('config', 'update', 'strikes', 'pardon', 'pings', 'release', 'unrelease', 'gamelink', 'progress', 'claim', 'unclaim')}}
+
+
+def locked(commands):
+    return [{**c, 'default_member_permissions': LOCKED[c['name']]} if c['name'] in LOCKED else c for c in commands]
+
+
 async def register_commands():
     """Sends the list only when it changed since the last time: Discord rate limits this call, and restarts are common."""
-    payload = COMMANDS + (BOARD_COMMANDS if is_live() else [])
+    payload = locked(COMMANDS + (BOARD_COMMANDS if is_live() else []))
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     if kv_get('commands_hash') == digest:
         return
