@@ -220,22 +220,30 @@ def eligible(member, c):
             return False, f'This giveaway is for {need}.'
     if c['min_days'] and member.joined_at and (datetime.now(timezone.utc) - member.joined_at).days < c['min_days']:
         return False, f"You need to be in the server for **{c['min_days']}** days to enter."
-    if c['min_invites']:
-        have = invites.qualified(member.id)
-        if have < c['min_invites']:
-            return False, f"You need **{c['min_invites']}** invites to enter and you have **{have}**. Only people who are still here and verified count. See `/invites stats`."
     return True, ''
 
 
+def short_of(member, c):
+    """(invites needed, invites that count) while the person is below the invite minimum, else None."""
+    if not c['min_invites']:
+        return None
+    have = invites.qualified(member.id)
+    return (c['min_invites'], have) if have < c['min_invites'] else None
+
+
 def entries_for(member, c):
-    """(total entries, [(what it is for, how many)]): one for entering, the bonus roles the person has, the invites that count."""
+    """(total entries, [(what it is for, how many)]). With an invite minimum anyone may enter but has 0 entries until the minimum is reached; then one for
+    entering, the bonus roles, and (if on) one more for every invite past the minimum."""
+    if short_of(member, c):
+        return 0, []
     rows = [('for entering', 1)]
     rows += [(_role(rid), n) for rid, n in c['bonus'].items() if _has(member, rid)]
     if c['invite_entries']:
         q = invites.qualified(member.id)
-        inv = min(q, c['invite_cap']) if c['invite_cap'] else q
-        if inv:
-            rows.append((f"your invites ({q} count" + (f", up to {c['invite_cap']}" if c['invite_cap'] else '') + ')', inv))
+        extra = q - c['min_invites']
+        inv = min(extra, c['invite_cap']) if c['invite_cap'] else extra
+        if inv > 0:
+            rows.append((f"your invites past {c['min_invites']} ({q} count)" if c['min_invites'] else f'your invites ({q} count)', inv))
     return sum(n for _, n in rows), rows
 
 
@@ -263,7 +271,7 @@ def required_block(c):
     if c['req_roles']:
         rows.append('🎭 ' + (' and ' if c['req_mode'] == 'all' else ' or ').join(_role(r) for r in c['req_roles']))
     if c['min_invites']:
-        rows.append(f"📨 Minimum **{c['min_invites']}** invite{'s' if c['min_invites'] != 1 else ''}")
+        rows.append(f"📨 **{c['min_invites']}** invite{'s' if c['min_invites'] != 1 else ''} for your first entry")
     if c['min_days']:
         rows.append(f"🕓 **{c['min_days']}+** days in the server")
     if c['blacklist']:
@@ -413,10 +421,18 @@ def schedule_redraw(gid):
 
 
 # ---- entering ----
+def _need_line(member, c):
+    short = short_of(member, c)
+    return f"You get your first entry at **{short[0]}** invites. **{short[1]}** count so far. Only people who are still here and verified count: see `/invites stats`." if short else None
+
+
 def _entries_view(g, member, headline):
     """What only you see: your entries and where each one comes from, with Leave while the giveaway runs."""
     total, rows = entries_for(member, g['config'])
-    lines = [f"**{headline}**"] + [f"+{n} · {what}" for what, n in rows] + ['', f"-# It is checked again when the giveaway ends."]
+    if total == 0:
+        lines = [f'**{headline}**', _need_line(member, g['config']) or 'You have no entries.', '', '-# It is checked again when the giveaway ends.']
+    else:
+        lines = [f"**{headline}**"] + [f"+{n} · {what}" for what, n in rows] + ['', f"-# It is checked again when the giveaway ends."]
     ok, why = eligible(member, g['config'])
     if not ok:
         lines = [f'⚠️ You no longer qualify: {why}', '-# You will be skipped at the draw unless that changes.']
@@ -459,7 +475,8 @@ async def mine(i, gid):
     if g['status'] != 'running':
         view.add_item(ui.TextDisplay('You did not enter this giveaway.'))
     elif ok:
-        view.add_item(ui.TextDisplay(f"You have not entered yet. You would get **{_entry_word(entries_for(i.user, g['config'])[0])}**."))
+        would = entries_for(i.user, g['config'])[0]
+        view.add_item(ui.TextDisplay(f"You have not entered yet. You would get **{_entry_word(would)}**." + (f'{NL}{_need_line(i.user, g["config"])}' if not would else '')))
         view.add_item(ui.ActionRow(ui.Button(custom_id=f'gw:enter:{gid}', label='Enter giveaway', style=discord.ButtonStyle.success, emoji='🎉')))
     else:
         view.add_item(ui.TextDisplay(f'You have not entered, and you cannot yet: {why}'))
@@ -479,8 +496,9 @@ async def _pool(g):
     for r in all_('SELECT user_id FROM giveaway_entries WHERE gid=? ORDER BY user_id', g['id']):
         m = ctx.guild.get_member(int(r['user_id']))
         ok, _ = eligible(m, g['config'])
-        if ok:
-            out.append((r['user_id'], entries_for(m, g['config'])[0]))
+        total = entries_for(m, g['config'])[0] if ok else 0
+        if total > 0:  # below the invite minimum = 0 entries = not in the draw
+            out.append((r['user_id'], total))
     return out
 
 

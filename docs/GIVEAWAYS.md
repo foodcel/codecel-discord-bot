@@ -9,6 +9,7 @@ Code: `bot/giveaway.py`, `bot/invites.py`. Look: see `docs/DESIGN.md` (cards, tr
 - Prizes per place: `1: 2k Robux + Nitro`, `2-5: 2k Robux`; or one line = every winner gets it (winners count in the box).
 - Rules: required roles (any or all), blacklisted roles, bonus entries per role (`Booster: 2`), min days in server, min invites,
   every invite = one more entry (optional cap), claim window in hours (unclaimed places are drawn again, up to 3 times).
+- Invite giveaways: anyone verified can enter, but they have **0 entries** until their counting invites reach the minimum; then 1 entry, and (if on) one more for every invite past it. Role-bound giveaways: only those roles can enter.
 - Everyone needs the **Verified** role. Everything is checked again when the giveaway ends. The draw is seeded; the seed is on the card and in #dev-logs.
 - Winners get one real ping (a reply under the card) and a DM. The card itself never pings.
 - Setup: set `GIVEAWAY_MANAGER_ROLE_ID` in `.env` and give that role the **Manage Events** permission (that is what makes `/giveaway` appear in the picker; admins always see it).
