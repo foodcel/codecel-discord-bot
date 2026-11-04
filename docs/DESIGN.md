@@ -1,6 +1,20 @@
 # Design language for the bot's posts
 
-Every post the bot makes (announcements, boards, update/new-game cards, forum posts, help) follows this. Read it before adding or changing one.
+The bot has **two looks**. Pick by who reads the post, then follow that look exactly. Read this before adding or changing any post.
+
+| | **Developer look** | **Community look** |
+|---|---|---|
+| For | devs, testers, staff: boards, dev boards, roster, bug pages, help, dev announcements, update / new-game cards | everyone, on phones first: giveaways, `/invites`, and any new feature for the whole server |
+| Top | `### Title` with the date as a grey button on the right | a **banner** drawn for the post (`bot/banner.py`), the prize or the subject in big letters |
+| Body | trees (`├─` / `└─`), counts in the title, columns where an embed allows | short flat lines, one fact per line, an emoji in front; headings (`##`/`###`) for what must catch the eye |
+| People and roles | names, or mentions sent silently | **real mentions**: `@Verified`, `@Booster`, `Hosted by: @host` (roles never ping; edits carry user mentions so names show) |
+| Never | relative times (except the update card) | trees, code blocks, grey code chips for anything that is not a command |
+
+Shared by both: a line under the header and a line above the footer only (never in the middle), commands as code chips in the small footer, the button under the card,
+real dates, no dead space, the ping right above the card, preview in the test channel first, then edit in place.
+
+# Developer look
+
 Code: `bot/look.py` (any embed -> card), `bot/botnews.py` (`tree`, `make`, `as_card`, `code_chip`, `date_button`), `bot/pngs.py` (`with_strip`), `bot/cards.py`, `bot/testerboard.py`.
 
 ## Philosophy
@@ -49,3 +63,27 @@ Lists are trees: `├─ **Name** · text`, last row `└─`. Built with `botne
 3. Dates via `date_button()`. Commands via `code_chip()`. Width via `with_strip()`.
 4. Invisible spacer characters (`​ ㅤ       ⠀`) count as blank in `look.ZWS`; never leave one as a stray line.
 5. Preview in the test channel, wait for the user's yes, then edit in place.
+
+# Community look
+
+Code: `bot/banner.py` (the banner), `bot/giveaway.py` (`card_items`), `bot/invites.py` (`_card`).
+
+## Philosophy
+- **Phone first.** Every line must read well on a narrow screen: one fact per line, no tree glyphs, nothing that wraps into a mess.
+- **Catch the eye.** The banner carries the subject (the prize, "TOP INVITERS"). The most important line gets a heading.
+- **Real pings for roles and people.** Write `@Verified`, `@Booster`, `Hosted by: @host` as real mentions, so they look like Discord's own pills.
+  Roles are never pinged by it (allowed mentions stay off for roles); user mentions are carried by an edit so every app shows the name.
+- **Plain words.** "Required", "Bonus entries", "Minimum 2 invites", "3+ days in the server". No code blocks, no chips except commands in the footer.
+
+## The card, top to bottom
+1. **Banner** (1200x400): navy with stripes, the Redwing wing, `REDWING EXPERIENCES`, the big headline, a red bar, a small line, an outlined pill, the red bottom bar.
+   It is made for each post, and the words can be changed and drawn again (giveaway preview: **Banner** button).
+2. **Facts line** under the banner: `5 winners · 187 entered · ends <date>`, then `Hosted by: @host @host`.
+3. Line.
+4. **Blocks** with a bold heading each: the prizes (podium, prize pool or tiles), **Required**, **Bonus entries**. A role is a real mention, a number is bold.
+5. Line, then the small footer (claim time, the command chip), then the button (Enter giveaway).
+
+## Giveaway prize looks (chosen in the preview)
+- **Podium:** `### 🥇 2K Robux + Nitro` with `-# 1st and 2nd place` under it; the other places in bold.
+- **Prize pool:** `## 💰 10K Robux + 2× Nitro`, `-# the prize pool · 5 winners`, then every place on one line.
+- **Tiles:** every place in its own quoted block with the prize as a heading.
