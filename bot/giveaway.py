@@ -240,11 +240,15 @@ def entries_for(member, c):
     rows += [(_role(rid), n) for rid, n in c['bonus'].items() if _has(member, rid)]
     if c['invite_entries']:
         q = invites.qualified(member.id)
-        extra = q - c['min_invites']
-        inv = min(extra, c['invite_cap']) if c['invite_cap'] else extra
+        inv = q - c['min_invites']
         if inv > 0:
             rows.append((f"your invites past {c['min_invites']} ({q} count)" if c['min_invites'] else f'your invites ({q} count)', inv))
-    return sum(n for _, n in rows), rows
+    total = sum(n for _, n in rows)
+    cap = c['invite_cap']  # the most entries one person can have in total, so nobody wins on invites alone
+    if cap and total > cap:
+        rows.append((f'capped at {cap} entries in total', cap - total))
+        total = cap
+    return total, rows
 
 
 # ---- the card (community look: banner, short lines, real pings, no trees, no code blocks, no medal emojis) ----
@@ -282,7 +286,7 @@ def required_block(c):
 def bonus_block(c):
     rows = [f"⭐ {_role(r)} **+{n}** {'entry' if n == 1 else 'entries'}" for r, n in c['bonus'].items()]
     if c['invite_entries']:
-        rows.append('➕ **+1** entry for every invite' + (f" · up to {c['invite_cap']}" if c['invite_cap'] else ''))
+        rows.append('➕ **+1** entry for every invite' + (f" · max **{c['invite_cap']}** entries in total" if c['invite_cap'] else ''))
     return '**Bonus entries**' + NL + NL.join(rows) if rows else None
 
 
@@ -433,7 +437,7 @@ def _entries_view(g, member, headline):
     if total == 0:
         lines = [f'**{headline}**', _need_line(member, g['config']) or 'You have no entries.', '', '-# It is checked again when the giveaway ends.']
     else:
-        lines = [f"**{headline}**"] + [f"+{n} · {what}" for what, n in rows] + ['', f"-# It is checked again when the giveaway ends."]
+        lines = [f"**{headline}**"] + [f"{'+' if n > 0 else '−'}{abs(n)} · {what}" for what, n in rows] + ['', f"-# It is checked again when the giveaway ends."]
     ok, why = eligible(member, g['config'])
     if not ok:
         lines = [f'⚠️ You no longer qualify: {why}', '-# You will be skipped at the draw unless that changes.']
@@ -761,7 +765,7 @@ async def on_component(i, parts):
         inv = (str(d['invite_cap']) if d['invite_cap'] else 'yes') if d['invite_entries'] else 'no'
         return await i.response.send_modal(FormModal(f'gwr:{pid}', 'Rules', [
             _spec('min_invites', 'Minimum invites to enter (0 = none)', d['min_invites'], mx=4),
-            _spec('invite_entries', 'Every invite = 1 more entry? no / yes / a cap', inv, mx=6),
+            _spec('invite_entries', 'Invites as entries? no/yes/max total entries', inv, mx=6),
             _spec('min_days', 'Minimum days in the server (0 = none)', d['min_days'], mx=4),
             _spec('claim_hours', 'Winners must claim within hours (0 = no claim)', d['claim_hours'], mx=4),
             _spec('blacklist', 'Roles that cannot enter (names, comma)', black, mx=200)]))
