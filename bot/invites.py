@@ -123,48 +123,53 @@ def leaderboard():
     return sorted(rows, key=lambda x: (-x[1]['score'], -x[1]['joined']))
 
 
-def _card(blocks, footer):
-    """The community look without a banner (banners are for giveaways): short blocks, a line above the footer, the command chips at the bottom."""
-    items = []
-    for b in blocks:
-        items.append(ui.Separator(visible=True, spacing=SMALL) if b == '---' else ui.TextDisplay(b))
+def _card(head, body, footer):
+    """The community look without a banner: the heading, ONE line under it, the body in blocks with only a gap between them (no lines), ONE line above the footer,
+    the command chips at the bottom. The faint footer line also keeps the card as wide as the others."""
+    items = [ui.TextDisplay(head), ui.Separator(visible=True, spacing=SMALL)]
+    for k, b in enumerate(body):
+        if k:
+            items.append(ui.Separator(visible=False, spacing=SMALL))
+        items.append(ui.TextDisplay(b))
     items += [ui.Separator(visible=True, spacing=SMALL), ui.TextDisplay(NL.join('-# ' + code_chip(x) for x in footer))]
-    items, strip = with_strip(items)  # the faint line is the footer line and keeps the card as wide as the others
+    items, strip = with_strip(items)
     view = ui.LayoutView()
     view.add_item(ui.Container(*items))
     return view, [strip]
 
 
-def stats_card(member, mine=True):
-    s = stats(member.id)
-    rank = next((k + 1 for k, (u, _) in enumerate(leaderboard()) if u == str(member.id)), None)
+def stats_card(member, mine=True, s=None, rank=None):
+    s = s or stats(member.id)
+    rank = rank or next((k + 1 for k, (u, _) in enumerate(leaderboard()) if u == str(member.id)), None)
     who = 'your' if mine else 'their'
-    blocks = [f"## 📨 {'Your' if mine else member.display_name + chr(39) + 's'} invites" + (f"{NL}-# rank **#{rank}**" if rank else ''),
-              '---',
-              f"### {s['score']} {'invite counts' if s['score'] == 1 else 'invites count'}{NL}-# people {'you' if mine else 'they'} brought who are still here and verified",
-              NL.join([f"🕓 **{s['unverified']}** joined but are not verified yet",
-                       f"🚪 **{s['left']}** left the server",
-                       f"👥 **{s['joined']}** joined with {who} invites",
-                       f"🔗 **{s['uses']}** uses of {who} invites, all time"])]
-    return _card(blocks, ['/invites top · the leaderboard'])
+    head = f"## 📨 {'Your' if mine else member.display_name + chr(39) + 's'} invites" + (f"{NL}-# rank **#{rank}**" if rank else '')
+    body = [f"### {s['score']} {'invite counts' if s['score'] == 1 else 'invites count'}{NL}-# people {'you' if mine else 'they'} brought who are still here and verified",
+            NL.join([f"🕓 **{s['unverified']}** joined but are not verified yet",
+                     f"🚪 **{s['left']}** left the server",
+                     f"👥 **{s['joined']}** joined with {who} invites",
+                     f"🔗 **{s['uses']}** uses of {who} invites, all time"])]
+    return _card(head, body, ['/invites top · the leaderboard'])
 
 
-def top_card(viewer_id=None):
-    rows = leaderboard()
-    total = sum(b['score'] for _, b in rows)
+def _ord(n):
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def top_card(viewer_id=None, rows=None, mine=None, total=None):
+    """The leaderboard. rows: [(name, counting, joined)] best first; by default the real ones. mine: the viewer's rank."""
+    if rows is None:
+        board = leaderboard()
+        rows = [(ctx.guild.get_member(int(u)).display_name if ctx.guild.get_member(int(u)) else 'a former member', b['score'], b['joined']) for u, b in board]
+        mine = next((k + 1 for k, (u, _) in enumerate(board) if u == str(viewer_id)), None)
+        total = sum(b['score'] for _, b in board)
     lines = []
-    for k, (uid, b) in enumerate(rows[:10]):
-        m = ctx.guild.get_member(int(uid))
-        who = m.display_name if m else 'a former member'
-        if k == 0:
-            lines += [f"### {who} · {b['score']}", f"-# 1st place · {b['joined']} joined with their invites"]
-        else:
-            lines.append(f"**{k + 1}{'nd' if k == 1 else 'rd' if k == 2 else 'th'}** · {who} · {b['score']}")
-    mine = next((k + 1 for k, (u, _) in enumerate(rows) if u == str(viewer_id)), None)
-    blocks = [f'## 🏆 Top inviters{NL}-# {total} invites counting', '---', NL.join(lines) or 'Nobody has a counting invite yet. Invite a friend: they count once they verify.']
+    for k, (name, score, joined) in enumerate(rows[:10]):
+        lines += [f'### {name} · {score}', f'-# 1st place · {joined} joined with their invites'] if k == 0 else [f'**{_ord(k + 1)}** · {name} · {score}']
+    head = f"## 🏆 Top inviters{NL}-# {total} invites counting" if total else '## 🏆 Top inviters'
+    body = [NL.join(lines) or 'Nobody has a counting invite yet. Invite a friend: they count once they verify.']
     if mine:
-        blocks += ['---', f'You are **#{mine}**']
-    return _card(blocks, ['/invites stats · your own numbers'])
+        body.append(f'You are **{_ord(mine)}**' + (f" · {rows[mine - 1][1]} counting" if mine <= len(rows) else ''))
+    return _card(head, body, ['/invites stats · your own numbers'])
 
 
 async def command_invites(i, sub, opts):

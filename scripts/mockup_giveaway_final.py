@@ -64,7 +64,10 @@ async def main():
     await ch.send(view=gw.container(ended, None, 'ended', 187), files=[gw.banner_for(ended, ended=True)], allowed_mentions=NO_MENTIONS)
 
     await invites.load()
-    for label, (view, files) in (('**6 · /invites stats** · no banner', invites.stats_card(owner)), ('**7 · /invites top** · no banner', invites.top_card(owner.id))):
+    sample = [('Robin', 24, 31), ('Asher', 19, 22), ('Kasoku', 15, 18), ('Crab', 12, 14), ('Eggdog', 9, 12), ('Santo', 8, 9), ('tim', 6, 8), ('Itel dev', 5, 5), ('ice cube', 3, 4), ('yo', 2, 3)]
+    stats = {'score': 12, 'unverified': 3, 'left': 2, 'joined': 17, 'uses': 21}
+    for label, (view, files) in (('**6 · /invites stats** · an example with real-looking numbers', invites.stats_card(owner, s=stats, rank=4)),
+                                 ('**7 · /invites top** · an example (ten people, you are 14th)', invites.top_card(rows=sample + [('a', 2, 2)] * 3 + [(owner.display_name, 1, 1)], mine=14, total=105))):
         await send(label)
         await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
     print('done')
