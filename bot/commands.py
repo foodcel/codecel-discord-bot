@@ -172,6 +172,7 @@ COMMANDS = [
     command('invites', 'Invites: your numbers and the leaderboard', [
         sub('stats', 'How many people you invited, how many are verified and count', [option(USER, 'user', 'Someone else (default: you)')]),
         sub('top', 'The invite leaderboard'),
+        sub('link', 'Your personal invite link: everyone who joins with it and verifies counts for you'),
         sub('check', 'Admin: everything about one member: links, who they invited, who is verified', [option(USER, 'user', 'The member', required=True)]),
     ]),
     command('tester', 'The tester roster', [

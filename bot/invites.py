@@ -27,13 +27,25 @@ CREATE INDEX IF NOT EXISTS invite_joins_inviter ON invite_joins(inviter_id);
 CREATE INDEX IF NOT EXISTS invite_joins_user ON invite_joins(user_id);
 """)
 
+CREATE_INVITE_OWNERS = """CREATE TABLE IF NOT EXISTS invite_owner(code TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at INTEGER);"""
+db.executescript(CREATE_INVITE_OWNERS)
+
 _cache = {}  # code -> {'uses', 'max', 'inviter'}
 _lock = asyncio.Lock()
 
 
+def owners():
+    """{code: member} for the personal links the bot made with /invites link: Discord lists the bot as their creator, so the member is the inviter."""
+    return {r['code']: r['user_id'] for r in all_('SELECT code, user_id FROM invite_owner')}
+
+
+def inviter_of(invite, mine=None):
+    return (mine if mine is not None else owners()).get(invite.code) or (str(invite.inviter.id) if invite.inviter else None)
+
+
 async def _snapshot():
-    return {i.code: {'uses': i.uses or 0, 'max': i.max_uses or 0, 'inviter': str(i.inviter.id) if i.inviter else None}
-            for i in await ctx.guild.invites()}
+    mine = owners()
+    return {i.code: {'uses': i.uses or 0, 'max': i.max_uses or 0, 'inviter': inviter_of(i, mine)} for i in await ctx.guild.invites()}
 
 
 async def load():
@@ -48,7 +60,7 @@ async def load():
 
 
 async def on_invite_create(invite):
-    _cache[invite.code] = {'uses': invite.uses or 0, 'max': invite.max_uses or 0, 'inviter': str(invite.inviter.id) if invite.inviter else None}
+    _cache[invite.code] = {'uses': invite.uses or 0, 'max': invite.max_uses or 0, 'inviter': inviter_of(invite)}
 
 
 async def on_member_join(member):
@@ -204,10 +216,40 @@ def names_for(ids):
     return discord.AllowedMentions(users=[discord.Object(id=int(u)) for u in ids], roles=False, everyone=False, replied_user=False)
 
 
+def _invite_channel():
+    """Where a personal link lands new members: the rules channel, else the system channel, else the first channel everybody can read."""
+    g = ctx.guild
+    return g.rules_channel or g.system_channel or next((c for c in g.text_channels if c.permissions_for(g.default_role).view_channel), None)
+
+
+async def personal_link(member):
+    """(url, new). The member's own permanent link: it never expires and has no use limit. Made once, then handed out again."""
+    for code, uid in owners().items():
+        if uid == str(member.id) and code in _cache:
+            return f'https://discord.gg/{code}', False
+    ch = _invite_channel()
+    if not ch:
+        return None, False
+    invite = await ch.create_invite(max_age=0, max_uses=0, unique=True, reason=f'Personal invite link for {member} (/invites link)')
+    run('INSERT OR REPLACE INTO invite_owner(code,user_id,created_at) VALUES(?,?,?)', invite.code, str(member.id), now())
+    _cache[invite.code] = {'uses': 0, 'max': 0, 'inviter': str(member.id)}  # after the mapping exists, so the create event cannot file it under the bot
+    return invite.url, True
+
+
 async def command_invites(i, sub, opts):
+    if sub == 'link':
+        await i.response.defer(ephemeral=True)
+        url, new = await personal_link(i.user)
+        if not url:
+            return await i.edit_original_response(content='I could not make a link right now. Ask an admin.')
+        s = stats(i.user.id)
+        text = (f"**Your personal invite link**{NL}{url}{NL}{NL}"
+                f"Share this one. Everyone who joins with it and verifies counts for you, so you can enter invite giveaways.{NL}"
+                f"-# It never expires. {'Made just now. ' if new else ''}Right now **{s['score']}** of your invites count: see `/invites stats`.")
+        return await i.edit_original_response(content=text, allowed_mentions=NO_MENTIONS)
     if sub == 'top':
         view, files, ids = top_card(i.user.id)
-        return await i.response.send_message(view=view, files=files, ephemeral=True, allowed_mentions=names_for(ids))  # only the person who ran it sees it
+        return await i.response.send_message(view=view, files=files, ephemeral=True, allowed_mentions=names_for(ids))
     target = ctx.guild.get_member(int(opts['user'])) if opts.get('user') else i.user
     if not target or target.bot:
         return await i.response.send_message('I can only show invites for a person in the server.', ephemeral=True)
@@ -224,7 +266,8 @@ async def check_card(member):
     """(view, files, ids mentioned). The admin's look at one member: their live links, the people tracked as invited by them and what each is now,
     how many uses cannot be checked, and who invited this member."""
     uid = str(member.id)
-    live = [i for i in await ctx.guild.invites() if i.inviter and str(i.inviter.id) == uid]
+    mine = owners()
+    live = [i for i in await ctx.guild.invites() if inviter_of(i, mine) == uid]
     rows = all_('SELECT user_id, code, joined_at, left_at FROM invite_joins WHERE inviter_id=? ORDER BY joined_at', uid)
     latest = {}
     for r in rows:

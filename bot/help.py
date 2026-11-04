@@ -31,7 +31,7 @@ PAGES = {
                           ('/bug', 'in the testing channel: report a bug as a thread')])]),
     'everyone': ('🌍', 'Everyone', 'For everyone, in the bug and improvement forums.', [
         ('🐛', 'Reporting', ['bug', 'improvement']),
-        ('📨', 'Invites', ['invites stats', 'invites top']),
+        ('📨', 'Invites', ['invites link', 'invites stats', 'invites top']),
         ('❓', 'Help', ['help'])]),
 }
 ORDER = ['admin', 'dev', 'tester', 'everyone']
@@ -52,7 +52,7 @@ SHORT = {
     'pings': 'choose when the bot pings you', 'tester find': 'find a tester for your game', 'tester profile': 'fill in or change your tester profile',
     'giveaway new': 'start a giveaway (opens a preview first)', 'giveaway end': 'end one now and draw', 'giveaway reroll': 'draw a new winner',
     'giveaway cancel': 'cancel a running giveaway', 'giveaway list': 'the latest giveaways',
-    'invites stats': 'your invites and how many count', 'invites check': "a member's invite links, who they invited, who is verified", 'invites top': 'the invite leaderboard',
+    'invites stats': 'your invites and how many count', 'invites link': 'your own invite link, tracked for you', 'invites check': "a member's invite links, who they invited, who is verified", 'invites top': 'the invite leaderboard',
     'bug': 'report a bug with a short form', 'improvement': 'suggest an improvement with a short form', 'help': 'this list',
 }
 
