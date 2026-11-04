@@ -200,6 +200,23 @@ def _has(member, rid):
     return any(str(r.id) == str(rid) for r in member.roles)
 
 
+LEVEL = re.compile(r'^level\s*(\d+)$', re.I)
+
+
+def _level_of(role):
+    m = LEVEL.match(role.name.strip()) if role else None
+    return int(m[1]) if m else None
+
+
+def _has_or_higher(member, rid):
+    """A required role. A level role ("Level 3") is also met by any higher level role ("Level 5", "Level 10"...), so the level bot only has to give the
+    lowest one and nobody above it is shut out."""
+    if _has(member, rid):
+        return True
+    need = _level_of(ctx.guild.get_role(int(rid)))
+    return need is not None and any((_level_of(r) or -1) >= need for r in member.roles)
+
+
 def hosts_of(g):
     return g['config'].get('hosts') or [g['host_id']]
 
@@ -214,7 +231,7 @@ def eligible(member, c):
     if any(_has(member, r) for r in c['blacklist']):
         return False, 'Your role is not allowed in this giveaway.'
     if c['req_roles']:
-        have = [r for r in c['req_roles'] if _has(member, r)]
+        have = [r for r in c['req_roles'] if _has_or_higher(member, r)]
         if (c['req_mode'] == 'all' and len(have) != len(c['req_roles'])) or (c['req_mode'] != 'all' and not have):
             need = (' and ' if c['req_mode'] == 'all' else ' or ').join(_role(r) for r in c['req_roles'])
             return False, f'This giveaway is for {need}.'
@@ -276,7 +293,8 @@ def prize_block(prizes):
 def required_block(c):
     rows = [f'✅ {_role(cfg.verified_role)}']
     if c['req_roles']:
-        rows.append('🎭 ' + (' and ' if c['req_mode'] == 'all' else ' or ').join(_role(r) for r in c['req_roles']))
+        shown = [f'{_role(r)} or higher' if _level_of(ctx.guild.get_role(int(r))) is not None else _role(r) for r in c['req_roles']]
+        rows.append('🎭 ' + (' and ' if c['req_mode'] == 'all' else ' or ').join(shown))
     if c['min_invites']:
         rows.append(f"📨 **{c['min_invites']}** invite{'s' if c['min_invites'] != 1 else ''} for your first entry")
     if c['min_days']:
