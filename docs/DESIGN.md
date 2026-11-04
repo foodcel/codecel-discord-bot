@@ -78,10 +78,10 @@ Code: `bot/banner.py` (the banner), `bot/giveaway.py` (`card_items`), `bot/invit
 ## The card, top to bottom
 1. **Banner** (1200x400): navy with stripes, the Redwing wing, `REDWING EXPERIENCES`, the big headline, a red bar, a small line, an outlined pill, the red bottom bar.
    It is made for each post, and the words can be changed and drawn again (giveaway preview: **Banner** button).
-2. **Facts line** under the banner: `5 winners · 187 entered · ends <date>`, then `Hosted by: @host @host`.
+2. **Ping** (when there is one: `@everyone` or `@Giveaways`) and the **facts line** under the banner: `5 winners · 187 entered · ends <date>`. The ping is inside the card, right before the facts.
 3. Line.
 4. **Blocks** with a bold heading each: the prizes (podium, prize pool or tiles), **Required**, **Bonus entries**. A role is a real mention, a number is bold.
-5. Line, then the small footer (claim time, the command chip), then the button (Enter giveaway).
+5. Line, then the small footer (`Hosted by: @host @host`, claim time, the command chip), then the buttons (Enter giveaway, My entries).
 
 ## Giveaway prize looks (chosen in the preview)
 - **Podium:** `### 🥇 2K Robux + Nitro` with `-# 1st and 2nd place` under it; the other places in bold.

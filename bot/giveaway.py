@@ -289,7 +289,7 @@ def card_items(g, gid=None, status='running', count=0):
     n, ends = len(c['prizes']), g['ends_at'] // 1000
     when = f'ended <t:{ends}:f>' if status == 'ended' else f'ends <t:{ends}:f>'
     items = [ui.MediaGallery(discord.MediaGalleryItem(f'attachment://{BANNER}')),
-             ui.TextDisplay(f"**{n}** {'winner' if n == 1 else 'winners'}  ·  **{count}** entered  ·  {when}"),
+             ui.TextDisplay((f'{ping_text(c)}{NL}' if ping_text(c) else '') + f"**{n}** {'winner' if n == 1 else 'winners'}  ·  **{count}** entered  ·  {when}"),  # the ping, if any, right under the banner
              ui.Separator(visible=True, spacing=SMALL)]
     if status == 'ended':
         items.append(ui.TextDisplay(winners_block(g['result'], c)))
@@ -321,10 +321,8 @@ def ping_text(c):
 
 
 def container(g, gid=None, status='running', count=0):
-    """The card as a message view. The ping, when there is one, sits right above it."""
+    """The card as a message view (the ping is inside it, under the banner)."""
     view = ui.LayoutView()
-    if (p := ping_text(g['config'])) and status != 'draft':
-        view.add_item(ui.TextDisplay(p))
     view.add_item(card_items(g, gid, status, count))
     return view
 
