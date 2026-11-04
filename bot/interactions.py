@@ -613,7 +613,7 @@ async def handle_modal(i):
         return await modal_note(i, a, fields)
     if kind == 'annedit':
         return await modal_ann_edit(i, int(a), fields)
-    if kind in ('gwp', 'gwr'):
+    if kind in ('gwp', 'gwr', 'gwb'):
         from .giveaway import on_modal as giveaway_modal
         return await giveaway_modal(i, kind, int(a), fields)
     if kind == 'reled':

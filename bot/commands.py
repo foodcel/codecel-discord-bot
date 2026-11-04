@@ -157,11 +157,10 @@ COMMANDS = [
         option(STRING, 'testing', 'Testing phase on or off. Testers can report a game in testing (released games too)', choices=[('On', 'on'), ('Off', 'off')]),
     ]),
     command('giveaway', 'Run a giveaway: prizes per place, role and invite rules, bonus entries (admins and managers)', [
-        sub('new', 'Start a giveaway: it opens a preview with buttons, nothing posts until you press Start', [
-            option(STRING, 'title', 'What it is, e.g. 10k Robux giveaway', required=True, max_length=100),
+        sub('new', 'Make a giveaway: the prize, how long, how many winners. Everything else is in the preview', [
+            option(STRING, 'prize', 'The big text on the banner, e.g. 10K Robux (split over the winners)', required=True, max_length=40),
             option(STRING, 'duration', 'How long it runs: 3d, 12h, 1d 6h', required=True),
-            option(INTEGER, 'winners', 'How many winners (if every winner gets the same prize)', min_value=1, max_value=50),
-            option(CHANNEL, 'channel', 'Where it posts (default: here)', channel_types=[GUILD_TEXT, GUILD_ANNOUNCEMENT]),
+            option(INTEGER, 'winners', 'How many winners (default 1)', min_value=1, max_value=50),
         ]),
         sub('end', 'End a giveaway now and draw the winners', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
         sub('reroll', 'Draw a new winner for one place, or for every place not claimed yet', [
