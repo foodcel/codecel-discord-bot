@@ -5,6 +5,7 @@ person it brought is still in the server AND has the Verified role, checked at t
 It is a feature of its own: giveaways can read the number (invites.qualified), but nothing here depends on them.
 /invites stats [user] shows one person's numbers, /invites top the leaderboard."""
 import asyncio
+import time
 
 import discord
 from discord import ui
@@ -73,6 +74,8 @@ async def on_member_join(member):
             _cache.clear()
             _cache.update(fresh)
         run('INSERT INTO invite_joins(user_id,inviter_id,code,joined_at) VALUES(?,?,?,?)', str(member.id), inviter, code, now())
+        global _legacy
+        _legacy = (0, {})
 
 
 async def on_member_remove(member):
@@ -95,14 +98,21 @@ def _bucket(rows):
     return out
 
 
+_legacy = (0, {})  # (when it was worked out, the answer): the giveaway card asks for every entrant, so it is kept for a few seconds
+
+
 def legacy_by_inviter():
     """{inviter id: earlier uses}. Discord counts every use of a live invite, but only the joins since tracking started are known by name. The rest
     (uses before tracking) are counted for their inviter without being checked: nobody can tell if those people stayed or verified."""
+    global _legacy
+    if time.time() - _legacy[0] < 15:
+        return _legacy[1]
     seen = {r['code']: r['n'] for r in all_('SELECT code, COUNT(*) n FROM invite_joins WHERE code IS NOT NULL GROUP BY code')}
     out = {}
     for code, v in _cache.items():
         if v['inviter']:
             out[v['inviter']] = out.get(v['inviter'], 0) + max(0, v['uses'] - seen.get(code, 0))
+    _legacy = (time.time(), out)
     return out
 
 

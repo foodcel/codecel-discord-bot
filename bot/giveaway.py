@@ -397,7 +397,8 @@ async def redraw(gid):
         return
     status = 'ended' if g['status'] == 'ended' else 'running'
     # the banner is uploaded again with every edit: a card that points at attachment://giveaway.png needs the file in the same request
-    await msg.edit(view=container(g, gid, status, _count(gid)), attachments=[banner_for(g, ended=status == 'ended')], allowed_mentions=names_only(g))
+    count = g['result']['eligible'] if status == 'ended' and g['result'] else len(valid_pool(g))  # "entered" counts the people who have at least one entry, not everyone who pressed Enter
+    await msg.edit(view=container(g, gid, status, count), attachments=[banner_for(g, ended=status == 'ended')], allowed_mentions=names_only(g))
 
 
 _pending_redraw = set()
@@ -490,8 +491,8 @@ async def leave(i, gid):
 
 
 # ---- the draw ----
-async def _pool(g):
-    """[(user id, entries)] of everyone who entered and still qualifies right now."""
+def valid_pool(g):
+    """[(user id, entries)] of everyone who entered, still qualifies and has at least one entry right now."""
     out = []
     for r in all_('SELECT user_id FROM giveaway_entries WHERE gid=? ORDER BY user_id', g['id']):
         m = ctx.guild.get_member(int(r['user_id']))
@@ -500,6 +501,10 @@ async def _pool(g):
         if total > 0:  # below the invite minimum = 0 entries = not in the draw
             out.append((r['user_id'], total))
     return out
+
+
+async def _pool(g):
+    return valid_pool(g)
 
 
 def draw(pool, n, rng):
@@ -856,7 +861,7 @@ async def command_giveaway(i, sub, opts):
         return await i.edit_original_response(**payload(pid))
     if sub == 'list':
         rows = all_("SELECT * FROM giveaways WHERE status IN ('running','ended') ORDER BY id DESC LIMIT 10")
-        lines = [f"#{r['id']} · **{r['title']}** · {r['status']} · <#{r['channel_id']}> · {_count(r['id'])} entered" + (f" · ends <t:{r['ends_at'] // 1000}:f>" if r['status'] == 'running' else '') for r in rows]
+        lines = [f"#{r['id']} · **{r['title']}** · {r['status']} · <#{r['channel_id']}> · {len(valid_pool(_g(r['id']))) if r['status'] == 'running' else (_g(r['id'])['result'] or {}).get('eligible', 0)} entered" + (f" · ends <t:{r['ends_at'] // 1000}:f>" if r['status'] == 'running' else '') for r in rows]
         return await i.response.send_message('\n'.join(lines) or 'No giveaways yet.', ephemeral=True, allowed_mentions=NO_MENTIONS)
     gid = _pick(opts.get('giveaway'))
     if not gid or not _g(gid):
