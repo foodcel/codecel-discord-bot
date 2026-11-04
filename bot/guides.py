@@ -27,7 +27,7 @@ def bugs_guide_embed():
     section(e, head('🤖', 'After you send it'),
             '• Your post gets a number, like **#12**\n'
             '• Something missing? The bot asks up to 3 short questions. **Reply in your post.**\n'
-            '• Fixed? You get a ping and the post is deleted after 24 hours. **Still broken?** Reply before then and it reopens.')
+            '• Fixed? You get a ping when the update with your fix is released, and the post is deleted 24 hours later. **Still broken?** Reply before then and it reopens.')
     section(e, head('💡', 'Good to know'),
             '• Already reported? React 👀 on that post instead of making a new one\n'
             '• One bug per report, and please do not ping developers\n'

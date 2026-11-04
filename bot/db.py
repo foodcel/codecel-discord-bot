@@ -81,6 +81,12 @@ for _col in ("kind TEXT NOT NULL DEFAULT 'bug'", 'votes INTEGER NOT NULL DEFAULT
     except Exception:
         pass
 
+try:  # a fixed bug's reporter is told when the update with the fix is released (notified = they were told)
+    db.execute('ALTER TABLE bugs ADD COLUMN notified INTEGER NOT NULL DEFAULT 0')
+    db.execute("UPDATE bugs SET notified=1 WHERE status='fixed'")  # fixed before this existed: they were told at once
+except Exception:
+    pass
+
 for _col in ('saved_by TEXT',):  # bug hunting: who replied !bug / !improve
     try:
         db.execute(f'ALTER TABLE bugs ADD COLUMN {_col}')

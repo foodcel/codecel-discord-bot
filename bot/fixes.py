@@ -38,10 +38,9 @@ def fire(coro, label):
     return asyncio.ensure_future(guard())
 
 
-async def mark_fixed(bug, actor_id):
-    update_bug(bug['id'], {'status': 'fixed', 'fixed_at': now(), 'fixed_by': actor_id})
-    # Keep the conversation and screenshots: the post is deleted in 24h but the fix log still offers a transcript.
-    fire(snapshot_bug(bug_by_id(bug['id'])), 'snapshot')
+async def tell_fixed(bug, update_url=None):
+    """Tells the reporter (and the people who 👀'd it) in the post that it is fixed, tags and closes it, and deletes it in 24 hours."""
+    update_bug(bug['id'], {'notified': 1})
     thread = None if bug['deleted'] else await fetch_channel(bug['thread_id'])
     if thread:
         await set_tags(thread, status='fixed', kind=bug['kind'])
@@ -62,7 +61,8 @@ async def mark_fixed(bug, actor_id):
             text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **ADDED**{EM}·{EM}{bug['title']} ({label(bug)}). Thanks for the idea!\n"
                     'This post closes now and is deleted in 24 hours.')
         else:
-            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **FIXED**{EM}·{EM}{bug['title']} ({label(bug)}). Thanks for reporting!\n"
+            where = f' It is in the new update: {update_url}' if update_url else ''
+            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **FIXED**{EM}·{EM}{bug['title']} ({label(bug)}).{where}\nThanks for reporting!\n"
                     'This post closes now and is deleted in 24 hours. If it is still broken, reply here before then.')
         try:
             await thread.send(content=text, allowed_mentions=allowed(users=pings))
@@ -74,6 +74,27 @@ async def mark_fixed(bug, actor_id):
             pass
         cancel_timers('delete_thread', bug['thread_id'])
         add_timer('delete_thread', bug['thread_id'], now() + DAY)
+
+
+async def tell_released(ids, update_url):
+    """An update went out: the reporters of the bugs in it are told now, with a link to the update. Bugs they were already told about are skipped."""
+    for id_ in ids:
+        bug = bug_by_id(id_)
+        if bug and bug['kind'] == 'bug' and bug['status'] == 'fixed' and not bug['notified'] and not bug['deleted']:
+            try:
+                await tell_fixed(bug, update_url)
+            except Exception as e:
+                print('tell released', repr(e)[:120])
+
+
+async def mark_fixed(bug, actor_id):
+    """A bug marked fixed is only recorded: its reporter hears about it when the update that contains it is released (tell_released).
+    An added suggestion is told at once, as before."""
+    update_bug(bug['id'], {'status': 'fixed', 'fixed_at': now(), 'fixed_by': actor_id, 'notified': 0})
+    # Keep the conversation and screenshots: the post is deleted 24h after the reporter is told, but the fix log still offers a transcript.
+    fire(snapshot_bug(bug_by_id(bug['id'])), 'snapshot')
+    if bug['kind'] == 'suggestion':
+        await tell_fixed(bug)
     schedule_boards()
     fire(maybe_offer(bug['game_tag_id']), 'offer')
 

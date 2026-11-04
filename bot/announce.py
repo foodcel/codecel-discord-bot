@@ -1,4 +1,5 @@
 """Update announcements: drafts that grow as bugs get fixed, and the public embed."""
+import asyncio
 import json
 import re
 import time
@@ -387,6 +388,8 @@ async def post_announcement(pending_id, ping=False):
     ids = b_ids + n_ids  # what was not ticked stays pending for the next update
     for i in ids:
         update_bug(i, {'announced': 1})
+    from .fixes import tell_released
+    asyncio.ensure_future(tell_released(b_ids, sent.jump_url))  # the reporters hear about their fix now that it is released
     run('INSERT INTO announcements(tag_id,game_name,posted_at,url,bug_ids,message_id,channel_id,payload) VALUES(?,?,?,?,?,?,?,?)',
         p['tagId'], game['name'], now(), sent.jump_url, json.dumps(ids), str(sent.id), str(ch.id),
         json.dumps({'bugfixes': bug_lines, 'updates': list(p['updates']) + new_lines, 'changes': list(p['updates']), 'new': new_lines,
@@ -432,6 +435,8 @@ async def merge_announcement(pending_id):
     b_ids, n_ids = chosen_ids(p)
     for i in b_ids + n_ids:
         update_bug(i, {'announced': 1})
+    from .fixes import tell_released
+    asyncio.ensure_future(tell_released(b_ids, msg.jump_url))
     run('UPDATE announcements SET bug_ids=?, payload=? WHERE id=?',
         json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'changes': changes, 'new': new, 'version': version, 'ping_role': old.get('ping_role'), 'poster': old.get('poster')}), row['id'])
     schedule_boards()
