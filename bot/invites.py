@@ -188,3 +188,72 @@ async def command_invites(i, sub, opts):
         return await i.response.send_message('I can only show invites for a person in the server.', ephemeral=True)
     view, files = stats_card(target, mine=target.id == i.user.id)
     await i.response.send_message(view=view, files=files, ephemeral=True, allowed_mentions=names_for([target.id]))
+
+
+# ---- /invite check: everything about one member's invites, for admins ----
+def _ts(ms):
+    return f'<t:{int(ms) // 1000}:d>'
+
+
+async def check_card(member):
+    """(view, files, ids mentioned). The admin's look at one member: their live links, the people tracked as invited by them and what each is now,
+    how many uses cannot be checked, and who invited this member."""
+    uid = str(member.id)
+    live = [i for i in await ctx.guild.invites() if i.inviter and str(i.inviter.id) == uid]
+    rows = all_('SELECT user_id, code, joined_at, left_at FROM invite_joins WHERE inviter_id=? ORDER BY joined_at', uid)
+    latest = {}
+    for r in rows:
+        latest[r['user_id']] = r
+    people = []
+    for u, r in latest.items():
+        m = ctx.guild.get_member(int(u))
+        people.append(('left' if not m else 'verified' if _verified(m) else 'unverified', u, r))
+    order = {'verified': 0, 'unverified': 1, 'left': 2}
+    people.sort(key=lambda p: (order[p[0]], -p[2]['joined_at']))
+    count = {k: sum(1 for p in people if p[0] == k) for k in order}
+    uses = sum(i.uses or 0 for i in live)
+    on_live = sum(1 for r in rows if r['code'] in {i.code for i in live})
+    first = (all_('SELECT MIN(joined_at) first FROM invite_joins') or [{}])[0].get('first')
+    me = ctx.guild.get_member(member.id)
+    head = f'## 🔎 Invite check{NL}-# <@{member.id}> · joined {_ts(member.joined_at.timestamp() * 1000) if member.joined_at else "?"} · account made {_ts(member.created_at.timestamp() * 1000)}' \
+           f"{NL}-# {'✅ verified' if me and _verified(me) else '🕓 not verified'}"
+    summary = NL.join([f"├─ ✅ **{count['verified']}** count: still here and verified",
+                       f"├─ 🕓 **{count['unverified']}** here but not verified",
+                       f"├─ 🚪 **{count['left']}** left the server",
+                       f"├─ 👥 **{len(people)}** people tracked as invited by them",
+                       f"└─ 🔗 **{uses}** uses on their live links"])
+    gap = max(0, uses - on_live)
+    note = f"-# {gap} use{'s' if gap != 1 else ''} on their links were not tracked (before tracking started, or by someone who is not in the list): they cannot be checked." if gap else None
+    links = []
+    for k, i in enumerate(sorted(live, key=lambda i: -(i.uses or 0))[:6]):
+        limit = f"/{i.max_uses}" if i.max_uses else ''
+        exp = f" · expires {_ts(i.expires_at.timestamp() * 1000)}" if i.expires_at else ''
+        links.append(f"{'└─' if k == min(len(live), 6) - 1 else '├─'} `discord.gg/{i.code}` · **{i.uses or 0}{limit}** uses{' · <#' + str(i.channel.id) + '>' if i.channel else ''} · made {_ts(i.created_at.timestamp() * 1000) if i.created_at else '?'}{exp}")
+    links_block = '**Their invite links**' + NL + (NL.join(links) if links else 'None right now. Links that expired or were deleted cannot be listed, and their uses cannot be checked.')
+    icon = {'verified': '✅', 'unverified': '🕓', 'left': '🚪'}
+    people_lines = []
+    for k, (state, u, r) in enumerate(people[:12]):
+        people_lines.append(f"{'└─' if k == min(len(people), 12) - 1 else '├─'} {icon[state]} <@{u}> · joined {_ts(r['joined_at'])} · `{r['code'] or 'vanity or unknown'}`")
+    people_block = '**People they invited** (since tracking started)' + NL + (NL.join(people_lines) if people_lines else 'Nobody tracked yet.') \
+        + (f'{NL}-# and {len(people) - 12} more' if len(people) > 12 else '')
+    mine = all_('SELECT inviter_id, code, joined_at FROM invite_joins WHERE user_id=? ORDER BY joined_at DESC LIMIT 1', uid)
+    if mine:
+        r = mine[0]
+        by = f"<@{r['inviter_id']}> with `{r['code']}`" if r['inviter_id'] else 'the vanity link (discord.gg/redwing) or a link that no longer exists'
+        invited_by = f"**Invited by**{NL}{_ts(r['joined_at'])} · {by}"
+    else:
+        invited_by = f'**Invited by**{NL}Not tracked: they joined before tracking started.'
+    body = [summary + (NL + note if note else ''), links_block, people_block, invited_by]
+    foot = [f"Tracking since {_ts(first)}" if first else 'Tracking has not seen a join yet']
+    view, files = _card(head, body, foot)
+    ids = [member.id] + [u for _, u, _ in people[:12]] + [r['inviter_id'] for r in mine if r['inviter_id']]
+    return view, files, ids
+
+
+async def command_invite_check(i, opts):
+    target = ctx.guild.get_member(int(opts['user']))
+    if not target:
+        return await i.response.send_message('That person is not in the server.', ephemeral=True)
+    await i.response.defer(ephemeral=True)
+    view, files, ids = await check_card(target)
+    await i.edit_original_response(view=view, attachments=files, allowed_mentions=names_for(ids))

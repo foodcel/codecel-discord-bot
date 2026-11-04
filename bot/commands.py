@@ -169,6 +169,9 @@ COMMANDS = [
         sub('cancel', 'Cancel a running giveaway', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
         sub('list', 'The latest giveaways'),
     ]),
+    command('invite', 'Admin: check a member\'s invite links and the people they invited', [
+        sub('check', 'Everything about one member: their links, who they invited, who is verified', [option(USER, 'user', 'The member', required=True)]),
+    ]),
     command('invites', 'Invites: your numbers and the leaderboard', [
         sub('stats', 'How many people you invited, how many are verified and count', [option(USER, 'user', 'Someone else (default: you)')]),
         sub('top', 'The invite leaderboard'),
