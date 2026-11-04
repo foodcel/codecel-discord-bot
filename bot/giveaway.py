@@ -237,7 +237,10 @@ def entries_for(member, c):
     if short_of(member, c):
         return 0, []
     rows = [('for entering', 1)]
-    rows += [(_role(rid), n) for rid, n in c['bonus'].items() if _has(member, rid)]
+    held = [(rid, n) for rid, n in c['bonus'].items() if _has(member, rid)]
+    if c.get('bonus_best') and held:  # the bonuses do not stack: only the highest one counts
+        held = [max(held, key=lambda h: h[1])]
+    rows += [(_role(rid), n) for rid, n in held]
     if c['invite_entries']:
         q = invites.qualified(member.id)
         inv = q - c['min_invites']
@@ -287,6 +290,8 @@ def bonus_block(c):
     rows = [f"⭐ {_role(r)} **+{n}** {'entry' if n == 1 else 'entries'}" for r, n in c['bonus'].items()]
     if c['invite_entries']:
         rows.append('➕ **+1** entry for every invite' + (f" · max **{c['invite_cap']}** entries in total" if c['invite_cap'] else ''))
+    if rows and c.get('bonus_best') and len(c['bonus']) > 1:
+        rows.append('-# Role bonuses do not stack: only your highest counts')
     return '**Bonus entries**' + NL + NL.join(rows) if rows else None
 
 
@@ -666,19 +671,19 @@ async def cancel(gid):
 
 
 # ---- the preview draft ----
-FIELDS = ('prizes', 'req_roles', 'req_mode', 'blacklist', 'bonus', 'min_invites', 'invite_entries', 'invite_cap', 'min_days', 'claim_hours', 'ping',
+FIELDS = ('prizes', 'req_roles', 'req_mode', 'blacklist', 'bonus', 'min_invites', 'invite_entries', 'invite_cap', 'min_days', 'claim_hours', 'ping', 'bonus_best',
           'hosts', 'banner')
 
 
 def new_draft(user_id, channel_id, prize, seconds, winners):
     return create_pending({'kind': 'giveaway', 'user': str(user_id), 'channel': str(channel_id), 'title': f'{prize} giveaway'[:100], 'seconds': seconds,
                            'prizes': split_prize(prize, winners), 'req_roles': [], 'req_mode': 'any', 'blacklist': [], 'bonus': {},
-                           'min_invites': 0, 'invite_entries': False, 'invite_cap': 0, 'min_days': 0, 'claim_hours': 0, 'ping': 'none',
+                           'min_invites': 0, 'invite_entries': False, 'invite_cap': 0, 'min_days': 0, 'claim_hours': 0, 'ping': 'none', 'bonus_best': False,
                            'hosts': [str(user_id)], 'banner': {'headline': prize}})
 
 
 def _config(d):
-    return {k: d[k] for k in FIELDS}
+    return {k: d[k] for k in FIELDS if k in d}
 
 
 def payload(pid):
@@ -702,7 +707,8 @@ def payload(pid):
     view.add_item(ui.ActionRow(ui.RoleSelect(custom_id=f'gw:roles:{pid}', placeholder='Required roles (empty = everyone verified)', min_values=0, max_values=5, default_values=roles)))
     view.add_item(ui.ActionRow(
         ui.Button(custom_id=f'gw:mode:{pid}', label=f"Roles needed: {'all of them' if d['req_mode'] == 'all' else 'any one'}", style=discord.ButtonStyle.secondary, emoji='🎭'),
-        ui.Button(custom_id=f'gw:inv:{pid}', label=f"Invites as entries: {'on' if d['invite_entries'] else 'off'}", style=discord.ButtonStyle.secondary, emoji='➕')))
+        ui.Button(custom_id=f'gw:inv:{pid}', label=f"Invites as entries: {'on' if d['invite_entries'] else 'off'}", style=discord.ButtonStyle.secondary, emoji='➕'),
+        ui.Button(custom_id=f'gw:best:{pid}', label=f"Role bonuses: {'highest only' if d.get('bonus_best') else 'add up'}", style=discord.ButtonStyle.secondary, emoji='⭐')))
     view.add_item(ui.ActionRow(ui.Select(custom_id=f'gw:ping:{pid}', placeholder='Who gets pinged', options=[
         discord.SelectOption(label=n, value=k, description=desc, default=k == d['ping']) for k, n, desc in PINGS])))
     ch = ctx.guild.get_channel(int(d['channel']))
@@ -775,6 +781,8 @@ async def on_component(i, parts):
         d['req_mode'] = 'any' if d['req_mode'] == 'all' else 'all'
     elif action == 'inv':
         d['invite_entries'] = not d['invite_entries']
+    elif action == 'best':
+        d['bonus_best'] = not d.get('bonus_best')
     elif action == 'roles':
         d['req_roles'] = values
     elif action == 'hosts':
