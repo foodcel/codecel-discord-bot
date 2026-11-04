@@ -230,6 +230,8 @@ def eligible(member, c):
         return False, 'You need the **Verified** role to enter. Verify first.'
     if any(_has(member, r) for r in c['blacklist']):
         return False, 'Your role is not allowed in this giveaway.'
+    if any(_has(member, r) for r in c.get('bypass_roles') or []):  # always allowed in (boosters...): the role and time requirements do not apply, and the card does not list them
+        return True, ''
     if c['req_roles']:
         have = [r for r in c['req_roles'] if _has_or_higher(member, r)]
         if (c['req_mode'] == 'all' and len(have) != len(c['req_roles'])) or (c['req_mode'] != 'all' and not have):
@@ -696,7 +698,7 @@ FIELDS = ('prizes', 'req_roles', 'req_mode', 'blacklist', 'bonus', 'min_invites'
 def new_draft(user_id, channel_id, prize, seconds, winners):
     return create_pending({'kind': 'giveaway', 'user': str(user_id), 'channel': str(channel_id), 'title': f'{prize} giveaway'[:100], 'seconds': seconds,
                            'prizes': split_prize(prize, winners), 'req_roles': [], 'req_mode': 'any', 'blacklist': [], 'bonus': {},
-                           'min_invites': 0, 'invite_entries': False, 'invite_cap': 0, 'min_days': 0, 'claim_hours': 0, 'ping': 'none', 'bonus_best': False,
+                           'min_invites': 0, 'invite_entries': False, 'invite_cap': 0, 'min_days': 0, 'claim_hours': 0, 'ping': 'none', 'bonus_best': False, 'bypass_roles': [],
                            'hosts': [str(user_id)], 'banner': {'headline': prize}})
 
 
@@ -723,6 +725,8 @@ def payload(pid):
     view.add_item(ui.ActionRow(ui.UserSelect(custom_id=f'gw:hosts:{pid}', placeholder='Hosted by (pick up to 5)', min_values=1, max_values=5, default_values=hosts)))
     roles = [r for r in (ctx.guild.get_role(int(x)) for x in d['req_roles']) if r]
     view.add_item(ui.ActionRow(ui.RoleSelect(custom_id=f'gw:roles:{pid}', placeholder='Required roles (empty = everyone verified)', min_values=0, max_values=5, default_values=roles)))
+    free = [r for r in (ctx.guild.get_role(int(x)) for x in d.get('bypass_roles') or []) if r]
+    view.add_item(ui.ActionRow(ui.RoleSelect(custom_id=f'gw:bypass:{pid}', placeholder='Always allowed in, not shown on the card (optional)', min_values=0, max_values=5, default_values=free)))
     view.add_item(ui.ActionRow(
         ui.Button(custom_id=f'gw:mode:{pid}', label=f"Roles needed: {'all of them' if d['req_mode'] == 'all' else 'any one'}", style=discord.ButtonStyle.secondary, emoji='🎭'),
         ui.Button(custom_id=f'gw:inv:{pid}', label=f"Invites as entries: {'on' if d['invite_entries'] else 'off'}", style=discord.ButtonStyle.secondary, emoji='➕'),
@@ -803,6 +807,8 @@ async def on_component(i, parts):
         d['bonus_best'] = not d.get('bonus_best')
     elif action == 'roles':
         d['req_roles'] = values
+    elif action == 'bypass':
+        d['bypass_roles'] = values
     elif action == 'hosts':
         d['hosts'] = values or d['hosts']
     elif action == 'channel':

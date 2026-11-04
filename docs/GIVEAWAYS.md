@@ -10,6 +10,7 @@ Code: `bot/giveaway.py`, `bot/invites.py`. Look: see `docs/DESIGN.md` (cards, tr
 - Rules: required roles (any or all), blacklisted roles, bonus entries per role (`Booster: 2`), min days in server, min invites,
   every invite = one more entry, with an optional cap on one person's entries in total, claim window in hours (unclaimed places are drawn again, up to 3 times).
 - Invite giveaways: anyone verified can enter, but they have **0 entries** until their counting invites reach the minimum; then 1 entry, and (if on) one more for every invite past it. Role-bound giveaways: only those roles can enter.
+- **Always allowed in** (preview picker): members with those roles (e.g. Server Boost+) skip the role and time requirements. It is not shown on the card. They still need Verified and are not blacklisted.
 - Everyone needs the **Verified** role. Everything is checked again when the giveaway ends. The draw is seeded; the seed is on the card and in #dev-logs.
 - Winners get one real ping (a reply under the card) and a DM. The card itself never pings.
 - Setup: set `GIVEAWAY_MANAGER_ROLE_ID` in `.env` and give that role the **Manage Events** permission (that is what makes `/giveaway` appear in the picker; admins always see it).
