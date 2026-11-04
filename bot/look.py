@@ -94,9 +94,10 @@ def clone_rows(view):
 async def edit_card(msg, embed, fallback_view=None, **opts):
     """Edits a message that is an embed into a card, in place. If Discord refuses, the embed is edited as it was."""
     below = opts.pop('below', None)
+    allowed = opts.pop('allowed', None)  # people the message may mention without pinging them (their names then show for everyone)
     try:
         view, files = card_from_embed(embed, below=below, **opts)
-        await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=discord.AllowedMentions.none())
+        await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=allowed or discord.AllowedMentions.none())
     except discord.HTTPException as e:
         print('card edit failed, keeping the embed', repr(e)[:150])
         await msg.edit(embeds=[embed], view=fallback_view)

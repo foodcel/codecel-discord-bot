@@ -149,16 +149,46 @@ async def refresh_roster():
     if ch is None:
         return
     from .look import card_from_embed, edit_card
-    for key, embed, opts in (('guide', guide_embed(), {}), ('roster', roster_embed(), {'inline_desc': True})):
+    try:
+        await edit_card(ch.get_partial_message(int(b['guide'])), guide_embed())
+    except discord.NotFound:
+        view, files = card_from_embed(guide_embed())
+        b['guide'] = str((await ch.send(view=view, files=files)).id)
+        kv_set('testerboard', json.dumps(b))
+    except Exception as e:
+        print('tester board', e)
+    try:
+        await _refresh_roster_message(ch, b)
+    except Exception as e:
+        print('tester roster', e)
+
+
+def _allowed_testers():
+    """The roster's people: the message may mention them without pinging anyone, so every viewer's app shows their names (not @unknown-user)."""
+    return discord.AllowedMentions(users=[discord.Object(id=int(r['user_id'])) for r in everyone()], roles=False, everyone=False, replied_user=False)
+
+
+async def _refresh_roster_message(ch, b):
+    """Edits the roster in place. When it carries a mention that Discord does not know about yet (a new tester), it is sent again silently instead,
+    because an edit that adds a mention could ping that person."""
+    from .look import card_from_embed, edit_card
+    embed, opts = roster_embed(), {'inline_desc': True}
+    ids = {int(r['user_id']) for r in everyone()}
+    try:
+        msg = await ch.fetch_message(int(b['roster']))
+    except discord.NotFound:
+        msg = None
+    if msg and ids <= {u.id for u in msg.mentions}:
+        return await edit_card(msg, embed, allowed=_allowed_testers(), **opts)
+    view, files = card_from_embed(embed, **opts)
+    new = await ch.send(view=view, files=files, allowed_mentions=_allowed_testers(), silent=True)
+    b['roster'] = str(new.id)
+    kv_set('testerboard', json.dumps(b))
+    if msg:
         try:
-            await edit_card(ch.get_partial_message(int(b[key])), embed, **opts)
-        except discord.NotFound:
-            view, files = card_from_embed(embed, **opts)
-            msg = await ch.send(view=view, files=files)
-            b[key] = str(msg.id)
-            kv_set('testerboard', json.dumps(b))
-        except Exception as e:
-            print('tester board', e)
+            await msg.delete()
+        except Exception:
+            pass
 
 
 def schedule_refresh():
@@ -186,7 +216,7 @@ async def post_board(ch):
     gv, gf = card_from_embed(guide_embed())
     g = await ch.send(view=gv, files=gf)
     rv, rf = card_from_embed(roster_embed(), inline_desc=True)
-    r = await ch.send(view=rv, files=rf)
+    r = await ch.send(view=rv, files=rf, allowed_mentions=_allowed_testers(), silent=True)
     kv_set('testerboard', json.dumps({'channelId': str(ch.id), 'guide': str(g.id), 'roster': str(r.id)}))
     removed = 0
     if old and (old['channelId'], old['roster']) != (str(ch.id), str(r.id)):  # the earlier copy stops updating: remove it
