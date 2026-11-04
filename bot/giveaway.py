@@ -98,24 +98,37 @@ def split_prize(prize, n):
     return [[each] for _ in range(n)]
 
 
+PLACE = re.compile(r'^#?(\d+)(?:st|nd|rd|th)?(?:\s*(?:[-–—]|to)\s*#?(\d+)(?:st|nd|rd|th)?)?(\s*[:=]\s*|\s+[-–—]\s+|\s+)(.+)$', re.I)
+
+
+def _tidy(prize):
+    """'2k robux' typed in lower case becomes '2K Robux'; anything with capitals is left as written."""
+    return prize.title() if prize == prize.lower() else prize
+
+
 def parse_prizes(text, winners):
-    """([prizes of place 1, place 2...], error). Lines like "1: 2K Robux + Nitro" or "2-5: 2K Robux"; a line with no place is the prize of every winner."""
-    places, loose = {}, []
+    """([prizes of place 1, place 2...], error). Lines like "1: 2K Robux + Nitro", "2-5: 2K Robux" or "3-5 2K Robux" (dash or en dash, colon optional after a range).
+    A line with no place is the prize of every winner. A line it cannot read is an error, never dropped quietly."""
+    places, loose, bad = {}, [], []
+    prizes = lambda s: [_tidy(p.strip()) for p in re.split(r'\s*\+\s*|\s*&\s*', s) if p.strip()]
     for line in str(text or '').splitlines():
         line = line.strip()
         if not line:
             continue
-        m = re.match(r'^#?(\d+)(?:st|nd|rd|th)?(?:\s*[-–]\s*#?(\d+)(?:st|nd|rd|th)?)?(?:\s*[:=]\s*|\s+[-–]\s+)(.+)$', line, re.I)
-        prizes = lambda s: [p.strip() for p in re.split(r'\s*\+\s*|\s*&\s*', s) if p.strip()]
-        if m:
-            for k in range(int(m[1]), int(m[2] or m[1]) + 1):
-                places[k] = prizes(m[3])
+        m = PLACE.match(line)
+        if m and (m[2] or m[3].strip()):  # a place needs a colon or dash, unless it is a range ("3-5 2K Robux")
+            lo, hi = int(m[1]), int(m[2] or m[1])
+            if hi < lo or hi > MAX_WINNERS:
+                return [], f'At most {MAX_WINNERS} winners, and a range goes up (`2-5`).'
+            for k in range(lo, hi + 1):
+                places[k] = prizes(m[4])
         else:
             loose.append(prizes(line))
+            bad.append(line)
     if places:
+        if bad:
+            return [], f"I could not read this line: `{bad[0]}`. Write it like `3-5: 2K Robux` (the places, then the prize)."
         top = max(places)
-        if top > MAX_WINNERS:
-            return [], f'At most {MAX_WINNERS} winners.'
         missing = [k for k in range(1, top + 1) if k not in places]
         if missing:
             return [], f"Place {ordinal(missing[0])} has no prize. Write a line for every place, like `1: 2K Robux` or `2-5: 2K Robux`."
