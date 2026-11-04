@@ -64,12 +64,17 @@ async def main():
     await ch.send(view=gw.container(ended, None, 'ended', 187), files=[gw.banner_for(ended, ended=True)], allowed_mentions=NO_MENTIONS)
 
     await invites.load()
-    sample = [('Robin', 24, 31), ('Asher', 19, 22), ('Kasoku', 15, 18), ('Crab', 12, 14), ('Eggdog', 9, 12), ('Santo', 8, 9), ('tim', 6, 8), ('Itel dev', 5, 5), ('ice cube', 3, 4), ('yo', 2, 3)]
+    from bot.testers import everyone
+    ids = [r['user_id'] for r in everyone() if ctx.guild.get_member(int(r['user_id']))][:13]
+    nums = [(24, 31), (19, 22), (15, 18), (12, 14), (9, 12), (8, 9), (6, 8), (5, 5), (3, 4), (2, 3), (2, 2), (2, 2), (1, 1)]
+    sample = [(u, s, j) for u, (s, j) in zip(ids, nums)]
     stats = {'score': 12, 'unverified': 3, 'left': 2, 'joined': 17, 'uses': 21}
-    for label, (view, files) in (('**6 · /invites stats** · an example with real-looking numbers', invites.stats_card(owner, s=stats, rank=4)),
-                                 ('**7 · /invites top** · an example (ten people, you are 14th)', invites.top_card(rows=sample + [('a', 2, 2)] * 3 + [(owner.display_name, 1, 1)], mine=14, total=105))):
-        await send(label)
-        await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
+    view, files, shown = invites.top_card(rows=sample, mine=14, total=105)
+    await send('**6 · /invites top** · an example with real people and made-up numbers (their names show as @mentions, nobody is pinged)')
+    await ch.send(view=view, files=files, silent=True, allowed_mentions=invites.names_for(shown))
+    view, files = invites.stats_card(owner, s=stats, rank=4)
+    await send('**7 · /invites stats** · an example')
+    await ch.send(view=view, files=files, allowed_mentions=invites.names_for([owner.id]))
     print('done')
     await finish(client)
 

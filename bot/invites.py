@@ -142,7 +142,7 @@ def stats_card(member, mine=True, s=None, rank=None):
     s = s or stats(member.id)
     rank = rank or next((k + 1 for k, (u, _) in enumerate(leaderboard()) if u == str(member.id)), None)
     who = 'your' if mine else 'their'
-    head = f"## 📨 {'Your' if mine else member.display_name + chr(39) + 's'} invites" + (f"{NL}-# rank **#{rank}**" if rank else '')
+    head = f"## 📨 {'Your' if mine else f'<@{member.id}>' + chr(39) + 's'} invites" + (f"{NL}-# rank **#{rank}**" if rank else '')
     body = [f"### {s['score']} {'invite counts' if s['score'] == 1 else 'invites count'}{NL}-# people {'you' if mine else 'they'} brought who are still here and verified",
             NL.join([f"🕓 **{s['unverified']}** joined but are not verified yet",
                      f"🚪 **{s['left']}** left the server",
@@ -156,29 +156,35 @@ def _ord(n):
 
 
 def top_card(viewer_id=None, rows=None, mine=None, total=None):
-    """The leaderboard. rows: [(name, counting, joined)] best first; by default the real ones. mine: the viewer's rank."""
+    """(view, files, ids of the people mentioned). rows: [(user id, counting, joined)] best first; by default the real ones. mine: the viewer's rank."""
     if rows is None:
         board = leaderboard()
-        rows = [(ctx.guild.get_member(int(u)).display_name if ctx.guild.get_member(int(u)) else 'a former member', b['score'], b['joined']) for u, b in board]
+        rows = [(u, b['score'], b['joined']) for u, b in board]
         mine = next((k + 1 for k, (u, _) in enumerate(board) if u == str(viewer_id)), None)
         total = sum(b['score'] for _, b in board)
+    who = lambda u: f'<@{u}>' if ctx.guild.get_member(int(u)) else 'a former member'
     lines = []
-    for k, (name, score, joined) in enumerate(rows[:10]):
-        lines += [f'### {name} · {score}', f'-# 1st place · {joined} joined with their invites'] if k == 0 else [f'**{_ord(k + 1)}** · {name} · {score}']
+    for k, (u, score, joined) in enumerate(rows[:10]):
+        lines += [f'### {who(u)} · {score}', f'-# 1st place · {joined} joined with their invites'] if k == 0 else [f'**{_ord(k + 1)}** · {who(u)} · {score}']
     head = f"## 🏆 Top inviters{NL}-# {total} invites counting" if total else '## 🏆 Top inviters'
     body = [NL.join(lines) or 'Nobody has a counting invite yet. Invite a friend: they count once they verify.']
     if mine:
         body.append(f'You are **{_ord(mine)}**' + (f" · {rows[mine - 1][1]} counting" if mine <= len(rows) else ''))
-    return _card(head, body, ['/invites stats · your own numbers'])
+    view, files = _card(head, body, ['/invites stats · your own numbers'])
+    return view, files, [str(u) for u, _, _ in rows[:10]]
+
+
+def names_for(ids):
+    """The mentions in a card are shown as names in every app, and nobody is pinged: the message is sent silent and only these users are allowed."""
+    return discord.AllowedMentions(users=[discord.Object(id=int(u)) for u in ids], roles=False, everyone=False, replied_user=False)
 
 
 async def command_invites(i, sub, opts):
-    await i.response.defer(ephemeral=(sub != 'top'))
     if sub == 'top':
-        view, files = top_card(i.user.id)
-    else:
-        target = ctx.guild.get_member(int(opts['user'])) if opts.get('user') else i.user
-        if not target or target.bot:
-            return await i.edit_original_response(content='I can only show invites for a person in the server.')
-        view, files = stats_card(target, mine=target.id == i.user.id)
-    await i.edit_original_response(view=view, attachments=files, allowed_mentions=NO_MENTIONS)
+        view, files, ids = top_card(i.user.id)
+        return await i.response.send_message(view=view, files=files, silent=True, allowed_mentions=names_for(ids))
+    target = ctx.guild.get_member(int(opts['user'])) if opts.get('user') else i.user
+    if not target or target.bot:
+        return await i.response.send_message('I can only show invites for a person in the server.', ephemeral=True)
+    view, files = stats_card(target, mine=target.id == i.user.id)
+    await i.response.send_message(view=view, files=files, ephemeral=True, allowed_mentions=names_for([target.id]))
