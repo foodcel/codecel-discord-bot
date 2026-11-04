@@ -343,9 +343,13 @@ def container(g, gid=None, status='running', count=0):
 
 
 def names_only(g):
-    """Edits may carry the hosts' and winners' mentions so every app shows their names. Discord never pings for an edit."""
-    ids = set(hosts_of(g)) | {w['user'] for w in ((g.get('result') or {}).get('winners') or [])}
-    return discord.AllowedMentions(users=[discord.Object(id=int(u)) for u in ids], roles=False, everyone=False, replied_user=False)
+    """The mentions an edit may carry. An edit must keep the card's ping allowed (@everyone or the role), or Discord strips the mention from the message and
+    nobody who comes later sees it as a ping. Hosts are allowed so their names show. A giveaway posted before this rule (no 'v': 2) keeps users only:
+    allowing its ping now would add the mention again and ping the server a second time."""
+    c = g['config']
+    ping = c.get('ping') if c.get('v') == 2 else None
+    return discord.AllowedMentions(everyone=ping == 'everyone', roles=[discord.Object(id=int(cfg.giveaways_role))] if ping == 'giveaways' else False,
+                                   users=[discord.Object(id=int(h)) for h in hosts_of(g)], replied_user=False)
 
 
 def text_view(text):
@@ -799,16 +803,11 @@ async def start(i, pid, d):
     await i.response.defer()
     ends = now() + d['seconds'] * 1000
     gid = run('INSERT INTO giveaways(channel_id,message_id,host_id,title,config,status,ends_at,created_at) VALUES(?,?,?,?,?,?,?,?)',
-              str(ch.id), '0', d['user'], d['title'], json.dumps(_config(d)), 'running', ends, now()).lastrowid
+              str(ch.id), '0', d['user'], d['title'], json.dumps({**_config(d), 'v': 2}), 'running', ends, now()).lastrowid
     g = _g(gid)
-    allowed = discord.AllowedMentions(everyone=d['ping'] == 'everyone', users=False, replied_user=False,
-                                      roles=[discord.Object(id=int(cfg.giveaways_role))] if d['ping'] == 'giveaways' else False)
-    sent = await ch.send(view=container(g, gid, 'running', 0), files=[banner_for(g)], allowed_mentions=allowed)  # the one ping, if any: the role
+    # one send with the ping and the hosts allowed: the ping (if any) goes out now, the hosts are told they host. Later edits keep the same mentions (names_only), so nobody is pinged again.
+    sent = await ch.send(view=container(g, gid, 'running', 0), files=[banner_for(g)], allowed_mentions=names_only(g))
     run('UPDATE giveaways SET message_id=? WHERE id=?', str(sent.id), gid)
-    try:  # the same card again with the hosts allowed, so every app shows their names (an edit never pings)
-        await sent.edit(view=container(g, gid, 'running', 0), attachments=[banner_for(g)], allowed_mentions=names_only(g))
-    except Exception as e:
-        print('giveaway names', repr(e)[:120])
     add_timer('gw_end', gid, ends)
     del_pending(pid)
     await _log(f"🎁 Giveaway **{g['title']}** (#{gid}) started by <@{d['user']}> in <#{ch.id}>: {sent.jump_url}")
