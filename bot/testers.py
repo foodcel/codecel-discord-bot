@@ -175,11 +175,12 @@ async def refresh_roster():
     if ch is None:
         return
     from .look import card_from_embed, edit_card
+    gch = await fetch_channel(b.get('guideChannelId') or b['channelId']) or ch  # the responsibilities card can live in its own channel
     try:
-        await edit_card(ch.get_partial_message(int(b['guide'])), guide_embed())
+        await edit_card(gch.get_partial_message(int(b['guide'])), guide_embed())
     except discord.NotFound:
         view, files = card_from_embed(guide_embed())
-        b['guide'] = str((await ch.send(view=view, files=files)).id)
+        b['guide'] = str((await gch.send(view=view, files=files)).id)
         kv_set('testerboard', json.dumps(b))
     except Exception as e:
         print('tester board', e)
@@ -240,16 +241,16 @@ async def post_board(ch):
     old = _board()
     from .look import card_from_embed
     gv, gf = card_from_embed(guide_embed())
-    g = await ch.send(view=gv, files=gf)
+    gch = (await fetch_channel(old['guideChannelId']) if old and old.get('guideChannelId') else None) or ch  # it stays in its own channel when it has one
+    g = await gch.send(view=gv, files=gf)
     rv, rf = card_from_embed(roster_embed(), inline_desc=True)
     r = await ch.send(view=rv, files=rf, allowed_mentions=_allowed_testers(), silent=True)
-    kv_set('testerboard', json.dumps({'channelId': str(ch.id), 'guide': str(g.id), 'roster': str(r.id)}))
+    kv_set('testerboard', json.dumps({'channelId': str(ch.id), 'guide': str(g.id), 'roster': str(r.id), **({'guideChannelId': str(gch.id)} if gch.id != ch.id else {})}))
     removed = 0
     if old and (old['channelId'], old['roster']) != (str(ch.id), str(r.id)):  # the earlier copy stops updating: remove it
-        oc = await fetch_channel(old['channelId'])
-        for k in ('guide', 'roster'):
+        for k, cid in (('guide', old.get('guideChannelId') or old['channelId']), ('roster', old['channelId'])):
             try:
-                await oc.get_partial_message(int(old[k])).delete()
+                await (await fetch_channel(cid)).get_partial_message(int(old[k])).delete()
             except Exception:
                 pass
     if cfg.tester_info_id and str(ch.id) == cfg.tester_info_id:
