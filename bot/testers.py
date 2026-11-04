@@ -84,6 +84,32 @@ def _name(uid):
     return m.display_name if m else 'a dev'
 
 
+ANY_DEV = 'dev'  # only_for = "dev": private to the developers (never shown to players), any dev may use them
+
+
+def dev_members():
+    role = ctx.guild.get_role(int(cfg.dev_role)) if ctx.guild and cfg.dev_role else None
+    return [m for m in (role.members if role else []) if not m.bot]
+
+
+def resolve_dev(value):
+    """What was typed in only_for: 'dev' for any dev ("dev", "devs", "developers", "any"), else the id of one developer (a pick, a mention or a name). None when nothing fits."""
+    v = str(value or '').strip().lower().lstrip('@')
+    if not v:
+        return None
+    if v in ('dev', 'devs', 'developer', 'developers', 'any', 'any dev', 'all'):
+        return ANY_DEV
+    digits = re.sub(r'\D', '', v) if re.fullmatch(r'<@!?\d+>', v) else (v if v.isdigit() else '')
+    if digits:
+        return digits
+    hits = [m for m in dev_members() if v in m.display_name.lower() or v in m.name.lower()]
+    return str(hits[0].id) if len(hits) == 1 else None
+
+
+def dev_label(only_for):
+    return "developers'" if only_for == ANY_DEV else f"{_name(only_for)}'s"
+
+
 def role_name(uid):
     """The highest tester role of a member (Tester-Lead, Tester, Trial-Tester...), or None."""
     m = ctx.guild.get_member(int(uid)) if ctx.guild else None
@@ -105,7 +131,7 @@ def _block(r, reports):
         if r['best_for']:
             kids.append(f"⭐ {r['best_for']}")
         if r['status'] == 'private':
-            kids.append(f"🔒 Only tests {_name(r['only_for'])}'s games" if r['only_for'] else '🔒 Only tests one dev\'s games')
+            kids.append(f"🔒 Only tests {dev_label(r['only_for'])} games" if r['only_for'] else '🔒 Only tests one dev\'s games')
     for k, kid in enumerate(kids):
         lines.append(f"{'└─' if k == len(kids) - 1 else '├─'} {kid}")
     return '\n'.join(lines)
@@ -357,7 +383,7 @@ async def command_tester(i, sub, opts):
         q = str(opts.get('device') or '').lower()
         found = []
         for r in everyone():
-            if r['status'] == 'active' or (r['status'] == 'private' and r['only_for'] == str(i.user.id)):
+            if r['status'] == 'active' or (r['status'] == 'private' and r['only_for'] in (str(i.user.id), ANY_DEV)):
                 if q in f"{r['devices'] or ''} {r['best_for'] or ''}".lower():
                     found.append(f"{MARK[r['status']]} <@{r['user_id']}> · 🎮 {r['devices'] or '?'} · 🕐 {r['availability'] or '?'}")
         return await reply('\n'.join(found)[:1900] or f'Nobody open for testing matches "{q}".', ephemeral=True, allowed_mentions=NO_MENTIONS)
@@ -367,12 +393,13 @@ async def command_tester(i, sub, opts):
         removed = await post_board(ch)
         return await i.edit_original_response(content=f'Posted in {ch.mention}. The roster updates by itself.' + (f' Replaced {removed} old message(s).' if removed else ''))
     uid = str(opts.get('user'))
-    only = opts.get('only_for')
-    if only:  # the dev a private tester belongs to must be a person, not a bot
-        dev = ctx.guild.get_member(int(only)) if ctx.guild else None
-        if dev and dev.bot:
-            return await reply(f'<@{only}> is a bot. Pick the developer whose games they test, or leave `only_for` empty to use yourself.',
+    if opts.get('only_for'):  # "dev" for any developer, or one developer (a person, not a bot)
+        only = resolve_dev(opts['only_for'])
+        dev = ctx.guild.get_member(int(only)) if only and only != ANY_DEV and ctx.guild else None
+        if not only or (dev and dev.bot):
+            return await reply('`only_for` is `dev` (any developer) or one developer. Pick one from the list, or leave it empty to use yourself.',
                                ephemeral=True, allowed_mentions=NO_MENTIONS)
+        opts['only_for'] = only
     if sub == 'add':
         status = opts.get('status') or ('private' if opts.get('only_for') else 'pending')  # naming a dev makes them private
         if status == 'private' and not opts.get('only_for'):
@@ -396,7 +423,8 @@ async def command_tester(i, sub, opts):
             opts['only_for'] = str(i.user.id)  # defaults to whoever runs the command: pass only_for for another dev
         row = save(uid, status=status, only_for=str(opts['only_for']) if status == 'private' else None)
         await refresh_roster()
-        extra = f" They only test <@{row['only_for']}>'s games and are never offered to other devs." if status == 'private' else \
+        extra = (" They only test developers' games and are never shown to players." if row['only_for'] == ANY_DEV else
+                 f" They only test <@{row['only_for']}>'s games and are never offered to other devs.") if status == 'private' else \
             ' They are not offered to devs while they are on a break.' if status == 'inactive' else ''
         return await reply(f"<@{uid}> is now {MARK[status]} {status}.{extra}", ephemeral=True, allowed_mentions=NO_MENTIONS)
     if sub == 'edit':

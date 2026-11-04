@@ -74,6 +74,11 @@ async def autocomplete(i):
     fname, fvalue = focused or ('', '')
     if name in DEV_ONLY and level(i.user) in ('jr', 'none'):  # the pick list would show every game to someone who may not run the command
         return await i.response.autocomplete([app_commands.Choice(name='Only developers can use this command', value='none')])
+    if name == 'tester' and fname == 'only_for':  # "dev" = any developer, or pick one
+        q = str(fvalue).strip().lower().lstrip('@')
+        picks = [app_commands.Choice(name='Any dev (private to the developers)', value=testers.ANY_DEV)] if (not q or q in 'developers' or q in 'any dev') else []
+        picks += [app_commands.Choice(name=m.display_name[:100], value=str(m.id)) for m in testers.dev_members() if q in m.display_name.lower() or q in m.name.lower()]
+        return await i.response.autocomplete(picks[:25])
     if name == 'bug' and fname == 'game' and cfg.testing_id and str(i.channel_id) == str(cfg.testing_id):  # testers can report games that are not out yet
         from .tester import is_tester, known_games
         if is_tester(i.user):
