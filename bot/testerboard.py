@@ -33,7 +33,8 @@ def testing_games():
     out = []
     for g in [*lists['unreleased'], *lists['released']]:
         if g.get('testing_at'):
-            out.append({'key': g['key'], 'name': g.get('title') or clean_name(g['name']), 'owners': owner_ids(g), 'since': g['testing_at'], 'link': g.get('link')})
+            out.append({'key': g['key'], 'name': g.get('title') or clean_name(g['name']), 'owners': owner_ids(g), 'since': g['testing_at'], 'link': g.get('link'),
+                        'test_link': (one('SELECT test_link FROM game_status WHERE key=?', g['key']) or {}).get('test_link')})
     return sorted(out, key=lambda g: -g['since'])
 
 
@@ -63,7 +64,9 @@ def board_view():
     for g in games:
         rows = [('Dev', ' '.join(f'<@{o}>' for o in g['owners']) or '—'), ('Since', f"<t:{g['since'] // 1000}:D>")]
         rows += [('Tester', f'<@{u}>') for u in testers_of(g['key'])] or [('Testers', 'nobody yet')]
-        items.append(ui.TextDisplay(f"**🎮 {g['name']}**{NL}{tree(*rows)}"))
+        block = f"**🎮 {g['name']}**{NL}{tree(*rows)}"
+        # a game with a test link gets its Play button on the right of its block (the only thing a card can put on the right)
+        items.append(ui.Section(block, accessory=ui.Button(style=discord.ButtonStyle.link, label='Play test', url=g['test_link'], emoji='▶️')) if g.get('test_link') else ui.TextDisplay(block))
     items += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(NL.join('-# ' + x for x in FOOTER))]
     view = ui.LayoutView(timeout=None)
     items, strip_ = with_strip(items)
@@ -107,7 +110,7 @@ async def refresh_board():
 
 def card_view(g, ping=True):
     """The card of a game that just went into testing: (view, files, role pinged). The ping and the date are inside the card."""
-    row = one('SELECT art_url, icon_url, hero_url FROM game_status WHERE key=?', g['key']) or {}
+    row = one('SELECT art_url, icon_url, hero_url, test_link FROM game_status WHERE key=?', g['key']) or {}
     role = cfg.tester_ping_role if ping else None
     devs = ' '.join(f'<@{o}>' for o in g['owners']) or '—'
     text = NL.join([f"### 🧪 {g['name']} needs testers", f'-# dev {devs}'] + ([f'-# <@&{role}>'] if role else []) + [f'-# <t:{int(time.time())}:D>'])  # dev, the ping and the date, one under the other
@@ -115,7 +118,8 @@ def card_view(g, ping=True):
     strip_ = strip()
     view = ui.LayoutView(timeout=None)
     parts, strip_ = with_strip([ui.Section(text, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(text),
-                                ui.ActionRow(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋'))])
+                                ui.ActionRow(ui.Button(custom_id=f"tbd:join:{g['key']}", label='I want to test', style=discord.ButtonStyle.success, emoji='🙋'),
+                                             *([ui.Button(style=discord.ButtonStyle.link, label='Play test', url=row['test_link'], emoji='▶️')] if row.get('test_link') else []))])
     view.add_item(ui.Container(*parts))
     return view, [strip_], role
 

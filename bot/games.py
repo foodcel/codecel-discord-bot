@@ -440,10 +440,17 @@ async def command_progress(i, opts):
     if not owns(i.user, owner_ids(g)):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
     percent, working, testing = opts.get('percent'), opts.get('working'), opts.get('testing')
+    link = (opts.get('link') or '').strip()
+    if link and link != '-':
+        link = roblox_url(link)
+        if not link:
+            return await reply('That does not look like a Roblox link. Paste the game page, like `https://www.roblox.com/games/123456/Name`.', ephemeral=True)
+        if testing != 'on' and not g.get('testing_at'):
+            return await reply('The link is for the testers: add `testing:on` too, so the game goes into testing.', ephemeral=True)
     if rel and not dev and (percent is not None or working is not None):
         return await reply('A released game has no progress bar. Use `testing:on` or `testing:off`.', ephemeral=True)
-    if percent is None and working is None and testing is None:
-        return await reply('Give a percent, say whether you are working on it, or put it in testing.', ephemeral=True)
+    if percent is None and working is None and testing is None and not link:
+        return await reply('Give a percent, say whether you are working on it, put it in testing, or add the testers\' link.', ephemeral=True)
     if percent is not None and not 0 <= percent <= 100:
         return await reply('The percent must be between 0 and 100.', ephemeral=True)
     if working is None and percent is not None and g.get('working') is None:
@@ -471,6 +478,10 @@ async def command_progress(i, opts):
                     print('tester card', repr(e))
         else:
             run('DELETE FROM game_testers WHERE game_key=?', key(g['name']))
+            run('UPDATE game_status SET test_link=NULL WHERE key=?', key(g['name']))  # out of testing: the Play button goes with it
+    if link and testing != 'off':
+        run('UPDATE game_status SET test_link=? WHERE key=?', None if link == '-' else link, key(g['name']))
+        tag_note += '\n▶️ Testers get a Play button for it on the tester board.' if link != '-' else '\n▶️ The Play button was removed.'
     await refresh_game_board()
     shown = clean_name(g['name'])
     if rel and not dev:
@@ -488,6 +499,16 @@ async def _tester_tag_note(name):
         print('tester tag', repr(e))
         return ''
     return f"\n🏷️ Testers can report it now: its tag **{tag.name}** is ready in the testers forum." if tag else (f'\n⚠️ {problem}' if problem else '')
+
+
+def roblox_url(text):
+    """The link as https://..., or None when it is not a Roblox address (roblox.com or ro.blox.com)."""
+    text = text.strip()
+    if not re.match(r'^https?://', text, re.I):
+        text = 'https://' + text
+    m = re.match(r'^https?://([^/?#]+)', text, re.I)
+    host = (m[1] if m else '').lower()
+    return text if host == 'ro.blox.com' or host == 'roblox.com' or host.endswith('.roblox.com') else None
 
 
 def set_progress(name, owners, since, percent, working):

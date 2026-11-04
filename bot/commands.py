@@ -155,6 +155,7 @@ COMMANDS = [
         option(INTEGER, 'percent', 'How much of the game is done', min_value=0, max_value=100),
         option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
         option(STRING, 'testing', 'Testing phase on or off. Testers can report a game in testing (released games too)', choices=[('On', 'on'), ('Off', 'off')]),
+        option(STRING, 'link', 'The Roblox link testers play the test build with (shown as a Play button). A single - removes it'),
     ]),
     command('giveaway', 'Run a giveaway: prizes per place, role and invite rules, bonus entries (admins and managers)', [
         sub('new', 'Make a giveaway: the prize, how long, how many winners. Everything else is in the preview', [
