@@ -95,12 +95,24 @@ def _bucket(rows):
     return out
 
 
+def legacy_by_inviter():
+    """{inviter id: earlier uses}. Discord counts every use of a live invite, but only the joins since tracking started are known by name. The rest
+    (uses before tracking) are counted for their inviter without being checked: nobody can tell if those people stayed or verified."""
+    seen = {r['code']: r['n'] for r in all_('SELECT code, COUNT(*) n FROM invite_joins WHERE code IS NOT NULL GROUP BY code')}
+    out = {}
+    for code, v in _cache.items():
+        if v['inviter']:
+            out[v['inviter']] = out.get(v['inviter'], 0) + max(0, v['uses'] - seen.get(code, 0))
+    return out
+
+
 def stats(user_id):
-    """One person's numbers. `score` is what counts for giveaways: people still here with the Verified role."""
+    """One person's numbers. `score` is what counts: tracked people who are still here and verified, plus earlier invites from before tracking."""
     rows = all_('SELECT user_id FROM invite_joins WHERE inviter_id=? ORDER BY joined_at', str(user_id))
     b = _bucket(rows)
     b['uses'] = sum(v['uses'] for v in _cache.values() if v['inviter'] == str(user_id))  # Discord's own count of their live invites
-    b['score'] = b['verified']
+    b['legacy'] = legacy_by_inviter().get(str(user_id), 0)
+    b['score'] = b['verified'] + b['legacy']
     return b
 
 
@@ -114,10 +126,12 @@ def leaderboard():
     by = {}
     for r in all_('SELECT user_id, inviter_id FROM invite_joins WHERE inviter_id IS NOT NULL ORDER BY joined_at'):
         by.setdefault(r['inviter_id'], []).append(r)
+    old = legacy_by_inviter()
     rows = []
-    for inviter, rs in by.items():
-        b = _bucket(rs)
-        b['score'] = b['verified']
+    for inviter in set(by) | set(old):
+        b = _bucket(by.get(inviter, []))
+        b['legacy'] = old.get(inviter, 0)
+        b['score'] = b['verified'] + b['legacy']
         if b['score']:
             rows.append((inviter, b))
     return sorted(rows, key=lambda x: (-x[1]['score'], -x[1]['joined']))
@@ -143,8 +157,9 @@ def stats_card(member, mine=True, s=None, rank=None):
     rank = rank or next((k + 1 for k, (u, _) in enumerate(leaderboard()) if u == str(member.id)), None)
     who = 'your' if mine else 'their'
     head = f"## 📨 {'Your' if mine else f'<@{member.id}>' + chr(39) + 's'} invites" + (f"{NL}-# rank **#{rank}**" if rank else '')
-    body = [f"### {s['score']} {'invite counts' if s['score'] == 1 else 'invites count'}{NL}-# people {'you' if mine else 'they'} brought who are still here and verified",
-            NL.join([f"🕓 **{s['unverified']}** joined but are not verified yet",
+    body = [f"### {s['score']} {'invite counts' if s['score'] == 1 else 'invites count'}{NL}-# people {'you' if mine else 'they'} brought who are still here and verified, plus earlier invites",
+            NL.join([f"📜 **{s['legacy']}** earlier invites, from before tracking (counted, not checked)",
+                     f"🕓 **{s['unverified']}** joined but are not verified yet",
                      f"🚪 **{s['left']}** left the server",
                      f"👥 **{s['joined']}** joined with {who} invites",
                      f"🔗 **{s['uses']}** uses of {who} invites, all time"])]
@@ -217,13 +232,13 @@ async def check_card(member):
     me = ctx.guild.get_member(member.id)
     head = f'## 🔎 Invite check{NL}-# <@{member.id}> · joined {_ts(member.joined_at.timestamp() * 1000) if member.joined_at else "?"} · account made {_ts(member.created_at.timestamp() * 1000)}' \
            f"{NL}-# {'✅ verified' if me and _verified(me) else '🕓 not verified'}"
-    summary = NL.join([f"├─ ✅ **{count['verified']}** count: still here and verified",
+    legacy = legacy_by_inviter().get(uid, 0)
+    summary = NL.join([f"├─ ✅ **{count['verified'] + legacy}** count: **{count['verified']}** still here and verified, **{legacy}** earlier (not checked)",
                        f"├─ 🕓 **{count['unverified']}** here but not verified",
                        f"├─ 🚪 **{count['left']}** left the server",
                        f"├─ 👥 **{len(people)}** people tracked as invited by them",
-                       f"└─ 🔗 **{uses}** uses on their live links"])
-    gap = max(0, uses - on_live)
-    note = f"-# {gap} use{'s' if gap != 1 else ''} on their links were not tracked (before tracking started, or by someone who is not in the list): they cannot be checked." if gap else None
+                       f"└─ 🔗 **{uses}** uses on their live links, all time"])
+    note = f"-# The {legacy} earlier use{'s' if legacy != 1 else ''} come from Discord's use count on their links, from before tracking started. They count, but nobody can check whether those people stayed or verified." if legacy else None
     links = []
     for k, i in enumerate(sorted(live, key=lambda i: -(i.uses or 0))[:6]):
         limit = f"/{i.max_uses}" if i.max_uses else ''

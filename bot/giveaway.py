@@ -423,7 +423,7 @@ def schedule_redraw(gid):
 # ---- entering ----
 def _need_line(member, c):
     short = short_of(member, c)
-    return f"You get your first entry at **{short[0]}** invites. **{short[1]}** count so far. Only people who are still here and verified count: see `/invites stats`." if short else None
+    return f"You get your first entry at **{short[0]}** invites. **{short[1]}** count so far. Invites count if the person is still here and verified; invites from before tracking count too. See `/invites stats`." if short else None
 
 
 def _entries_view(g, member, headline):
