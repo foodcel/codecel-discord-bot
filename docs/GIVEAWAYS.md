@@ -13,7 +13,8 @@ Code: `bot/giveaway.py`, `bot/invites.py`. Look: see `docs/DESIGN.md` (cards, tr
 - Winners get one real ping (a reply under the card) and a DM. The card itself never pings.
 - Setup: set `GIVEAWAY_MANAGER_ROLE_ID` in `.env` and give that role the **Manage Events** permission (that is what makes `/giveaway` appear in the picker; admins always see it).
 
-## Invite tracker and /invites
+## Invite tracker and /invites (a feature of its own, not part of giveaways)
+Giveaways only read its numbers for their invite rules.
 - Discord does not say which invite a member used, so the bot keeps every invite's use count and finds the one that went up on each join.
 - It only knows joins from the moment it ran. Older uses show in "uses" but cannot be checked.
 - **Counts for the score:** the person it brought is still in the server AND has the Verified role, checked when the number is needed.

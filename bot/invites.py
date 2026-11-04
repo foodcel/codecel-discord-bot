@@ -1,7 +1,8 @@
 """The invite tracker: who invited every member who joins, and how many of their invites really count.
 Discord does not say which invite a new member used, so the bot keeps a copy of every invite's use count and, when someone joins, looks for the one that went up.
 It only knows joins from the moment it runs (invites used before that show as "uses" but cannot be checked). An invite counts for the score when the
-person it brought is still in the server AND has the Verified role, checked at the moment the number is needed (so a giveaway sees the numbers at its end).
+person it brought is still in the server AND has the Verified role, checked at the moment the number is needed.
+It is a feature of its own: giveaways can read the number (invites.qualified), but nothing here depends on them.
 /invites stats [user] shows one person's numbers, /invites top the leaderboard."""
 import asyncio
 
@@ -104,7 +105,7 @@ def stats(user_id):
 
 
 def qualified(user_id):
-    """The invites that count for a giveaway right now."""
+    """The invites that count right now (a giveaway reads this for its invite rules)."""
     return stats(user_id)['score']
 
 
@@ -143,8 +144,8 @@ def stats_card(member):
              f"├─ 👥 **{s['joined']}** joined with your invites (since tracking started)",
              f"└─ 🔗 **{s['uses']}** uses of your invites (all time, from Discord)",
              '',
-             '-# Only the ✅ number counts for giveaways. It is checked again when a giveaway ends.']
-    return _card('📨 INVITES', lines, ['/invites top · the invite leaderboard', '/giveaway · invite giveaways use this number'])
+             '-# Your total is the ✅ number: people who are still here and verified. It updates live.']
+    return _card('📨 INVITES', lines, ['/invites top · the invite leaderboard'])
 
 
 def top_card(viewer_id=None):
