@@ -1,9 +1,9 @@
 """/giveaway: customizable giveaways, in the community look (docs/DESIGN.md, "Community"): a banner made for each giveaway, short lines, real role pings.
 An admin (or someone with the Giveaway Manager role) runs /giveaway new with only what the banner needs (the prize, how long, how many winners).
-That opens a preview with buttons: prizes and time, rules, banner (draw it again with other words), hosts, required roles, prize look, ping, channel.
+That opens a preview with buttons: prizes and time, rules, banner (draw it again with other words), hosts, required roles, ping, channel.
 Nothing posts until Start. People enter with a button. When the time is up the bot draws the winners.
 What a giveaway can have:
-  - a prize per place ("1: 2K Robux + Nitro", "2-5: 2K Robux"); by default the prize is split over the winners (10K Robux, 5 winners = 2K each)
+  - a prize per place ("1: 2K Robux + Nitro", "2-5: 2K Robux"); by default the prize is split over the winners (10K Robux, 5 winners = 2K each), shown as a podium
   - required roles (any / all), blacklisted roles, a minimum time in the server, bonus entries for roles (Booster +2, Donator +3...)
   - a minimum number of invites (invites that count = the person is still here and has the Verified role, see invites.py)
   - every invite as one more entry (with an optional cap)
@@ -36,10 +36,6 @@ MAX_WINNERS = 50
 MAX_ROUNDS = 3  # a place whose winner never claims is drawn again this many times
 BANNER = 'giveaway.png'
 PINGS = [('none', 'No ping', 'The card appears silently'), ('giveaways', '@Giveaways', 'Only people who want giveaways'), ('everyone', '@everyone', 'Everyone in the server')]
-STYLES = [('podium', 'Podium', 'First place big, the others under it'), ('pool', 'Prize pool', 'The total on top, then every place'),
-          ('tiles', 'Tiles', 'Every place in its own block')]
-DEFAULT_STYLE = 'podium'
-
 db.executescript("""
 CREATE TABLE IF NOT EXISTS giveaways(
   id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id TEXT, message_id TEXT, host_id TEXT, title TEXT, config TEXT,
@@ -100,21 +96,6 @@ def split_prize(prize, n):
     a = _amount(prize)
     each = fmt_amount(a[0] // n, a[1]) if a and n > 1 else prize
     return [[each] for _ in range(n)]
-
-
-def pool_total(prizes):
-    """Everything given away together: '10K Robux + 2× Nitro'."""
-    sums, counts = {}, {}
-    for place in prizes:
-        for item in place:
-            a = _amount(item)
-            if a:
-                k = a[1].casefold()
-                sums[k] = (sums.get(k, (0, a[1]))[0] + a[0], a[1])
-            else:
-                k = item.casefold()
-                counts[k] = (counts.get(k, (0, item))[0] + 1, item)
-    return ' + '.join([fmt_amount(n, what) for n, what in sums.values()] + [f'{c}× {name}' if c > 1 else name for c, name in counts.values()])
 
 
 def parse_prizes(text, winners):
@@ -234,19 +215,18 @@ def eligible(member, c):
 
 
 def entries_for(member, c):
-    """(total entries, base, from roles, from invites)."""
-    roles = sum(n for rid, n in c['bonus'].items() if _has(member, rid))
-    inv = 0
+    """(total entries, [(what it is for, how many)]): one for entering, the bonus roles the person has, the invites that count."""
+    rows = [('for entering', 1)]
+    rows += [(_role(rid), n) for rid, n in c['bonus'].items() if _has(member, rid)]
     if c['invite_entries']:
         q = invites.qualified(member.id)
         inv = min(q, c['invite_cap']) if c['invite_cap'] else q
-    return 1 + roles + inv, 1, roles, inv
+        if inv:
+            rows.append((f"your invites ({q} count" + (f", up to {c['invite_cap']}" if c['invite_cap'] else '') + ')', inv))
+    return sum(n for _, n in rows), rows
 
 
-# ---- the card (community look: banner, short lines, real pings, no trees, no code blocks) ----
-MEDAL = {1: '🥇', 2: '🥈', 3: '🥉'}
-
-
+# ---- the card (community look: banner, short lines, real pings, no trees, no code blocks, no medal emojis) ----
 def place_label(places, long=True):
     a, b = places[0], places[-1]
     if a == b:
@@ -256,18 +236,11 @@ def place_label(places, long=True):
     return f'{ordinal(a)} to {ordinal(b)} place' if long else f'{ordinal(a)}–{ordinal(b)}'
 
 
-def prize_block(prizes, style):
-    gs = groups(prizes)
-    if style == 'pool':
-        n = len(prizes)
-        lines = [f'## 💰 {pool_total(prizes)}', f"-# the prize pool · {n} {'winner' if n == 1 else 'winners'}"]
-        lines += [f"{MEDAL.get(pl[0], '🎁')} **{place_label(pl, False)}** · {' + '.join(p)}" for pl, p in gs]
-        return NL.join(lines)
-    if style == 'tiles':
-        return (NL + NL).join(f"> {MEDAL.get(pl[0], '🎁')} **{place_label(pl)}**{NL}> ### {' + '.join(p)}" for pl, p in gs)
-    lines = []  # podium: first place as a heading, the others smaller under it
-    for k, (pl, p) in enumerate(gs):
-        lines.append(f"{'### ' if k == 0 else '**'}{MEDAL.get(pl[0], '🎁')} {' + '.join(p)}{'' if k == 0 else '**'}")
+def prize_block(prizes):
+    """The podium: the first prize as a heading, the others in bold under it, each with its place in small letters."""
+    lines = []
+    for k, (pl, p) in enumerate(groups(prizes)):
+        lines.append(f"{'### ' if k == 0 else '**'}{' + '.join(p)}{'' if k == 0 else '**'}")
         lines.append(f'-# {place_label(pl)}')
     return NL.join(lines)
 
@@ -294,12 +267,12 @@ def bonus_block(c):
 
 def winners_block(res, c):
     mark = {'claimed': ' ✅', 'pending': ' ⏳' if c['claim_hours'] else ''}
-    rows = [f"{MEDAL.get(w['place'], '🎁')} <@{w['user']}> · {' + '.join(w['prizes'])}{mark.get(w['state'], '')}" for w in res['winners']]
+    rows = [f"**{ordinal(w['place'])}** · <@{w['user']}> · {' + '.join(w['prizes'])}{mark.get(w['state'], '')}" for w in res['winners']]
     return '**Winners**' + NL + (NL.join(rows) or 'Nobody could win: no one who entered still qualified.')
 
 
 def banner_for(g, ended=False):
-    """The banner file of a giveaway: its own words, or the prize with the winners and the end date."""
+    """The banner file of a giveaway: its own words, or the prize with the winners and the end date. Drawn in code, no model is used."""
     c, b = g['config'], g['config'].get('banner') or {}
     n = len(c['prizes'])
     day = datetime.fromtimestamp(g['ends_at'] / 1000, timezone.utc).strftime('%b %d').replace(' 0', ' ')
@@ -310,31 +283,34 @@ def banner_for(g, ended=False):
 
 
 def card_items(g, gid=None, status='running', count=0):
-    """The giveaway as a card (a Container). status running | ended | draft. The banner is the message's attachment BANNER."""
+    """The giveaway as a card (a Container). status running | ended | draft. The banner is the message's attachment BANNER.
+    A draft (the preview, a mockup) has the same buttons, switched to "only a mockup" ids."""
     c = g['config']
     n, ends = len(c['prizes']), g['ends_at'] // 1000
     when = f'ended <t:{ends}:f>' if status == 'ended' else f'ends <t:{ends}:f>'
     items = [ui.MediaGallery(discord.MediaGalleryItem(f'attachment://{BANNER}')),
-             ui.TextDisplay(f"**{n}** {'winner' if n == 1 else 'winners'}  ·  **{count}** entered  ·  {when}{NL}Hosted by: {' '.join(f'<@{h}>' for h in hosts_of(g))}"),
+             ui.TextDisplay(f"**{n}** {'winner' if n == 1 else 'winners'}  ·  **{count}** entered  ·  {when}"),
              ui.Separator(visible=True, spacing=SMALL)]
     if status == 'ended':
         items.append(ui.TextDisplay(winners_block(g['result'], c)))
     else:
-        items.append(ui.TextDisplay(prize_block(c['prizes'], c.get('prize_style') or DEFAULT_STYLE)))
+        items.append(ui.TextDisplay(prize_block(c['prizes'])))
         items.append(ui.TextDisplay(required_block(c)))
         if bonus := bonus_block(c):
             items.append(ui.TextDisplay(bonus))
     items.append(ui.Separator(visible=True, spacing=SMALL))
-    foot = []
+    foot = [f"-# Hosted by: {' '.join(f'<@{h}>' for h in hosts_of(g))}"]
     if c['claim_hours']:
-        foot.append(f"-# ⏳ Winners claim within {c['claim_hours']}h")
+        foot.append(f"-# Winners claim within {c['claim_hours']}h")
     if status == 'ended':
         foot.append(f"-# Fair draw · seed `{g['result']['seeds'][0]}` · {g['result']['entries']} entries counted")
     elif c['min_invites'] or c['invite_entries']:
         foot.append('-# ' + code_chip('/invites stats · see how many of your invites count'))
-    items.append(ui.TextDisplay(NL.join(foot) or '-# 🍀 Good luck!'))
-    if status == 'running' and gid:
-        items.append(ui.ActionRow(ui.Button(custom_id=f'gw:enter:{gid}', label='Enter giveaway', style=discord.ButtonStyle.success, emoji='🎉')))
+    items.append(ui.TextDisplay(NL.join(foot)))
+    if status in ('running', 'draft'):
+        enter, mine = (f'gw:enter:{gid}', f'gw:mine:{gid}') if gid else ('mock:enter', 'mock:mine')
+        items.append(ui.ActionRow(ui.Button(custom_id=enter, label='Enter giveaway', style=discord.ButtonStyle.success, emoji='🎉'),
+                                  ui.Button(custom_id=mine, label='My entries', style=discord.ButtonStyle.secondary, emoji='🎟️')))
     if status == 'ended' and gid and c['claim_hours'] and any(w['state'] == 'pending' for w in g['result']['winners']):
         items.append(ui.ActionRow(ui.Button(custom_id=f'gw:claim:{gid}', label='Claim prize', style=discord.ButtonStyle.primary, emoji='🏆')))
     return ui.Container(*items)
@@ -421,30 +397,63 @@ def schedule_redraw(gid):
 
 
 # ---- entering ----
+def _entries_view(g, member, headline):
+    """What only you see: your entries and where each one comes from, with Leave while the giveaway runs."""
+    total, rows = entries_for(member, g['config'])
+    lines = [f"**{headline}**"] + [f"+{n} · {what}" for what, n in rows] + ['', f"-# It is checked again when the giveaway ends."]
+    ok, why = eligible(member, g['config'])
+    if not ok:
+        lines = [f'⚠️ You no longer qualify: {why}', '-# You will be skipped at the draw unless that changes.']
+    view = ui.LayoutView()
+    view.add_item(ui.TextDisplay(NL.join(lines)))
+    if g['status'] == 'running':
+        view.add_item(ui.ActionRow(ui.Button(custom_id=f"gw:leave:{g['id']}", label='Leave giveaway', style=discord.ButtonStyle.danger)))
+    return view
+
+
+def _entry_word(total):
+    return f"{total} {'entry' if total == 1 else 'entries'}"
+
+
 async def enter(i, gid):
     g = _g(gid)
     if not g or g['status'] != 'running':
         return await i.response.send_message('This giveaway is over.', ephemeral=True)
-    c = g['config']
-    ok, why = eligible(i.user, c)
+    ok, why = eligible(i.user, g['config'])
     if not ok:
         return await i.response.send_message(why, ephemeral=True)
-    total, _, roles, inv = entries_for(i.user, c)
-    detail = ' (1' + (f' + {roles} from roles' if roles else '') + (f' + {inv} from invites' if inv else '') + ')' if total > 1 else ''
+    total = entries_for(i.user, g['config'])[0]
+    joined = bool(one('SELECT 1 FROM giveaway_entries WHERE gid=? AND user_id=?', gid, str(i.user.id)))
+    if not joined:
+        run('INSERT OR IGNORE INTO giveaway_entries(gid,user_id,at) VALUES(?,?,?)', gid, str(i.user.id), now())
+        schedule_redraw(gid)
+    await i.response.send_message(view=_entries_view(g, i.user, f"{'You are in with' if not joined else 'You are already in with'} {_entry_word(total)}"), ephemeral=True)
+
+
+async def mine(i, gid):
+    """The My entries button: whether you are in, and how many entries you have."""
+    g = _g(gid)
+    if not g or g['status'] == 'cancelled':
+        return await i.response.send_message('This giveaway is over.', ephemeral=True)
     if one('SELECT 1 FROM giveaway_entries WHERE gid=? AND user_id=?', gid, str(i.user.id)):
-        view = ui.LayoutView()
-        view.add_item(ui.TextDisplay(f"You are already in with **{total}** {'entry' if total == 1 else 'entries'}{detail}."))
-        view.add_item(ui.ActionRow(ui.Button(custom_id=f'gw:leave:{gid}', label='Leave giveaway', style=discord.ButtonStyle.danger)))
-        return await i.response.send_message(view=view, ephemeral=True)
-    run('INSERT OR IGNORE INTO giveaway_entries(gid,user_id,at) VALUES(?,?,?)', gid, str(i.user.id), now())
-    schedule_redraw(gid)
-    await i.response.send_message(f"🎉 You are in with **{total}** {'entry' if total == 1 else 'entries'}{detail}. Good luck! It is checked again when the giveaway ends.", ephemeral=True)
+        total = entries_for(i.user, g['config'])[0]
+        return await i.response.send_message(view=_entries_view(g, i.user, f'You have {_entry_word(total)}'), ephemeral=True)
+    ok, why = eligible(i.user, g['config'])
+    view = ui.LayoutView()
+    if g['status'] != 'running':
+        view.add_item(ui.TextDisplay('You did not enter this giveaway.'))
+    elif ok:
+        view.add_item(ui.TextDisplay(f"You have not entered yet. You would get **{_entry_word(entries_for(i.user, g['config'])[0])}**."))
+        view.add_item(ui.ActionRow(ui.Button(custom_id=f'gw:enter:{gid}', label='Enter giveaway', style=discord.ButtonStyle.success, emoji='🎉')))
+    else:
+        view.add_item(ui.TextDisplay(f'You have not entered, and you cannot yet: {why}'))
+    await i.response.send_message(view=view, ephemeral=True)
 
 
 async def leave(i, gid):
     run('DELETE FROM giveaway_entries WHERE gid=? AND user_id=?', gid, str(i.user.id))
     schedule_redraw(gid)
-    await i.response.edit_message(view=text_view('You left the giveaway.'))
+    await i.response.edit_message(view=text_view('You left the giveaway. Press Enter giveaway to join again.'))
 
 
 # ---- the draw ----
@@ -615,14 +624,14 @@ async def cancel(gid):
 
 # ---- the preview draft ----
 FIELDS = ('prizes', 'req_roles', 'req_mode', 'blacklist', 'bonus', 'min_invites', 'invite_entries', 'invite_cap', 'min_days', 'claim_hours', 'ping',
-          'hosts', 'banner', 'prize_style')
+          'hosts', 'banner')
 
 
 def new_draft(user_id, channel_id, prize, seconds, winners):
     return create_pending({'kind': 'giveaway', 'user': str(user_id), 'channel': str(channel_id), 'title': f'{prize} giveaway'[:100], 'seconds': seconds,
                            'prizes': split_prize(prize, winners), 'req_roles': [], 'req_mode': 'any', 'blacklist': [], 'bonus': {},
                            'min_invites': 0, 'invite_entries': False, 'invite_cap': 0, 'min_days': 0, 'claim_hours': 0, 'ping': 'none',
-                           'hosts': [str(user_id)], 'banner': {'headline': prize}, 'prize_style': DEFAULT_STYLE})
+                           'hosts': [str(user_id)], 'banner': {'headline': prize}})
 
 
 def _config(d):
@@ -649,8 +658,6 @@ def payload(pid):
     view.add_item(ui.ActionRow(
         ui.Button(custom_id=f'gw:mode:{pid}', label=f"Roles needed: {'all of them' if d['req_mode'] == 'all' else 'any one'}", style=discord.ButtonStyle.secondary, emoji='🎭'),
         ui.Button(custom_id=f'gw:inv:{pid}', label=f"Invites as entries: {'on' if d['invite_entries'] else 'off'}", style=discord.ButtonStyle.secondary, emoji='➕')))
-    view.add_item(ui.ActionRow(ui.Select(custom_id=f'gw:style:{pid}', placeholder='How the prizes look', options=[
-        discord.SelectOption(label=f'Prizes: {n}', value=k, description=desc, default=k == d['prize_style']) for k, n, desc in STYLES])))
     view.add_item(ui.ActionRow(ui.Select(custom_id=f'gw:ping:{pid}', placeholder='Who gets pinged', options=[
         discord.SelectOption(label=n, value=k, description=desc, default=k == d['ping']) for k, n, desc in PINGS])))
     ch = ctx.guild.get_channel(int(d['channel']))
@@ -683,6 +690,8 @@ async def on_component(i, parts):
         return await leave(i, ident)
     if action == 'claim':
         return await claim(i, ident)
+    if action == 'mine':
+        return await mine(i, ident)
     if not can_run(i.user):
         return await i.response.send_message('Only admins and the Giveaway Manager role can run giveaways.', ephemeral=True)
     d = await _guard(i, ident)
@@ -727,8 +736,6 @@ async def on_component(i, parts):
         d['hosts'] = values or d['hosts']
     elif action == 'channel':
         d['channel'] = values[0] if values else d['channel']
-    elif action == 'style':
-        d['prize_style'] = values[0] if values else d['prize_style']
     elif action == 'ping':
         d['ping'] = values[0] if values else 'none'
     set_pending(pid, d)

@@ -14,7 +14,7 @@ from .components import NO_MENTIONS
 from .ctx import ctx
 from .db import all_, db, now, run
 from .env import cfg
-from .banner import banner_file
+from .pngs import with_strip
 
 NL = chr(10)
 SMALL = discord.SeparatorSpacing.small
@@ -123,54 +123,48 @@ def leaderboard():
     return sorted(rows, key=lambda x: (-x[1]['score'], -x[1]['joined']))
 
 
-def _card(file, blocks, footer):
-    """The community look (docs/DESIGN.md): the banner, then short blocks, a line, and the command chips at the bottom."""
-    items = [ui.MediaGallery(discord.MediaGalleryItem(f'attachment://{file.filename}'))]
-    for k, b in enumerate(blocks):
-        if b == '---':
-            items.append(ui.Separator(visible=True, spacing=SMALL))
-        else:
-            items.append(ui.TextDisplay(b))
+def _card(blocks, footer):
+    """The community look without a banner (banners are for giveaways): short blocks, a line above the footer, the command chips at the bottom."""
+    items = []
+    for b in blocks:
+        items.append(ui.Separator(visible=True, spacing=SMALL) if b == '---' else ui.TextDisplay(b))
     items += [ui.Separator(visible=True, spacing=SMALL), ui.TextDisplay(NL.join('-# ' + code_chip(x) for x in footer))]
+    items, strip = with_strip(items)  # the faint line is the footer line and keeps the card as wide as the others
     view = ui.LayoutView()
     view.add_item(ui.Container(*items))
-    return view, [file]
+    return view, [strip]
 
 
 def stats_card(member, mine=True):
     s = stats(member.id)
     rank = next((k + 1 for k, (u, _) in enumerate(leaderboard()) if u == str(member.id)), None)
-    file = banner_file('YOUR INVITES' if mine else 'INVITES', member.display_name, '', filename='invites.png')
-    word = 'invite counts' if s['score'] == 1 else 'invites count'
-    blocks = [f"## ✅ {s['score']} {word}{NL}-# people {'you' if mine else 'they'} brought who are still here and verified" + (f' · rank **#{rank}**' if rank else ''),
+    who = 'your' if mine else 'their'
+    blocks = [f"## 📨 {'Your' if mine else member.display_name + chr(39) + 's'} invites" + (f"{NL}-# rank **#{rank}**" if rank else ''),
               '---',
+              f"### {s['score']} {'invite counts' if s['score'] == 1 else 'invites count'}{NL}-# people {'you' if mine else 'they'} brought who are still here and verified",
               NL.join([f"🕓 **{s['unverified']}** joined but are not verified yet",
                        f"🚪 **{s['left']}** left the server",
-                       f"👥 **{s['joined']}** joined with {'your' if mine else 'their'} invites",
-                       f"🔗 **{s['uses']}** uses of {'your' if mine else 'their'} invites, all time"])]
-    return _card(file, blocks, ['/invites top · the leaderboard'])
+                       f"👥 **{s['joined']}** joined with {who} invites",
+                       f"🔗 **{s['uses']}** uses of {who} invites, all time"])]
+    return _card(blocks, ['/invites top · the leaderboard'])
 
 
 def top_card(viewer_id=None):
     rows = leaderboard()
     total = sum(b['score'] for _, b in rows)
-    file = banner_file('TOP INVITERS', f'{total} invites counting', '', filename='invites.png')
     lines = []
-    medals = ['🥇', '🥈', '🥉']
     for k, (uid, b) in enumerate(rows[:10]):
         m = ctx.guild.get_member(int(uid))
         who = m.display_name if m else 'a former member'
         if k == 0:
-            lines += [f"### 🥇 {who} · {b['score']}", f"-# {b['joined']} joined with their invites"]
-        elif k < 3:
-            lines.append(f"{medals[k]} **{who}** · {b['score']}")
+            lines += [f"### {who} · {b['score']}", f"-# 1st place · {b['joined']} joined with their invites"]
         else:
-            lines.append(f"{k + 1}. {who} · {b['score']}")
+            lines.append(f"**{k + 1}{'nd' if k == 1 else 'rd' if k == 2 else 'th'}** · {who} · {b['score']}")
     mine = next((k + 1 for k, (u, _) in enumerate(rows) if u == str(viewer_id)), None)
-    blocks = [NL.join(lines) or 'Nobody has a counting invite yet. Invite a friend: they count once they verify.']
+    blocks = [f'## 🏆 Top inviters{NL}-# {total} invites counting', '---', NL.join(lines) or 'Nobody has a counting invite yet. Invite a friend: they count once they verify.']
     if mine:
         blocks += ['---', f'You are **#{mine}**']
-    return _card(file, blocks, ['/invites stats · your own numbers'])
+    return _card(blocks, ['/invites stats · your own numbers'])
 
 
 async def command_invites(i, sub, opts):
