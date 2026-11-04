@@ -74,6 +74,11 @@ async def autocomplete(i):
     fname, fvalue = focused or ('', '')
     if name in DEV_ONLY and level(i.user) in ('jr', 'none'):  # the pick list would show every game to someone who may not run the command
         return await i.response.autocomplete([app_commands.Choice(name='Only developers can use this command', value='none')])
+    if name == 'giveaway' and fname == 'giveaway':
+        from .giveaway import autocomplete as giveaway_autocomplete, can_run
+        if not can_run(i.user):
+            return await i.response.autocomplete([])
+        return await i.response.autocomplete([app_commands.Choice(name=c['name'], value=c['value']) for c in await giveaway_autocomplete(i, fvalue)])
     if name == 'tester' and fname == 'only_for':  # "dev" = any developer, or pick one
         q = str(fvalue).strip().lower().lstrip('@')
         picks = [app_commands.Choice(name='Any dev (private to the developers)', value=testers.ANY_DEV)] if (not q or q in 'developers' or q in 'any dev') else []
@@ -448,6 +453,12 @@ async def handle_command(i):
     if name == 'Mog':  # the right-click app on a message
         from .mog import app_mog
         return await app_mog(i)
+    if name == 'giveaway':  # admins and the Giveaway Manager role: it checks itself
+        from .giveaway import command_giveaway
+        return await command_giveaway(i, sub, opts)
+    if name == 'invites':
+        from .invites import command_invites
+        return await command_invites(i, sub, opts)
     if name == 'mog':
         if level(i.user) != 'admin':
             return await deny(i)
@@ -525,6 +536,9 @@ async def handle_component(i):
     a = parts[1] if len(parts) > 1 else None
     b = parts[2] if len(parts) > 2 else None
     ctype = i.data.get('component_type')
+    if kind == 'gw':  # giveaways: enter, leave, claim and the preview's buttons
+        from .giveaway import on_component
+        return await on_component(i, parts)
     if kind == 'mock':  # the buttons of a mockup in the test channel
         return await i.response.send_message('This is only a mockup, the buttons do nothing yet.', ephemeral=True)
     if ctype == 2:  # button
@@ -599,6 +613,9 @@ async def handle_modal(i):
         return await modal_note(i, a, fields)
     if kind == 'annedit':
         return await modal_ann_edit(i, int(a), fields)
+    if kind in ('gwp', 'gwr'):
+        from .giveaway import on_modal as giveaway_modal
+        return await giveaway_modal(i, kind, int(a), fields)
     if kind == 'reled':
         from .reldraft import on_modal
         return await on_modal(i, int(a), fields)

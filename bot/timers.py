@@ -30,6 +30,12 @@ async def _exec(t):
             await (await ch.fetch_message(int(message_id))).delete()
         except Exception as e:
             print('delete card', repr(e))
+    elif t['kind'] == 'gw_end':  # a giveaway's time is up
+        from .giveaway import end
+        await end(int(t['target']))
+    elif t['kind'] == 'gw_claim':  # the claim window closed
+        from .giveaway import claim_expired
+        await claim_expired(int(t['target']))
     elif t['kind'] == 'unban':
         try:
             await ctx.guild.unban(discord.Object(id=int(t['target'])), reason='7-day ban finished')

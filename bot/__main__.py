@@ -4,7 +4,7 @@ import traceback
 
 import discord
 
-from . import board, cards, mog, watch
+from . import board, cards, invites, mog, watch
 from .bounty import refresh_claims
 from .catchup import catchup
 from .commands_sync import register_commands
@@ -26,6 +26,7 @@ intents.guilds = True
 intents.guild_messages = True
 intents.message_content = True
 intents.members = True
+intents.invites = True  # the invite tracker
 intents.guild_reactions = True
 intents.webhooks = True  # a webhook made in the library channel is deleted at once
 client = discord.Client(intents=intents, activity=discord.CustomActivity(name='*tokenmogs the loser below me*'), status=discord.Status.online)
@@ -75,6 +76,7 @@ async def on_ready():
     await ensure_suggest_tags()
     await ensure_fixed_tag()
     await register_commands()
+    await invites.load()
     if board.is_live():  # this bot runs the bounty board: read the forum again before anything uses the claims
         try:
             await board.sync_forum()
@@ -235,6 +237,27 @@ async def on_webhooks_update(channel):
 @client.event
 async def on_raw_thread_delete(p):
     board.on_thread_delete(p.thread_id)
+
+
+@client.event
+async def on_member_join(member):
+    try:
+        await invites.on_member_join(member)
+    except Exception:
+        traceback.print_exc()
+
+
+@client.event
+async def on_member_remove(member):
+    try:
+        await invites.on_member_remove(member)
+    except Exception:
+        traceback.print_exc()
+
+
+@client.event
+async def on_invite_create(invite):
+    await invites.on_invite_create(invite)
 
 
 @client.event
