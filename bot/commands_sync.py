@@ -13,7 +13,7 @@ from .env import cfg
 ADMIN = '8'                     # Administrator
 MANAGE_EVENTS = str(1 << 33)  # the Giveaway Manager role gets this permission to see /giveaway (admins always do)
 DEV = str(1 << 51)              # Pin Messages: the Developers role has it, Tester and @everyone do not
-LOCKED = {'giveaway': MANAGE_EVENTS, **{n: ADMIN for n in ('invite', 'mog', 'Mog', 'preview', 'botrules', 'games', 'bounty-board', 'assign', 'exclude', 'include')},
+LOCKED = {'giveaway': MANAGE_EVENTS, **{n: ADMIN for n in ('mog', 'Mog', 'preview', 'botrules', 'games', 'bounty-board', 'assign', 'exclude', 'include')},
           **{n: DEV for n in ('config', 'update', 'strikes', 'pardon', 'pings', 'release', 'unrelease', 'gamelink', 'progress', 'claim', 'unclaim')}}
 
 

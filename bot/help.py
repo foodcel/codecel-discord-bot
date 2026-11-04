@@ -16,7 +16,7 @@ PAGES = {
     'admin': ('🔑', 'Admin', 'Only admins can use these. You can use every other page too.', [
         ('🎮', 'Games board', ['assign', 'exclude', 'include', 'bounty-board', 'games']),
         ('🧪', 'Testers', ['tester add', 'tester remove', 'tester status', 'tester edit', 'tester post']),
-        ('🔎', 'Invites', ['invite check']),
+        ('🔎', 'Invites', ['invites check']),
         ('🎁', 'Giveaways', ['giveaway new', 'giveaway end', 'giveaway reroll', 'giveaway cancel', 'giveaway list']),
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
@@ -52,7 +52,7 @@ SHORT = {
     'pings': 'choose when the bot pings you', 'tester find': 'find a tester for your game', 'tester profile': 'fill in or change your tester profile',
     'giveaway new': 'start a giveaway (opens a preview first)', 'giveaway end': 'end one now and draw', 'giveaway reroll': 'draw a new winner',
     'giveaway cancel': 'cancel a running giveaway', 'giveaway list': 'the latest giveaways',
-    'invites stats': 'your invites and how many count', 'invite check': "a member's invite links, who they invited, who is verified", 'invites top': 'the invite leaderboard',
+    'invites stats': 'your invites and how many count', 'invites check': "a member's invite links, who they invited, who is verified", 'invites top': 'the invite leaderboard',
     'bug': 'report a bug with a short form', 'improvement': 'suggest an improvement with a short form', 'help': 'this list',
 }
 

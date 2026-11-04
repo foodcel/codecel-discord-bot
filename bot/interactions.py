@@ -453,12 +453,12 @@ async def handle_command(i):
     if name == 'giveaway':  # admins and the Giveaway Manager role: it checks itself
         from .giveaway import command_giveaway
         return await command_giveaway(i, sub, opts)
-    if name == 'invite':  # admins only
-        if level(i.user) != 'admin':
-            return await deny(i)
-        from .invites import command_invite_check
-        return await command_invite_check(i, opts)
     if name == 'invites':
+        if sub == 'check':  # a sub command cannot be hidden in the picker, so it refuses anyone who is not an admin
+            if level(i.user) != 'admin':
+                return await deny(i, 'Only admins can check other people\'s invites. Use `/invites stats` for your own.')
+            from .invites import command_invite_check
+            return await command_invite_check(i, opts)
         from .invites import command_invites
         return await command_invites(i, sub, opts)
     if name == 'mog':

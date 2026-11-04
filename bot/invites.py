@@ -205,7 +205,7 @@ async def command_invites(i, sub, opts):
     await i.response.send_message(view=view, files=files, ephemeral=True, allowed_mentions=names_for([target.id]))
 
 
-# ---- /invite check: everything about one member's invites, for admins ----
+# ---- /invites check: everything about one member's invites, for admins ----
 def _ts(ms):
     return f'<t:{int(ms) // 1000}:d>'
 
