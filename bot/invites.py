@@ -182,7 +182,7 @@ def names_for(ids):
 async def command_invites(i, sub, opts):
     if sub == 'top':
         view, files, ids = top_card(i.user.id)
-        return await i.response.send_message(view=view, files=files, silent=True, allowed_mentions=names_for(ids))
+        return await i.response.send_message(view=view, files=files, ephemeral=True, allowed_mentions=names_for(ids))  # only the person who ran it sees it
     target = ctx.guild.get_member(int(opts['user'])) if opts.get('user') else i.user
     if not target or target.bot:
         return await i.response.send_message('I can only show invites for a person in the server.', ephemeral=True)
