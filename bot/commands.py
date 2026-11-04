@@ -156,7 +156,7 @@ COMMANDS = [
         option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
         option(STRING, 'testing', 'Testing phase on or off. Testers can report a game in testing (released games too)', choices=[('On', 'on'), ('Off', 'off')]),
     ]),
-    command('giveaway', 'Run a giveaway: prizes per place, role / invite requirements, bonus entries (admins and Giveaway Managers)', [
+    command('giveaway', 'Run a giveaway: prizes per place, role and invite rules, bonus entries (admins and managers)', [
         sub('new', 'Start a giveaway: it opens a preview with buttons, nothing posts until you press Start', [
             option(STRING, 'title', 'What it is, e.g. 10k Robux giveaway', required=True, max_length=100),
             option(STRING, 'duration', 'How long it runs: 3d, 12h, 1d 6h', required=True),
