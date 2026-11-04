@@ -10,6 +10,9 @@ The bot has **two looks**. Pick by who reads the post, then follow that look exa
 | People and roles | names, or mentions sent silently | **real mentions**: `@Verified`, `@Booster`, `Hosted by: @host` (roles never ping; edits carry user mentions so names show) |
 | Never | relative times (except the update card) | trees, code blocks, grey code chips for anything that is not a command |
 
+**Private by default.** A command's reply (answers, previews, drafts, errors, `/invites`, `/help`) is private: only the person who ran it sees it. Only the thing the command exists to post is public
+(a giveaway, an update, a new-game card, the board, a mog GIF, a claim announcement).
+
 Shared by both: a line under the header and a line above the footer only (never in the middle), commands as code chips in the small footer, the button under the card,
 real dates, no dead space, the ping right above the card, preview in the test channel first, then edit in place.
 

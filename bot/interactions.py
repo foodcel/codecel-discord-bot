@@ -176,7 +176,7 @@ async def command_update(i, opts):
     if not can_manage(i.user, owner_of(tag_id)):
         return await deny(i, 'Only the dev who claimed this game (or an admin) can post updates.')
     game = upsert_game(tag_id, tag_name(tag_id))
-    await i.response.defer(thinking=True)
+    await i.response.defer(ephemeral=True, thinking=True)  # the draft is for the dev only
     fixes, fix_lines, sugs, sug_lines = await polish_fixes(tag_id, game)
     pid = create_pending({
         'tagId': tag_id, 'bugIds': [f['id'] for f in fixes], 'bugfixes': fix_lines,
@@ -242,8 +242,8 @@ async def button_ann(i, action, pid, extra=None):
                              f"Posted {len(bug_lines)} bug fix(es) and {len(p['updates']) + len(new_lines)} update(s), {how}.",
                              final=f"{'Added to the earlier update' if merge else 'Posted'}: {r['url']}" + ('' if merge else (' (pinged)' if ping else ' (no ping)')))
     if merge:
-        return await i.message.edit(view=text_view(f"{E['fixed']} **ADDED**{EM}·{EM}to the earlier update: {r['url']}"), attachments=[])
-    return await i.message.edit(view=text_view(f"{E['fixed']} **POSTED**{EM}·{EM}{r['url']}"), attachments=[])
+        return await i.edit_original_response(view=text_view(f"{E['fixed']} **ADDED**{EM}·{EM}to the earlier update: {r['url']}"), attachments=[])
+    return await i.edit_original_response(view=text_view(f"{E['fixed']} **POSTED**{EM}·{EM}{r['url']}"), attachments=[])
 
 
 async def modal_ann_edit(i, pid, fields):
@@ -270,10 +270,7 @@ async def modal_ann_edit(i, pid, fields):
     await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'],
                              f"Edited the draft: {len(lines_of(fields.get('bugfixes')))} bug fix line(s), {len(updates)} update line(s)"
                              + (f", version {fields.get('version').strip()}" if (fields.get('version') or '').strip() else '') + '.')
-    payload = edit_kw(await draft_payload(pid))
-    if from_message:
-        return await i.message.edit(**payload)
-    return await i.edit_original_response(**payload)
+    return await i.edit_original_response(**edit_kw(await draft_payload(pid)))  # works for a private draft and for a posted offer
 
 
 async def select_ann(i, pid):
