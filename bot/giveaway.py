@@ -384,9 +384,8 @@ async def redraw(gid):
     if not msg:
         return
     status = 'ended' if g['status'] == 'ended' else 'running'
-    keep = [a for a in msg.attachments if a.filename == BANNER]
-    files = keep if status == 'running' and keep else [banner_for(g, ended=status == 'ended')]  # a running card keeps its banner, an ended one gets "ended"
-    await msg.edit(view=container(g, gid, status, _count(gid)), attachments=files, allowed_mentions=names_only(g))
+    # the banner is uploaded again with every edit: a card that points at attachment://giveaway.png needs the file in the same request
+    await msg.edit(view=container(g, gid, status, _count(gid)), attachments=[banner_for(g, ended=status == 'ended')], allowed_mentions=names_only(g))
 
 
 _pending_redraw = set()
@@ -807,7 +806,7 @@ async def start(i, pid, d):
     sent = await ch.send(view=container(g, gid, 'running', 0), files=[banner_for(g)], allowed_mentions=allowed)  # the one ping, if any: the role
     run('UPDATE giveaways SET message_id=? WHERE id=?', str(sent.id), gid)
     try:  # the same card again with the hosts allowed, so every app shows their names (an edit never pings)
-        await sent.edit(view=container(g, gid, 'running', 0), attachments=sent.attachments, allowed_mentions=names_only(g))
+        await sent.edit(view=container(g, gid, 'running', 0), attachments=[banner_for(g)], allowed_mentions=names_only(g))
     except Exception as e:
         print('giveaway names', repr(e)[:120])
     add_timer('gw_end', gid, ends)
