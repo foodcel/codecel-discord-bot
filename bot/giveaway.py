@@ -257,8 +257,12 @@ def entries_for(member, c):
         return 0, []
     rows = [('for entering', 1)]
     held = [(rid, n) for rid, n in c['bonus'].items() if _has(member, rid)]
-    if c.get('bonus_best') and held:  # the bonuses do not stack: only the highest one counts
-        held = [max(held, key=lambda h: h[1])]
+    if c.get('bonus_best') and held:  # level bonuses do not stack (only the highest counts); other role bonuses, like boosting, add on top
+        lv = [h for h in held if _level_of(ctx.guild.get_role(int(h[0]))) is not None]
+        rest = [h for h in held if h not in lv]
+        held = rest + ([max(lv, key=lambda h: h[1])] if lv else [])
+        if not lv and len(rest) > 1 and not any(_level_of(ctx.guild.get_role(int(r))) is not None for r in c['bonus']):
+            held = [max(rest, key=lambda h: h[1])]  # no level roles in this giveaway: the setting means highest only for all of them
     rows += [(_role(rid), n) for rid, n in held]
     if c['invite_entries']:
         q = invites.qualified(member.id)
@@ -311,7 +315,8 @@ def bonus_block(c):
     if c['invite_entries']:
         rows.append('➕ **+1** entry for every invite' + (f" · max **{c['invite_cap']}** entries in total" if c['invite_cap'] else ''))
     if rows and c.get('bonus_best') and len(c['bonus']) > 1:
-        rows.append('-# Role bonuses do not stack: only your highest counts')
+        has_levels = any(_level_of(ctx.guild.get_role(int(r))) is not None for r in c['bonus'])
+        rows.append('-# Level bonuses do not stack: only your highest level counts' if has_levels else '-# Role bonuses do not stack: only your highest counts')
     return '**Bonus entries**' + NL + NL.join(rows) if rows else None
 
 
