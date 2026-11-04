@@ -289,7 +289,7 @@ def card_items(g, gid=None, status='running', count=0):
     n, ends = len(c['prizes']), g['ends_at'] // 1000
     when = f'ended <t:{ends}:f>' if status == 'ended' else f'ends <t:{ends}:f>'
     items = [ui.MediaGallery(discord.MediaGalleryItem(f'attachment://{BANNER}')),
-             ui.TextDisplay((f'{ping_text(c)}{NL}' if ping_text(c) else '') + f"**{n}** {'winner' if n == 1 else 'winners'}  ·  **{count}** entered  ·  {when}"),  # the ping, if any, right under the banner
+             ui.TextDisplay(f"**{n}** {'winner' if n == 1 else 'winners'}  ·  **{count}** entered  ·  {when}"),
              ui.Separator(visible=True, spacing=SMALL)]
     if status == 'ended':
         items.append(ui.TextDisplay(winners_block(g['result'], c)))
@@ -321,8 +321,10 @@ def ping_text(c):
 
 
 def container(g, gid=None, status='running', count=0):
-    """The card as a message view (the ping is inside it, under the banner)."""
+    """The card as a message view. The ping, when there is one, sits right above the card, outside it."""
     view = ui.LayoutView()
+    if p := ping_text(g['config']):
+        view.add_item(ui.TextDisplay(p))
     view.add_item(card_items(g, gid, status, count))
     return view
 
@@ -642,6 +644,8 @@ def payload(pid):
     view = ui.LayoutView()
     view.add_item(ui.TextDisplay(f"### 🧪 PREVIEW · GIVEAWAY{NL}-# Nothing is posted yet. Change what you want, then press Start. "
                                  f"It posts in <#{d['channel']}> and runs for **{fmt_duration(d['seconds'])}**."))
+    if p := ping_text(g['config']):  # shown as text here; it only pings when Start is pressed
+        view.add_item(ui.TextDisplay(p))
     view.add_item(card_items(g, None, 'draft', 0))
     view.add_item(ui.ActionRow(
         ui.Button(custom_id=f'gw:start:{pid}', label='Start', style=discord.ButtonStyle.success, emoji='✅'),
