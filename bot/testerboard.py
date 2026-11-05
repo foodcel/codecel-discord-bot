@@ -167,7 +167,7 @@ async def _join(i, k):
 
 async def on_button(i, action, arg):
     if action == 'join':  # the button on the card of a game that just went into testing
-        await i.response.defer(ephemeral=True)
+        await i.response.defer(ephemeral=True, thinking=True)
         return await _join(i, arg)
 
 
@@ -175,7 +175,7 @@ async def on_select(i, action, values):
     """The dropdown on the board: every game you pick flips: you join it, or leave it if you already test it."""
     if action != 'pick':
         return
-    await i.response.defer(ephemeral=True)
+    await i.response.defer(ephemeral=True, thinking=True)
     if not can_volunteer(i.user):
         return await i.edit_original_response(content='Only testers and helpers can volunteer.')
     shown = {g['key']: g for g in testing_games()[:25]}
