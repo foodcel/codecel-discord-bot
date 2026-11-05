@@ -26,11 +26,18 @@ def safe(n):
 _pending = {}  # token -> {'files': [...], 't': ms}
 
 
-def _keep(files, game=None):
+def evidence(opts):
+    """([files the player attached], the links box) from a /bug or /improvement command."""
+    files = [{'url': a['url'], 'name': a['filename'], 'size': a['size'], 'type': a.get('content_type') or ''}
+             for a in (opts.get(n) for n in ('file', 'file_2', 'file_3')) if a]
+    return files, (opts.get('links') or '').strip()
+
+
+def _keep(files, game=None, links=''):
     token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
     for k in [k for k, v in _pending.items() if time.time() * 1000 - v['t'] > 15 * 60000]:
         del _pending[k]
-    _pending[token] = {'files': files, 't': time.time() * 1000, 'game': game}
+    _pending[token] = {'files': files, 't': time.time() * 1000, 'game': game, 'links': links}
     return token
 
 
@@ -78,7 +85,7 @@ async def command_bug(i, opts):
     game, tag_id = resolve_game(opts.get('game'))
     if not game:
         return await reply('Pick a game from the list.', ephemeral=True)
-    token = _keep([], game)
+    token = _keep(*evidence(opts), game=game)
     return await i.response.send_modal(FormModal(f'tb:{tag_id or 0}:{token}', f'Bug report · {game}'[:45], [
         {'id': 'title', 'label': 'Short title', 'style': 'short', 'required': True, 'max': 80, 'placeholder': 'e.g. Car falls through the map'},
         {'id': 'what', 'label': 'What happened', 'style': 'paragraph', 'required': True, 'max': 1000, 'placeholder': 'Describe the bug'},
@@ -107,13 +114,13 @@ def tester_report_embed(bug, form, tester_id, too_big=None, media=None, origin=N
         blocks.append(f"**{E['fixed']} Should happen**{NL}{sentence(form['expected'])}")
     if origin:
         blocks.append(f"**🔗 Original message**{NL}[Open it]({origin})")
-    typed = links_in(form.get('what'), form.get('steps'), form.get('expected'))
+    typed = links_in(form.get('what'), form.get('steps'), form.get('expected'), form.get('links'))
     if typed:
         blocks.append(f"**🔗 Links**{NL}" + NL.join(typed))
     if too_big:
         blocks.append(f"**{E['video']} Too big to attach**{NL}" + NL.join(too_big) + f'{NL}Post the file in this thread.')
     from datetime import datetime, timezone
-    return card(f"🧪 {label(bug)} · {bug['title']}", blocks, ['Tester report · reply here to add screenshots, videos or links'], media=media,
+    return card(f"🧪 {label(bug)} · {bug['title']}", blocks, ['Tester report · more files: /attach in this post'], media=media,
                 when=datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc))
 
 
@@ -159,19 +166,20 @@ async def modal_bug(i, tag_id, token, fields):
     tag_id = None if str(tag_id) == '0' else tag_id
     form = {k: (fields.get(k) or '').strip() for k in ('title', 'what', 'steps', 'expected', 'device')}
     chosen = kept.get('files', [])
+    form['links'] = kept.get('links', '')
     ai = {'title': form['title'], 'summary': cut(form['what'], 200), 'severity': 'medium'}
     try:
         ai = await summarize_tester_report(game, form['title'], form['what'], form['steps'], form['expected'], form['device'])
     except Exception as e:
         print('summarizeTesterReport', e)
     from bot.features.bugs.forms import _files, with_clips
-    chosen = await with_clips(chosen, form['what'], form['steps'], form['expected'])  # clip links become real videos
+    chosen = await with_clips(chosen, form['what'], form['steps'], form['expected'], form.get('links'))  # clip links become real videos
     batches, too_big, media = await _files(chosen)  # re-uploaded so the files never expire
     done = await create_report(i.user.id, game, tag_id, form, ai, batches, too_big, media)
     if not done:
         return await i.edit_original_response(content='I could not find the testers forum. Ask a developer.')
     id_, thread = done
-    return await i.edit_original_response(view=notice(f"{E['fixed']} **Sent**{EM}·{EM}to the {game} developer: {thread.jump_url}\nAdd screenshots, videos or links by replying in the post.")[0])
+    return await i.edit_original_response(view=notice(f"{E['fixed']} **Sent**{EM}·{EM}to the {game} developer: {thread.jump_url}\nMore files or links? Use /attach or reply in the post.")[0])
 
 
 async def report_from_message(src, saver, game, tag_id):

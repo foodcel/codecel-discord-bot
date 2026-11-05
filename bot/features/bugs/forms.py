@@ -14,7 +14,7 @@ from bot.core.ctx import fetch_channel
 from bot.core.db import bug_by_id, now, run, update_bug
 from bot.core.env import cfg
 from bot.features.bugs.tags import find_device_tag, tag_name, to_suggest_tag_id
-from bot.features.bugs.tester import _keep, _pending, quote, safe
+from bot.features.bugs.tester import _keep, _pending, evidence, quote, safe
 from bot.features.bugs.transcript import download, upload_limit
 from bot.discord_ui.ui import E, EM, cut, sentence
 
@@ -54,7 +54,7 @@ async def command_form(i, opts, kind):
         return await reply('Pick a game from the list.', ephemeral=True)
     if kind == 'suggestion' and not to_suggest_tag_id(tag_id):
         return await reply('That game has no tag in the improvement forum yet. Ask a developer.', ephemeral=True)
-    token = _keep([])
+    token = _keep(*evidence(opts))
     if kind == 'bug':
         inputs = [
             {'id': 'title', 'label': 'Short title', 'style': 'short', 'required': True, 'max': 80, 'placeholder': 'e.g. Notes stop responding after restarting a song'},
@@ -92,12 +92,12 @@ def _card(kind, user_id, game, form, too_big=None, media=None, origin=None, foot
             blocks.append(f"**{E['note']} Why**{NL_}{sentence(form['why'])}")
     if origin:
         blocks.append(f"**🔗 Original message**{NL_}[Open it]({origin})")
-    typed = links_in(form.get('what'), form.get('steps'), form.get('expected'), form.get('why'))
+    typed = links_in(form.get('what'), form.get('steps'), form.get('expected'), form.get('why'), form.get('links'))
     if typed:
         blocks.append(f"**🔗 Links**{NL_}" + NL_.join(typed))
     if too_big:
         blocks.append(f"**{E['video']} Too big to attach**{NL_}" + NL_.join(too_big) + f'{NL_}Post the file in this post.')
-    return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · reply here to add screenshots, videos or links"], media=media)
+    return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · more files: /attach in this post"], media=media)
 
 
 async def with_clips(chosen, *texts):
@@ -148,7 +148,9 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
     keys = ('title', 'what', 'steps', 'expected', 'device') if kind == 'bug' else ('title', 'what', 'why')
     form = {k: (fields.get(k) or '').strip() for k in ('title', 'what', 'steps', 'expected', 'device', 'why')}
     form = {k: (form[k] if k in keys else '') for k in form}
-    chosen = (_pending.pop(token, None) or {}).get('files', [])
+    kept = _pending.pop(token, None) or {}
+    chosen = kept.get('files', [])
+    form['links'] = kept.get('links', '')
     _last[(i.user.id, kind)] = time.time()
 
     forum = await fetch_channel(cfg.bugs_id if kind == 'bug' else cfg.suggestions_id)
@@ -161,7 +163,7 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
     dev = _device_tag(form['device']) if kind == 'bug' else None
     if dev and forum.get_tag(int(dev['id'])):
         tags.append(forum.get_tag(int(dev['id'])))
-    chosen = await with_clips(chosen, *(form[k] for k in ('what', 'steps', 'expected', 'why')))
+    chosen = await with_clips(chosen, *(form[k] for k in ('what', 'steps', 'expected', 'why', 'links')))
     batches, too_big, media = await _files(chosen)
     created = await forum.create_thread(
         name=cut(form['title'], 100), view=(made := _card(kind, i.user.id, game, form, too_big, media))[0], files=batches[0] + made[1],
@@ -170,7 +172,7 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
     for k, extra in enumerate(batches[1:]):
         if extra:
             await thread.send(content=f'📎 More files · {k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
-    body = (f"What happened: {form['what']}\nSteps: {form['steps']}" + (f"\nShould happen: {form['expected']}" if form['expected'] else '')
+    body = (f"What happened: {form['what']}\nSteps: {form['steps']}" + (f"\nShould happen: {form['expected']}" if form['expected'] else '') + (f"\nLinks: {form['links']}" if form.get('links') else '')
             if kind == 'bug' else f"{form['what']}" + (f"\nWhy: {form['why']}" if form['why'] else ''))
     id_ = run("""INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,status,created_at,last_msg_id,device,body,source,kind)
         VALUES(?,?,?,?,?,'new',?,?,?,?,'form',?)""",
@@ -178,7 +180,7 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
               form['device'] or None, body, kind).lastrowid
     if analyze:
         asyncio.ensure_future(_analyze(id_, thread, kind))
-    await i.edit_original_response(view=notice(f"{E['fixed']} **Posted**{EM}·{EM}{thread.jump_url}\nAdd screenshots, videos or links by replying in the post.")[0])
+    await i.edit_original_response(view=notice(f"{E['fixed']} **Posted**{EM}·{EM}{thread.jump_url}\nMore files or links? Use /attach or reply in the post.")[0])
     return id_
 
 

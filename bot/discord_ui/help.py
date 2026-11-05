@@ -32,7 +32,7 @@ PAGES = {
         ('🧪', 'Testing', ['tester profile',
                           ('/bug', 'in the testing channel: report a bug as a thread')])]),
     'everyone': ('🌍', 'Everyone', 'For everyone, in the bug and improvement forums.', [
-        ('🐛', 'Reporting', ['bug', 'improvement']),
+        ('🐛', 'Reporting', ['bug', 'improvement', 'attach']),
         ('📨', 'Invites', ['invites link', 'invites stats', 'invites top']),
         ('❓', 'Help', ['help'])]),
 }
@@ -55,7 +55,7 @@ SHORT = {
     'giveaway new': 'start a giveaway (opens a preview first)', 'giveaway end': 'end one now and draw', 'giveaway reroll': 'draw a new winner',
     'giveaway cancel': 'cancel a running giveaway', 'giveaway stats': 'how many new members it brought', 'giveaway list': 'the latest giveaways',
     'invites stats': 'your invites and how many count', 'invites link': 'your own invite link, tracked for you', 'invites check': "a member's invite links, who they invited, who is verified", 'invites top': 'the invite leaderboard',
-    'bug': 'report a bug with a short form', 'improvement': 'suggest an improvement with a short form', 'help': 'this list',
+    'attach': 'add another screenshot or video to your report', 'bug': 'report a bug with a short form (files and links optional)', 'improvement': 'suggest an improvement with a short form', 'help': 'this list',
 }
 
 

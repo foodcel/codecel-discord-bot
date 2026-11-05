@@ -24,14 +24,21 @@ def sub(name, description, options=None):
     return option(SUB, name, description, options=options or [])
 
 
+def _evidence_options():
+    """Up to 3 files and a links box on /bug and /improvement. More files go in with /attach inside the post."""
+    return [option(ATTACHMENT, 'file', 'A screenshot or video (optional)'), option(ATTACHMENT, 'file_2', 'Another file (optional)'),
+            option(ATTACHMENT, 'file_3', 'Another file (optional)'),
+            option(STRING, 'links', 'Clip or video links, separated by spaces (optional)', max_length=400)]
+
+
 def _bug_command():
-    opts = [option(STRING, 'game', 'Which game', required=True, autocomplete=True)]
-    return command('bug', 'Report a bug: pick the game, fill in a short form. Add screenshots and videos in the post after', opts)
+    opts = [option(STRING, 'game', 'Which game', required=True, autocomplete=True), *_evidence_options()]
+    return command('bug', 'Report a bug: pick the game, add files or links if you have them, and fill in a short form', opts)
 
 
 def _improvement_command():
-    opts = [option(STRING, 'game', 'Which game', required=True, autocomplete=True)]
-    return command('improvement', 'Suggest an improvement: pick the game, fill in a short form. Add screenshots and videos after', opts)
+    opts = [option(STRING, 'game', 'Which game', required=True, autocomplete=True), *_evidence_options()]
+    return command('improvement', 'Suggest an improvement: pick the game, add files or links if you have them, and fill in a short form', opts)
 
 
 FORUM, TEXT = 15, 0
@@ -92,6 +99,8 @@ COMMANDS = [
     _bug_command(),
     _improvement_command(),
     command('help', 'Show the commands you can use'),
+    command('attach', 'Add another screenshot or video to your report. Use it inside the report post', [
+        option(ATTACHMENT, 'file', 'The screenshot or video', required=True), option(STRING, 'note', 'A few words about it (optional)', max_length=200)]),
     command('mog', 'Admin: Codecel posts a mog GIF and pings Robin and Redwing Helper'),
     {'type': 3, 'name': 'Mog'},  # right click a message, Apps, Mog: Codecel replies to it with a GIF
     command('pings', 'Choose when the bot pings you', [

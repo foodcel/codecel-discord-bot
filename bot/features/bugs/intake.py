@@ -195,10 +195,10 @@ _timers = {}
 INFO_PING_GAP = 10 * 60 * 1000  # a bug pings its dev about new info at most this often
 
 
-async def add_info(bug, msg):
+async def add_info(bug, msg, by=None):
     """Words or files that came after "LOGGED": they are added to the report, the message gets a 📎, and the owner is pinged (at most every 10 minutes)."""
     text = (msg.content or '').strip()
-    line = f"[{msg.author.display_name}] {text}" + (f" (+{len(msg.attachments)} file(s))" if msg.attachments else '')
+    line = f"[{by or msg.author.display_name}] {text}" + (f" (+{len(msg.attachments)} file(s))" if msg.attachments else '')
     update_bug(bug['id'], {'body': ((bug.get('body') or '') + chr(10) + line)[-3000:]})
     try:
         await msg.add_reaction('📎')

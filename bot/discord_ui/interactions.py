@@ -462,6 +462,9 @@ async def handle_command(i):
     if name == 'giveaway':  # admins and the Giveaway Manager role: it checks itself
         from bot.features.giveaways.giveaway import command_giveaway
         return await command_giveaway(i, sub, opts)
+    if name == 'attach':
+        from bot.features.bugs.attach import command_attach
+        return await command_attach(i, opts)
     if name == 'invites':
         if sub == 'check':  # a sub command cannot be hidden in the picker, so it refuses anyone who is not an admin
             if level(i.user) != 'admin':
