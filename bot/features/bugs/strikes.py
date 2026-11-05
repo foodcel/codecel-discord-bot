@@ -50,7 +50,19 @@ def strike_card(user_id, count, step, reason, bug_id=None, pending=False, log_id
     reason_block = f"**{E['note']} Reason**{NL}{sentence(reason)}" + (f"{NL}[Open post]({thread_link(post)})" if post else '')
     inside = [ui.ActionRow(button(f'strike:confirm:{log_id}', f'Confirm {ACTION[step].lower()}', discord.ButtonStyle.danger),
                            button(f'strike:dismiss:{log_id}', 'Dismiss', discord.ButtonStyle.secondary))] if pending and log_id else []
-    return card(f"{E['warn']} Strike {count}", [status, facts, reason_block], ping=f'<@&{cfg.dev_role}>' if pending and not result else None, inside=inside)
+    return card(f"{E['warn']} Strike {count}", [status, facts, reason_block], ping=f'<@{cfg.owner_id}>' if pending and not result and cfg.owner_id else None, inside=inside)
+
+
+async def _to_devlog(**kw):
+    """Strike cards go to the dev log as a warning (the mod log if there is no dev log)."""
+    from bot.core.ctx import fetch_channel
+    ch = await fetch_channel(cfg.devlog_id) if cfg.devlog_id else None
+    if ch is None:
+        return await modlog(**kw)
+    try:
+        return await ch.send(**kw)
+    except Exception as e:
+        print('strike card', repr(e)[:120])
 
 
 def step_for(count):
@@ -69,7 +81,7 @@ async def strike_user(user_id, reason, bug_id=None):
     if not member:
         return
     if is_staff(member):
-        await modlog(content=f"{E['warn']} **SKIPPED**{EM}·{EM}<@{user_id}> is staff ({reason}).", allowed_mentions=NO_MENTIONS)
+        await _to_devlog(content=f"{E['warn']} **SKIPPED**{EM}·{EM}<@{user_id}> is staff ({reason}).", allowed_mentions=NO_MENTIONS)
         return
     run('INSERT OR IGNORE INTO strikes(user_id,count,updated_at) VALUES(?,0,?)', user_id, now())
     run('UPDATE strikes SET count=count+1, updated_at=? WHERE user_id=?', now(), user_id)
@@ -87,10 +99,10 @@ async def strike_user(user_id, reason, bug_id=None):
             except Exception as e:
                 print('timeout', e)
         view, files = strike_card(user_id, count, step, reason, bug_id, False)
-        await modlog(view=view, files=files, allowed_mentions=NO_MENTIONS)
+        await _to_devlog(view=view, files=files, allowed_mentions=NO_MENTIONS)
         return
     view, files = strike_card(user_id, count, step, reason, bug_id, True, log_id)
-    await modlog(view=view, files=files, allowed_mentions=allowed(roles=[cfg.dev_role]))
+    await _to_devlog(view=view, files=files, allowed_mentions=allowed(users=[cfg.owner_id] if cfg.owner_id else []))  # only the owner is pinged
 
 
 async def resolve_strike(log_id, confirm, by_user):

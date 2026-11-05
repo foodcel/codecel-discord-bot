@@ -89,7 +89,7 @@ NOTES_SUGGESTION = {'duplicate': ('🔁 Duplicate', 'This was suggested already.
 
 def status_note(status, kind='bug'):
     found = (NOTES_SUGGESTION if kind == 'suggestion' else {}).get(status) or NOTES.get(status)
-    return _card(*found) if found else None
+    return _card(found[0], [found[1]]) if found else None
 
 
 def fixed(user_ids, bug, update_url=None):

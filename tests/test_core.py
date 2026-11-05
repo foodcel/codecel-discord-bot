@@ -145,6 +145,15 @@ class StatusWords(unittest.TestCase):
         self.assertFalse(unknown, unknown)
 
 
+class PlayerReplies(unittest.TestCase):
+    def test_every_reply_is_readable_text(self):
+        from bot.features.bugs import replies
+        for status in ('investigating', 'fixing', 'not_a_bug', 'duplicate', 'declined'):
+            view, _ = replies.status_note(status)
+            texts = [c.content for c in view.walk_children() if hasattr(c, 'content')]
+            self.assertTrue(all(chr(10) * 2 not in t and len(t.split(chr(10))) < 4 for t in texts), (status, texts))
+
+
 class CardsOnly(unittest.TestCase):
     def test_the_bot_never_builds_an_embed(self):
         import re
