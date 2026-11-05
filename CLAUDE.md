@@ -5,3 +5,4 @@
 - Preview in the test channel: only what changed. Never delete in #dev-logs. Never run two bots with the same token.
 - Short answers, no unrequested features.
 - Command replies are private (ephemeral) by default; only what a command exists to post is public. See `docs/DESIGN.md`.
+- Dev/admin commands are hidden by ROLE with Discord's per-command rules, never with a permission bit. Adding one: add its name to `scripts/lock_commands.py` and run it with a fresh admin token (`--link` explains how). Until then it shows to everyone (the bot still refuses).

@@ -7,6 +7,7 @@ The rules: admin commands = administrator roles only; dev commands = the Develop
 and administrator roles. @everyone is denied. Commands not listed here stay open to everyone."""
 import json
 import sys
+import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -24,11 +25,17 @@ DEV = ('config', 'update', 'strikes', 'pardon', 'pings', 'release', 'unrelease',
 def call(method, path, auth, body=None):
     req = urllib.request.Request(API + path, method=method, data=json.dumps(body).encode() if body is not None else None,
                                  headers={'Authorization': auth, 'Content-Type': 'application/json', 'User-Agent': UA})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read() or 'null')
-    except urllib.error.HTTPError as e:
-        raise SystemExit(f'{method} {path} -> {e.code} {e.read().decode()[:300]}')
+    for _ in range(8):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return json.loads(r.read() or 'null')
+        except urllib.error.HTTPError as e:
+            text = e.read().decode()
+            if e.code == 429:  # rate limited: wait as long as Discord says, then try again
+                time.sleep(float(json.loads(text).get('retry_after', 3)) + 0.5)
+                continue
+            raise SystemExit(f'{method} {path} -> {e.code} {text[:300]}')
+    raise SystemExit(f'{method} {path} -> still rate limited')
 
 
 def main():
