@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import discord
 from discord import ui
 
+from bot.discord_ui.card import notice
 from bot.features.updates.botnews import date_button, strip, tree
 from bot.discord_ui.pngs import fit, with_strip
 from bot.discord_ui.components import NO_MENTIONS
@@ -16,7 +17,7 @@ from bot.core.db import add_timer, all_, kv_get, kv_set, now, one, run
 from bot.core.env import cfg
 from bot.features.games.games import clean_name, game_lists, owner_ids
 from bot.core.perms import level
-from bot.discord_ui.ui import E
+from bot.discord_ui.ui import E, EM
 
 CARD_HOURS = 24
 NL = chr(10)
@@ -166,7 +167,7 @@ async def _join(i, k):
         return await i.edit_original_response(content=f"You already test **{games[k]['name']}**.")
     run('INSERT OR IGNORE INTO game_testers(game_key,user_id,at) VALUES(?,?,?)', k, str(i.user.id), now())
     await refresh_board()
-    return await i.edit_original_response(content=f"{E['fixed']} You test **{games[k]['name']}** now. The tester board shows you.")
+    return await i.edit_original_response(view=notice(f"{E['fixed']} **You test it**{EM}·{EM}{games[k]['name']} now. The tester board shows you.")[0])
 
 
 async def on_button(i, action, arg):
@@ -194,4 +195,4 @@ async def on_select(i, action, values):
             joined.append(shown[k]['name'])
     await refresh_board()
     lines = ([f"{E['fixed']} You test " + ', '.join(f'**{n}**' for n in joined) + ' now.'] if joined else []) + (["🚪 You left " + ', '.join(f'**{n}**' for n in left) + '.'] if left else [])
-    return await i.edit_original_response(content=NL.join(lines) or 'Nothing changed.')
+    return await i.edit_original_response(view=notice(NL.join(lines) or 'Nothing changed.')[0])

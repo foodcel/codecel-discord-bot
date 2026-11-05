@@ -2,6 +2,8 @@
 the game. A post that is really a bug becomes a normal bug. Statuses, dev boards and announcements are shared with the bug side
 (a suggestion is a row in the same table with kind='suggestion'; "fixed" means Added)."""
 import asyncio
+
+import discord
 import re
 
 from bot.features.bugs import replies
@@ -172,7 +174,8 @@ def handle_suggestion_message(msg):
     if not msg.author.bot and str(msg.author.id) == bug['reporter_id'] and msg.content:
         from bot.features.bugs.intake import attach_clips
         asyncio.ensure_future(attach_clips(msg))  # clip links become videos in the post
-    if msg.author.bot or str(msg.author.id) != bug['reporter_id'] or bug['status'] != 'needs_info':
+    staff = isinstance(msg.author, discord.Member) and level(msg.author) in ('admin', 'dev', 'jr')
+    if msg.author.bot or staff or bug['status'] != 'needs_info':
         return
     old = _timers.pop(bug['id'], None)
     if old:

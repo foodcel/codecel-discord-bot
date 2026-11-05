@@ -102,6 +102,34 @@ def words(m):
     return NL.join(p.strip() for p in out if p and p.strip())
 
 
+_OLD = None
+
+
+def notice(text, ping=None):
+    """A short message as a small card: (view, files). '{emoji} **LABEL** · text' becomes a bold title ('Saved') with the text under it; any other
+    sentence is shown as plain text in a card. A leading mention is kept above the card."""
+    global _OLD
+    import re
+    if _OLD is None:
+        _OLD = re.compile(r'^\s*(?P<ping>(?:<@[&!]?\d+>\s*)*)(?P<emoji>[^\s*]+)\s+\*\*(?P<label>[^*\n]+)\*\*[\s\u2003\u2002]*(?:\u00b7)?[\s\u2003\u2002]*(?P<rest>.*)$', re.S)
+    text = str(text).replace('\u2003', ' ').replace('\u2002', ' ')
+    m = _OLD.match(text)
+    parts = []
+    if m:
+        ping = ping or (m['ping'].strip() or None)
+        label = m['label'].strip()
+        parts.append(ui.TextDisplay(f"### {m['emoji']} {label[:1].upper()}{label[1:].lower()}"))
+        if m['rest'].strip():
+            parts.append(ui.TextDisplay(m['rest'].strip()[:3900]))
+    else:
+        parts.append(ui.TextDisplay(text.strip()[:3900]))
+    view = ui.LayoutView()
+    if ping:
+        view.add_item(ui.TextDisplay(ping))
+    view.add_item(ui.Container(*parts))
+    return view, []
+
+
 def stamp(ms):
     """A real date for a card line (Discord shows it in each reader's own time)."""
     return f'<t:{int(ms) // 1000}:f>'

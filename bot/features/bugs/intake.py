@@ -10,7 +10,7 @@ from bot.discord_ui.card import words
 from bot.features.bugs.nums import label
 from bot.core.ai import analyze_report, still_broken
 from bot.discord_ui.components import allowed
-from bot.core.ctx import dm, get_member, sleep
+from bot.core.ctx import fetch_channel, dm, get_member, sleep
 from bot.core.db import (add_timer, all_, bug_by_id, bug_by_thread, cancel_timers, kv_get, kv_set, now, run, update_bug)
 from bot.features.bugs.devboard import post_exploit, route_bug
 from bot.features.bugs.fixes import reopen
@@ -42,7 +42,9 @@ def _text(m):
 async def gather(thread, bug):
     msgs = [m async for m in thread.history(limit=50)]
     # a post made by /bug or /improvement is written by the bot for the player: its first message counts as the player's own
-    mine = sorted((m for m in msgs if str(m.author.id) == bug['reporter_id'] or (bug.get('source') == 'form' and m.id == thread.id)),
+    def is_player_answer(m):  # anyone who is not the bot and not staff may answer the questions (another player who saw the same bug, for example)
+        return not m.author.bot and not (isinstance(m.author, discord.Member) and level(m.author) in ('admin', 'dev', 'jr'))
+    mine = sorted((m for m in msgs if str(m.author.id) == bug['reporter_id'] or (bug.get('source') == 'form' and m.id == thread.id) or is_player_answer(m)),
                   key=lambda m: m.created_at)
     atts = [a for m in mine for a in m.attachments]
     return {
@@ -237,6 +239,26 @@ async def attach_clips(msg):
         pass
 
 
+async def log_unanswered(bug):
+    """3 days with no answer: the report is not closed (a real bug would be lost). It goes to the developer as it is, marked low info."""
+    thread = await fetch_channel(bug['thread_id'])
+    update_bug(bug['id'], {'status': 'new', 'low_info': 1})
+    cancel_timers('stale', bug['thread_id'])
+    if thread:
+        await set_tags(thread, status=None)
+        if not re.match(r'^#\d+\s', thread.name):
+            try:
+                await thread.edit(name=f"{label(bug_by_id(bug['id']))} {thread.name}"[:100])
+            except Exception:
+                pass
+        try:
+            view, files = replies.logged(bug_by_id(bug['id']), low_info=True)
+            await thread.send(view=view, files=files)
+        except Exception:
+            pass
+    await route_bug(bug_by_id(bug['id']))
+
+
 def handle_bug_message(msg):
     """Debounced handling of messages inside bug posts (a reporter answering, or "still broken" on a fixed bug)."""
     bug = bug_by_thread(msg.channel.id)
@@ -248,7 +270,8 @@ def handle_bug_message(msg):
     if (not msg.author.bot and bug['status'] in ('new', 'investigating', 'fixing') and not bug['deleted'] and bug['routed']
             and (msg.content or msg.attachments) and (not isinstance(msg.author, discord.Member) or level(msg.author) not in ('admin', 'dev', 'jr'))):
         asyncio.ensure_future(add_info(bug, msg))  # something new for a report that is already with the developer
-    if msg.author.bot or str(msg.author.id) != bug['reporter_id']:
+    staff = isinstance(msg.author, discord.Member) and level(msg.author) in ('admin', 'dev', 'jr')
+    if msg.author.bot or (str(msg.author.id) != bug['reporter_id'] and (staff or bug['status'] != 'needs_info')):
         return
     loop = asyncio.get_running_loop()
     if bug['status'] == 'needs_info':

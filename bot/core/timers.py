@@ -7,7 +7,6 @@ import discord
 from bot.core.ctx import ctx, fetch_channel, remove_thread_notice
 from bot.core.db import all_, bug_by_thread, now, run, update_bug
 from bot.features.bugs.devboard import schedule_boards
-from bot.features.bugs.tags import set_tags
 
 
 async def _exec(t):
@@ -47,20 +46,8 @@ async def _exec(t):
         bug = bug_by_thread(t['target'])
         if not bug or bug['status'] != 'needs_info':
             return
-        thread = await fetch_channel(t['target'])
-        update_bug(bug['id'], {'status': 'closed'})
-        if thread:
-            await set_tags(thread, status=None)
-            try:
-                from bot.features.bugs import replies
-                view, files = replies.stale_closed(bug['reporter_id'])
-                await thread.send(view=view, files=files)
-            except Exception:
-                pass
-            try:
-                await thread.edit(archived=True)
-            except Exception:
-                pass
+        from bot.features.bugs.intake import log_unanswered
+        await log_unanswered(bug)  # never closed: a report with missing details still reaches the developer
 
 
 MAX_TRIES = 5

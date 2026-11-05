@@ -8,7 +8,7 @@ import time
 
 import discord
 
-from bot.discord_ui.card import card, links_in, row, words
+from bot.discord_ui.card import notice, card, links_in, row, words
 from bot.discord_ui.components import NO_MENTIONS, FormModal
 from bot.core.ctx import fetch_channel
 from bot.core.db import bug_by_id, now, run, update_bug
@@ -169,7 +169,7 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
     thread = created.thread
     for k, extra in enumerate(batches[1:]):
         if extra:
-            await thread.send(content=f'📎 **MORE FILES**{EM}·{EM}{k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
+            await thread.send(content=f'📎 More files · {k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
     body = (f"What happened: {form['what']}\nSteps: {form['steps']}" + (f"\nShould happen: {form['expected']}" if form['expected'] else '')
             if kind == 'bug' else f"{form['what']}" + (f"\nWhy: {form['why']}" if form['why'] else ''))
     id_ = run("""INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,status,created_at,last_msg_id,device,body,source,kind)
@@ -178,7 +178,7 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
               form['device'] or None, body, kind).lastrowid
     if analyze:
         asyncio.ensure_future(_analyze(id_, thread, kind))
-    await i.edit_original_response(content=f"{E['fixed']} Posted: {thread.jump_url}\nAdd screenshots, videos or links by replying in the post.")
+    await i.edit_original_response(view=notice(f"{E['fixed']} **Posted**{EM}·{EM}{thread.jump_url}\nAdd screenshots, videos or links by replying in the post.")[0])
     return id_
 
 
@@ -232,7 +232,7 @@ async def post_from_message(src, saver, kind, tag_id=None):
     thread = created.thread
     for k, extra in enumerate(batches[1:]):
         if extra:
-            await thread.send(content=f'📎 **MORE FILES**{EM}·{EM}{k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
+            await thread.send(content=f'📎 More files · {k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
     id_ = run("""INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,status,created_at,last_msg_id,body,source,kind,saved_by)
         VALUES(?,?,?,?,?,'new',?,?,?,'form',?,?)""",
               str(thread.id), str(reporter), tag_id, game, form['title'], now(), str(thread.last_message_id or thread.id), form['what'], kind, str(saver.id)).lastrowid

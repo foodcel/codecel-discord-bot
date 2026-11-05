@@ -5,6 +5,7 @@ import asyncio
 import json
 
 
+from bot.discord_ui.card import notice
 from bot.core.env import cfg
 from bot.discord_ui.components import allowed
 from bot.core.ctx import fetch_channel
@@ -59,7 +60,7 @@ async def _tell(row, text):
     if not ch:
         return
     ping = ' '.join(f'<@{o}>' for o in owners)
-    await ch.send(f'{ping} {text}'.strip(), allowed_mentions=allowed(users=owners))
+    await ch.send(view=notice(text, ping=ping or None)[0], allowed_mentions=allowed(users=owners))
 
 
 async def sweep():

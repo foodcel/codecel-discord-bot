@@ -68,10 +68,6 @@ def troll_closed(kind='bug'):
     return _card('⛔ Closed', [f"Fake or abusive {'posts' if kind == 'suggestion' else 'reports'} lead to strikes."])
 
 
-def stale_closed(user_id):
-    return _card('⏳ Closed · no reply', ['The missing details never came in.'], 'Post a new report with everything filled in.', ping=_who(user_id))
-
-
 def now_a_bug(user_id, bug, bugs_channel):
     return _card(f'🐛 Moved to bug reports · {label(bug)}', ["That's something broken, not a suggestion, so it goes to the developer as a bug."],
                  f'Next time, post bugs in <#{bugs_channel}>.', ping=_who(user_id))

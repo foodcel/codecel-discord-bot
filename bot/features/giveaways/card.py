@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 import discord
 from discord import ui
+from bot.discord_ui.card import notice
 from bot.discord_ui.banner import banner_file
 from bot.features.updates.botnews import code_chip
 from bot.core.ctx import ctx
@@ -137,6 +138,4 @@ def names_only(g):
 
 
 def text_view(text):
-    view = ui.LayoutView()
-    view.add_item(ui.TextDisplay(text[:3900]))
-    return view
+    return notice(text)[0]

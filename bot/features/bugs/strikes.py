@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import discord
 from discord import ui
 
-from bot.discord_ui.card import card, row
+from bot.discord_ui.card import notice, card, row
 from bot.discord_ui.components import NO_MENTIONS, allowed, button
 from bot.core.ctx import ctx, dm, get_member, modlog, thread_link
 from bot.core.db import add_timer, now, one, run
@@ -81,7 +81,7 @@ async def strike_user(user_id, reason, bug_id=None):
     if not member:
         return
     if is_staff(member):
-        await _to_devlog(content=f"{E['warn']} **SKIPPED**{EM}·{EM}<@{user_id}> is staff ({reason}).", allowed_mentions=NO_MENTIONS)
+        await _to_devlog(view=notice(f"{E['warn']} **SKIPPED**{EM}·{EM}<@{user_id}> is staff ({reason}).")[0], allowed_mentions=NO_MENTIONS)
         return
     run('INSERT OR IGNORE INTO strikes(user_id,count,updated_at) VALUES(?,0,?)', user_id, now())
     run('UPDATE strikes SET count=count+1, updated_at=? WHERE user_id=?', now(), user_id)

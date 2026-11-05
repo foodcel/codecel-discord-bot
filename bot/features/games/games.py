@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from discord import app_commands
 
-from bot.discord_ui.card import card
+from bot.discord_ui.card import notice, card
 from bot.core.links import roblox_any, roblox_game, web_url
 from bot.core.ai import clean_game_names
 from bot.features.games.bounty import get_claims
@@ -336,9 +336,9 @@ async def command_release(i, opts, undo=False):
         await board.reload_claims()
     await refresh_game_board()
     shown = clean_name(g['name'])
-    return await i.edit_original_response(content=
+    return await i.edit_original_response(view=notice(
         f"{E['warn']} **UNRELEASED**{EM}·{EM}{shown} is back in development." if undo
-        else f"{E['fixed']} **RELEASED**{EM}·{EM}{shown} is now in the released list.")
+        else f"{E['fixed']} **RELEASED**{EM}·{EM}{shown} is now in the released list.")[0])
 
 
 def set_source_link(name, owners, since, link):
@@ -372,7 +372,7 @@ async def command_gamelink(i, opts):
     else:
         run('UPDATE game_status SET link=? WHERE key=?', link, k)
     await refresh_game_board()
-    return await i.edit_original_response(content=f"{E['fixed']} **LINKED**{EM}·{EM}{clean_name(g['name'])} now links to {link}")
+    return await i.edit_original_response(view=notice(f"{E['fixed']} **LINKED**{EM}·{EM}{clean_name(g['name'])} now links to {link}")[0])
 
 
 async def command_progress(i, opts):
@@ -438,9 +438,9 @@ async def command_progress(i, opts):
     await refresh_game_board()
     shown = clean_name(g['name'])
     if rel and not dev:
-        return await reply(content=f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {'🧪 testing' if testing == 'on' else 'not in testing'}{tag_note}")
+        return await reply(view=notice(f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {'🧪 testing' if testing == 'on' else 'not in testing'}{tag_note}")[0])
     now_ = [x for x in game_lists()['unreleased'] if x['key'] == k][0]
-    return await reply(content=f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {progress_cell(now_)}{tag_note}")
+    return await reply(view=notice(f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {progress_cell(now_)}{tag_note}")[0])
 
 
 async def _tester_tag_note(name):

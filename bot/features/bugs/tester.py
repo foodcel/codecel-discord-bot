@@ -6,7 +6,7 @@ import string
 import time
 import uuid
 
-from bot.discord_ui.card import card, links_in, row
+from bot.discord_ui.card import notice, card, links_in, row
 from bot.features.bugs.nums import label
 from bot.core.ai import summarize_tester_report
 from bot.discord_ui.components import NO_MENTIONS, FormModal
@@ -142,7 +142,7 @@ async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, m
     update_bug(id_, {'thread_id': str(thread.id), 'last_msg_id': str(created.message.id)})
     for k, extra in enumerate(batches[1:]):
         if extra:
-            await thread.send(content=f'📎 **MORE FILES**{EM}·{EM}{k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
+            await thread.send(content=f'📎 More files · {k + 2} of {len(batches)}', files=extra, allowed_mentions=NO_MENTIONS)
     await route_bug(bug_by_id(id_))  # ghost ping to the owner and the dev board
     from bot.features.testers.testers import schedule_refresh
     schedule_refresh()  # the roster shows how many reports each tester made
@@ -171,7 +171,7 @@ async def modal_bug(i, tag_id, token, fields):
     if not done:
         return await i.edit_original_response(content='I could not find the testers forum. Ask a developer.')
     id_, thread = done
-    return await i.edit_original_response(content=f"{E['fixed']} Sent to the {game} developer: {thread.jump_url}\nAdd screenshots, videos or links by replying in the post.")
+    return await i.edit_original_response(view=notice(f"{E['fixed']} **Sent**{EM}·{EM}to the {game} developer: {thread.jump_url}\nAdd screenshots, videos or links by replying in the post.")[0])
 
 
 async def report_from_message(src, saver, game, tag_id):

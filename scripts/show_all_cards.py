@@ -44,7 +44,6 @@ async def main():
         await show(f'**Status · {status}** (a developer pressed it)', replies.status_note(status, 'suggestion' if status == 'declined' else 'bug'))
     await show('**Fixed** (when the update with the fix is posted)', replies.fixed([me], bug, 'https://discord.com/channels/1/2/3'))
     await show('**Reopened** (the player said it is still broken)', replies.reopened(bug))
-    await show('**Closed · no reply** (after 3 days)', replies.stale_closed(me))
     await show('**Closed** (fake or abusive)', replies.troll_closed())
 
     await ch.send('# 2 · Posts made by /bug, /improvement and !bug', allowed_mentions=NO_MENTIONS)

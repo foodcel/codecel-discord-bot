@@ -5,6 +5,7 @@ import re
 
 import discord
 
+from bot.discord_ui.card import notice
 from bot.features.bugs.nums import label
 from bot.core.ai import interpret_note
 from bot.core.env import cfg
@@ -28,7 +29,7 @@ def wants(m):
 
 
 async def _say(m, text, keep=False):
-    sent = await m.channel.send(text, reference=m.reference if keep else None, allowed_mentions=NO_MENTIONS, delete_after=None if keep else 15,
+    sent = await m.channel.send(view=notice(text)[0], reference=m.reference if keep else None, allowed_mentions=NO_MENTIONS, delete_after=None if keep else 15,
                                 mention_author=False)
     return sent
 
@@ -82,7 +83,7 @@ async def handle(m):
     if str(m.channel.id) == str(cfg.test_id):  # a dry run in the test channel: draw the card, save and post nothing
         from bot.features.bugs.forms import card_from_message
         where = 'the bugs forum' if kind == 'bug' else 'the improvements forum'
-        await m.channel.send(f"🧪 **TEST**{EM}·{EM}bug hunting would post this in {where} for <@{src.author.id}> (game: {game['name'] if game else 'not found'}). Nothing was saved or posted.",
+        await m.channel.send(view=notice(f"🧪 **TEST**{EM}·{EM}bug hunting would post this in {where} for <@{src.author.id}> (game: {game['name'] if game else 'not found'}). Nothing was saved or posted.")[0],
                              allowed_mentions=NO_MENTIONS)
         view, files = card_from_message(src, member, kind, game['id'] if game else None)
         await m.channel.send(view=view, files=files, allowed_mentions=NO_MENTIONS)

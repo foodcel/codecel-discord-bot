@@ -2,6 +2,7 @@
 The limit: when 5 of the posts someone saved were false (a dev marked them Not a bug, or an idea Declined), they lose the command and an admin is asked to talk to them."""
 import discord
 
+from bot.discord_ui.card import notice
 from bot.discord_ui.components import NO_MENTIONS
 from bot.core.ctx import fetch_channel
 from bot.core.db import kv_del, kv_get, kv_set, now, one
@@ -31,9 +32,7 @@ async def check(user_id):
     try:
         ch = await fetch_channel(cfg.modlog_id)
         owner = cfg.owner_id if getattr(cfg, 'owner_id', None) else None
-        await ch.send(f"🔎 **UNDER WATCH** · <@{user_id}> saved {LIMIT} false reports with bug hunting and lost the command. "
-                      f"An admin should ask what they meant. `/pardon` gives it back."
-                      + (f' <@{owner}>' if owner else ''),
+        await ch.send(view=notice(f"🔎 **UNDER WATCH** · <@{user_id}> saved {LIMIT} false reports with bug hunting and lost the command. An admin should ask what they meant. `/pardon` gives it back.", ping=f"<@{owner}>" if owner else None)[0],
                       allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=int(owner))]) if owner else NO_MENTIONS)
     except Exception as e:
         print('hunting alert', repr(e))

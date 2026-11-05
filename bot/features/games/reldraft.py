@@ -6,6 +6,7 @@ from pathlib import Path
 import discord
 from discord import ui
 
+from bot.discord_ui.card import notice
 from bot.features.games.cards import BLUE, game_row, new_game_container, ping_target
 from bot.discord_ui.components import NO_MENTIONS, FormModal
 from bot.core.db import del_pending, get_pending, set_pending
@@ -33,9 +34,7 @@ def _row(d):
 
 
 def text_view(text):
-    view = ui.LayoutView()
-    view.add_item(ui.TextDisplay(text[:3900]))
-    return view
+    return notice(text)[0]
 
 
 def payload(pid):
