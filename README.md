@@ -114,24 +114,22 @@ Oracle notes:
 ## Project layout
 
 ```
-bot/__main__.py     startup and events (python -m bot)
-bot/catchup.py      everything missed while the bot was off
-bot/interactions.py slash commands, buttons, dropdowns and forms
-bot/commands.py     the slash command definitions
-bot/intake.py       checks reports (Claude), tags, duplicates, exploits, strikes
-bot/devboard.py     dev boards, exploit cards, ghost pings
-bot/bugview.py      the private bug page (prev/next, status buttons)
-bot/fixes.py        marking fixed / reopening / statuses
-bot/fixlog.py       the fix log and stored transcripts
-bot/transcript.py   zip builder (conversation, screenshots, videos, frames)
-bot/announce.py     update drafts and announcements
-bot/tester.py       /bug for testers
-bot/games.py        released / unreleased games board
-bot/strikes.py      troll ladder
-bot/ui.py           one shared look for every embed
-bot/ai.py           all Claude calls (forced tool output, never free text)
-scripts/            preview and helper scripts
-deploy/             systemd unit, Oracle setup, deploy and rollback scripts
+bot/__main__.py            start-up and Discord events (python -m bot)
+bot/core/                  config (env.py: every id), database, timers, catch-up, AI calls, permissions,
+                           access.py (who may use which command), links.py (every link check)
+bot/discord_ui/            slash command definitions and routing (interactions.py: one table per button / dropdown / form),
+                           the two looks (look.py, pngs.py, banner.py, ui.py), /help, the dev log
+bot/features/bugs/         reports: intake (Claude), forms, tester reports, numbers, tags, dev boards, fixes, fix log, transcripts, strikes
+bot/features/updates/      update drafts and announcements, guides, announcement texts
+bot/features/games/        game lists, /release and its preview, the library, the Roblox watcher, the bounty board
+bot/features/testers/      the tester roster and the tester board
+bot/features/giveaways/    giveaways and boost counting
+bot/features/invites/      the invite tracker and /invites
+bot/features/fun/          /mog
+scripts/                   admin and diagnostic tools run by hand (lock_commands.py sets the per-role command rules)
+tests/                     tests for the logic that needs no Discord (deploy.sh runs them with a lint check)
+deploy/                    systemd unit, Oracle setup, deploy and rollback scripts
+docs/                      DESIGN.md (the two looks), GIVEAWAYS.md, AUDIT.md
 ```
 
 ## Safety notes
