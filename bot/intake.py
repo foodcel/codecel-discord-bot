@@ -96,6 +96,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
     bug = bug_by_id(bug['id'])
     reporter_member = await get_member(bug['reporter_id'])
     staff_reporter = is_staff(reporter_member)
+    dev_report = reporter_member is not None and level(reporter_member) in ('admin', 'dev', 'jr')  # a developer reporting a bug themselves: no questions, nothing closed
     gid = game_tag['id'] if game_tag else None
     did = device_tag['id'] if device_tag else None
 
@@ -116,7 +117,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         return
 
     # 2. Troll.
-    if a['troll']['is_troll'] and a['troll']['confidence'] >= CONFIDENT and not silent:
+    if a['troll']['is_troll'] and a['troll']['confidence'] >= CONFIDENT and not silent and not dev_report:
         update_bug(bug['id'], {'status': 'not_a_bug'})
         await set_tags(thread, game=gid, status='not_a_bug')
         try:
@@ -133,7 +134,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 
     # 3. Duplicate.
     dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') and a['duplicate_of'] != bug['id'] else None
-    if dup and dup['kind'] == 'bug' and not silent:
+    if dup and dup['kind'] == 'bug' and not silent and not dev_report:
         update_bug(bug['id'], {'status': 'duplicate', 'dup_of': dup['id']})
         ref = (f"{label(dup)} \"{dup['title']}\"" if dup['deleted']
                else f"[{label(dup)} {dup['title']}]({thread_link(dup['thread_id'])})")
@@ -155,7 +156,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 
     # 4. Missing info.
     incomplete = (not a['complete']) or not (game_tag or a.get('game'))
-    if incomplete and not silent and bug['asks'] < MAX_ASKS:
+    if incomplete and not silent and not dev_report and bug['asks'] < MAX_ASKS:
         asks = bug['asks'] + 1
         update_bug(bug['id'], {'status': 'needs_info', 'asks': asks})
         await set_tags(thread, game=gid, device=did, status='needs_info')
@@ -179,7 +180,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 
     # 5. Complete (or silent import).
     was_asked = bug['status'] == 'needs_info'
-    low_info = incomplete and not silent  # asked MAX_ASKS times and still not enough: logged anyway, the dev is told
+    low_info = incomplete and not silent and not dev_report  # asked MAX_ASKS times and still not enough: logged anyway, the dev is told
     cancel_timers('stale', thread.id)
     update_bug(bug['id'], {'status': 'new', 'low_info': 1 if low_info else 0})
     if not silent:
@@ -189,7 +190,9 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
                 await thread.edit(name=f"{label(bug_by_id(bug['id']))} {thread.name}"[:100])
             except Exception:
                 pass
-        if low_info:
+        if dev_report:
+            msg = f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} is on the board."
+        elif low_info:
             msg = (f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} Thanks! Some details are still missing, so a developer will come and check this out "
                    'themselves, or ask you here.')
         else:
