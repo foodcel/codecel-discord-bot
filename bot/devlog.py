@@ -222,7 +222,7 @@ async def update_step(pid, user, game_name, text, final=None):
             if final:
                 s['final'] = final
             e = flat()
-            posted = bool(final) and final.startswith('Posted')
+            posted = bool(final) and final.startswith(('Posted', 'Added'))
             e.title = head('📣' if posted else '📋', _cut(f"/update · {s['game']}" + (' · NOT POSTED' if final and not posted else ''), 230))
             status = f'**Result** · {final}' if final else '**Status** · Draft open, nothing posted yet'
             lines = []

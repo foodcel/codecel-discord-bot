@@ -18,8 +18,8 @@ ENV = dotenv_values(Path(__file__).resolve().parent.parent / '.env')
 API = 'https://discord.com/api/v10'
 UA = 'DiscordBot (https://github.com/foodcel/codecel-discord-bot, 1.0)'
 REDIRECT = 'http://localhost:8080/callback'
-ADMIN = ('mog', 'Mog', 'preview', 'botrules', 'games', 'bounty-board', 'assign', 'exclude', 'include')
-DEV = ('config', 'update', 'strikes', 'pardon', 'pings', 'release', 'unrelease', 'gamelink', 'progress', 'claim', 'unclaim')
+ADMIN = ('mog', 'Mog', 'preview', 'botrules', 'games', 'bounty-board', 'assign', 'exclude', 'include', 'strikes', 'pardon')
+DEV = ('config', 'update', 'pings', 'release', 'unrelease', 'gamelink', 'progress', 'claim', 'unclaim')
 
 
 def call(method, path, auth, body=None):

@@ -44,6 +44,10 @@ async def intake_suggestion(thread, silent=False):
 
 
 async def analyze_and_act(bug, thread, silent=False, followup=False):
+    from .ai import allow_user
+    if not silent and not allow_user(bug['reporter_id']):
+        print('ai: hourly limit for', bug['reporter_id'], '- report', bug['id'], 'waits')
+        return  # stays as it is; the catch-up checks it again
     report = await gather(thread, bug)
     games = [t['name'] for t in game_tags()]
     picked = []

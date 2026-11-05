@@ -17,6 +17,16 @@ def _spend():
     kv_set(k, n + 1)
 
 
+def allow_user(user_id, per_hour=15):
+    """One person may use at most `per_hour` AI checks an hour, so a single spammer cannot use up the daily cap for everyone."""
+    k = f"aiu:{user_id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H')}"
+    n = int(kv_get(k) or 0)
+    if n >= per_hour:
+        return False
+    kv_set(k, n + 1)
+    return True
+
+
 async def _call_tool(system, content, name, schema, max_tokens=900):
     _spend()
     body = dict(
@@ -90,6 +100,18 @@ def _tidy(a):
     if not isinstance(a.get('missing'), list):
         a['missing'] = []
     a['missing'] = [str(m) for m in a['missing']]
+    try:
+        a['troll']['confidence'] = float(a['troll'].get('confidence') or 0)
+    except (TypeError, ValueError):
+        a['troll']['confidence'] = 0.0
+    a['troll']['is_troll'] = a['troll'].get('is_troll') is True
+    for k in ('exploit', 'complete', 'multiple_bugs', 'personal_info'):  # only a real true counts ("false" as text is not true)
+        if k in a:
+            a[k] = a[k] is True
+    a['summary'] = str(a.get('summary') or a.get('title') or '')[:1000]
+    a['severity'] = str(a.get('severity') or 'medium')
+    d = a.get('duplicate_of')
+    a['duplicate_of'] = d if isinstance(d, int) and not isinstance(d, bool) else None
     return a
 
 

@@ -9,7 +9,7 @@ from .bounty import refresh_claims
 from .catchup import catchup
 from .commands_sync import register_commands
 from .ctx import ctx, sleep
-from .devboard import refresh_all_boards, schedule_boards
+from .devboard import schedule_boards
 from .env import cfg
 from .fixlog import backfill_snapshots
 from .intake import intake_thread
@@ -102,7 +102,6 @@ async def on_ready():
     await step('claims', refresh_claims)
     await step('catch-up', catchup)
     await step('snapshots', backfill_snapshots)  # transcripts for bugs fixed before the log existed
-    await step('boards', refresh_all_boards)  # claims may have changed while offline (also the fix log post)
 
     async def roster():
         if n := await testers.sync_members():

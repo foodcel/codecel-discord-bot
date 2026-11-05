@@ -106,7 +106,6 @@ async def resolve_strike(log_id, confirm, by_user):
         run("UPDATE strike_log SET state='dismissed' WHERE id=?", log_id)
         run('UPDATE strikes SET count=MAX(count-1,0) WHERE user_id=?', row['user_id'])
         return f'Dismissed by <@{by_user}>. Strike removed.'
-    run("UPDATE strike_log SET state='done' WHERE id=?", log_id)
     g = ctx.guild
     note = f"{E['warn']} **{ACTION[row['step']].upper()}**{EM}·{EM}{g.name}\nRepeated trolling in bug reports: {row['reason']}"
     await dm(row['user_id'], note)
@@ -120,7 +119,8 @@ async def resolve_strike(log_id, confirm, by_user):
         else:
             await g.ban(target, reason=f"Permanent ban, bug-report trolling: {row['reason']}")
     except Exception as e:
-        return f'Confirmed by <@{by_user}> but the action failed: {e}'
+        return f'Confirmed by <@{by_user}> but the action failed: {e}. Press Confirm again to retry.'
+    run("UPDATE strike_log SET state='done' WHERE id=?", log_id)
     return f"Confirmed by <@{by_user}>. {LABEL[row['step']]} applied."
 
 

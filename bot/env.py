@@ -33,6 +33,7 @@ class Cfg:
     verified_role = _e.get('VERIFIED_ROLE_ID') or '1562762634565124186'  # the role people get when they verify: needed to enter a giveaway and for an invite to count
     giveaway_role = _e.get('GIVEAWAY_MANAGER_ROLE_ID') or None            # optional: besides admins, who may run /giveaway
     giveaways_role = _e.get('GIVEAWAYS_PING_ROLE_ID') or '1564115633036337273'  # the Giveaways role a giveaway can ping
+    owner_id = _e.get('OWNER_ID') or None  # pinged when bug hunting is switched off for someone
     helpers_role = _e.get('HELPERS_ROLE_ID') or '1565120384519381052'  # helpers can volunteer as testers too
     tester_ping_role = _e.get('TESTER_PING_ROLE_ID') or '1562726451797565521'  # the Tester role: pinged when a game goes into testing
     future_games_id = _e.get('FUTURE_GAMES_CHANNEL_ID') or '1562728247131635742'  # private channel where the board of games in testing lives

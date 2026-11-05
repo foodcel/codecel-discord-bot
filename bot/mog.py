@@ -45,15 +45,21 @@ async def reply_with_gif(m):
     return await m.reply(file=discord.File(gif), allowed_mentions=discord.AllowedMentions(replied_user=True, everyone=False, roles=False, users=False))
 
 
+_last = {}  # channel id -> when the last GIF answer went out (at most one every 10 seconds per channel)
+
+
 async def maybe_reply(m, me_id):
     """Redwing Helper (or its webhook) mentions Codecel or answers it anywhere but the library channel: Codecel answers with a GIF, every time."""
     from .cards import in_library_channel, is_rival
     if not m.guild or in_library_channel(m.channel.id) or not is_rival(m):
         return False
     hit = about_me(m, me_id)
-    print('mog: Redwing message', m.id, '| about codecel:', hit)
     if not hit:
         return False
+    import time
+    if time.time() - _last.get(m.channel.id, 0) < 10:
+        return True  # answered here a few seconds ago: two bots must not loop
+    _last[m.channel.id] = time.time()
     await reply_with_gif(m)
     return True
 

@@ -284,7 +284,9 @@ async def refresh_board():
         if ch is None:
             return
         from . import bounty
-        bounty.set_claims(live_claims())  # the embeds read the claims
+        if bounty.set_claims(live_claims()):  # the embeds read the claims; a change must reach the dev boards too
+            from .devboard import schedule_boards
+            schedule_boards()
         old = [c.get('top'), c.get('claims'), c.get('completed')]
         ids = []
         from .look import card_from_embed, edit_card

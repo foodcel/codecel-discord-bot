@@ -162,5 +162,11 @@ async def on_modal(i, pid, fields):
                 ch.pop(col, None)
     set_pending(pid, d)
     if answer:
+        try:
+            import asyncio
+            from .cards import _hero
+            await asyncio.to_thread(_hero, _row(d))  # downloads and crops the new picture without freezing the bot
+        except Exception as e:
+            print('release preview picture', repr(e)[:120])
         return await answer(**payload(pid))
     return await i.response.edit_message(**payload(pid))

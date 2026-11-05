@@ -136,6 +136,8 @@ async def config_set(i, opts):
     if opts.get('channel'):
         patch['announce_channel_id'] = str(opts['channel'])
     if opts.get('role'):
+        if str(opts['role']) == str(cfg.guild_id):
+            return await deny(i, 'Pick a role for the ping, not @everyone.')
         patch['ping_role_id'] = str(opts['role'])
     if opts.get('threshold'):
         patch['threshold'] = opts['threshold']
@@ -251,6 +253,8 @@ async def modal_ann_edit(i, pid, fields):
     p = get_pending(pid)
     if not p:
         return await i.response.send_message('This draft is gone.', ephemeral=True)
+    if not can_manage(i.user, owner_of(p['tagId'])):
+        return await deny(i)
     from_message = i.message is not None
     if from_message:
         await i.response.defer()
@@ -381,6 +385,10 @@ async def button_strike(i, action, log_id):
 # ---- transcripts ----
 async def button_transcript(i, id_):
     """Sends the transcript as a .md file or a zip (attach or paste into an AI agent chat), plus a copyable block when short."""
+    from .db import bug_by_id
+    b = bug_by_id(int(id_))
+    if b and str(b['status']).startswith('exploit') and level(i.user) in ('jr', 'none'):
+        return await deny(i, 'Only developers can read an exploit report.')
     await i.response.defer(ephemeral=True, thinking=True)
     t = await single_transcript(int(id_))
     if not t:
@@ -489,6 +497,8 @@ async def handle_command(i):
         return await (config_set(i, opts) if sub == 'set' else config_show(i, opts))
     if name == 'update':
         return await command_update(i, opts)
+    if name in ('strikes', 'pardon') and level(i.user) != 'admin':
+        return await deny(i, 'Only admins can see or remove strikes.')
     if name == 'strikes':
         u = opts['user']
         info = strike_info(u)

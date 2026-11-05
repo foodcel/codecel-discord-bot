@@ -38,6 +38,18 @@ def upload_limit():
     return mb * 1024 * 1024 * 0.93
 
 
+async def _ffmpeg(*args, timeout=60):
+    """(stdout, stderr, exit code) of one ffmpeg run. A video that makes ffmpeg hang is stopped after `timeout` seconds."""
+    p = await asyncio.create_subprocess_exec(FFMPEG, *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    try:
+        out, err = await asyncio.wait_for(p.communicate(), timeout)
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        p.kill()
+        await p.wait()
+        raise RuntimeError('ffmpeg took too long')
+    return out, err, p.returncode
+
+
 async def video_frames(buf, ext):
     """Up to 8 frames spread across the video, so an AI agent can look at what happens. Returns (duration, [jpg bytes])."""
     d = tempfile.mkdtemp(prefix='bugvid-')
@@ -46,20 +58,15 @@ async def video_frames(buf, ext):
         with open(inp, 'wb') as f:
             f.write(buf)
         dur = 0
-        p = await asyncio.create_subprocess_exec(FFMPEG, '-hide_banner', '-i', inp,
-                                                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        _, err = await p.communicate()  # ffmpeg exits with an error here (no output file) but prints the duration
+        _, err, _ = await _ffmpeg('-hide_banner', '-protocol_whitelist', 'file', '-i', inp)  # exits with an error here (no output file) but prints the duration
         m = re.search(r'Duration: (\d+):(\d+):([\d.]+)', err.decode('utf8', 'replace'))
         if m:
             dur = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
         n = min(8, max(3, math.ceil(dur / 2)))
         fps = n / dur if dur > 0 else 0.5
-        p = await asyncio.create_subprocess_exec(
-            FFMPEG, '-hide_banner', '-loglevel', 'error', '-i', inp, '-vf', f'fps={fps:.4f},scale=960:-2',
-            '-frames:v', str(n), '-q:v', '5', os.path.join(d, 'f-%02d.jpg'),
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        _, err = await p.communicate()
-        if p.returncode != 0:
+        _, err, code = await _ffmpeg('-hide_banner', '-loglevel', 'error', '-protocol_whitelist', 'file', '-i', inp,
+                                     '-vf', f'fps={fps:.4f},scale=960:-2', '-frames:v', str(n), '-q:v', '5', os.path.join(d, 'f-%02d.jpg'))
+        if code != 0:
             raise RuntimeError(err.decode('utf8', 'replace').strip() or 'ffmpeg failed')
         names = sorted(x for x in os.listdir(d) if x.startswith('f-'))
         frames = []
