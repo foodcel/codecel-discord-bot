@@ -130,6 +130,21 @@ class CardLimits(unittest.TestCase):
         self.assertIn('more not shown', out[-3].content)
 
 
+class StatusWords(unittest.TestCase):
+    def test_only_known_statuses_in_code(self):
+        import re
+        from bot.features.bugs import statuses
+        others = {'running', 'drawing', 'ended', 'cancelled', 'draft', 'released', 'unreleased', 'active', 'private', 'pending', 'inactive', 'status'}  # giveaways, games, testers
+        root = Path(__file__).resolve().parent.parent / 'bot'
+        found = set()
+        for f in root.rglob('*.py'):
+            text = f.read_text(encoding='utf8')
+            for m in re.finditer(r"status\s*(?:==|!=|=)\s*'([a-z_]+)'|'status': '([a-z_]+)'|status in \(([^)]*)\)", text):
+                found |= {w for g in m.groups() if g for w in re.findall(r"'?([a-z_]+)'?", g)}
+        unknown = found - set(statuses.ALL) - others
+        self.assertFalse(unknown, unknown)
+
+
 class AccessMatchesHelp(unittest.TestCase):
     def test_help_pages_agree_with_the_table(self):
         from bot.discord_ui.help import PAGES
