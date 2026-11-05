@@ -471,7 +471,7 @@ def _entries_view(g, member, headline):
     if total == 0:
         lines = [f'**{headline}**', _need_line(member, g['config']) or 'You have no entries.', '', '-# It is checked again when the giveaway ends.']
     else:
-        lines = [f"**{headline}**"] + [f"{'+' if n > 0 else '−'}{abs(n)} · {what}" for what, n in rows] + ['', f"-# It is checked again when the giveaway ends."]
+        lines = [f"**{headline}**"] + [f"{'+' if n > 0 else '−'}{abs(n)} · {what}" for what, n in rows] + ['', "-# It is checked again when the giveaway ends."]
     ok, why = eligible(member, g['config'])
     if not ok:
         lines = [f'⚠️ You no longer qualify: {why}', '-# You will be skipped at the draw unless that changes.']
@@ -947,10 +947,10 @@ def stats_card(g):
                      f"├─ ✅ **{len(verified)}** still here and verified",
                      f"├─ 🕓 **{len(here) - len(verified)}** here, not verified yet",
                      f"└─ 🚪 **{len(rows) - len(here)}** already left"]),
-            NL.join([f"**Where they came from**",
+            NL.join(["**Where they came from**",
                      f"├─ 🔗 **{sum(by_person.values())}** through a member's link, from **{len(by_person)}** people",
                      f"└─ 🌐 **{len(rows) - sum(by_person.values())}** through the vanity link or a link that is gone (nobody to credit)"]),
-            NL.join([f"**The giveaway**",
+            NL.join(["**The giveaway**",
                      f"├─ 🎟️ **{len(entered)}** pressed Enter · **{valid}** qualify",
                      f"├─ 👥 **{sum(1 for u in by_person if u in entered)}** of the **{len(by_person)}** inviters entered",
                      f"└─ 🙋 **{sum(1 for r in rows if r['user_id'] in entered)}** new members entered"])]

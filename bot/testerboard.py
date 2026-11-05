@@ -189,5 +189,5 @@ async def on_select(i, action, values):
             run('INSERT OR IGNORE INTO game_testers(game_key,user_id,at) VALUES(?,?,?)', k, me, now())
             joined.append(shown[k]['name'])
     await refresh_board()
-    lines = ([f"{E['fixed']} You test " + ', '.join(f'**{n}**' for n in joined) + ' now.'] if joined else []) + ([f"🚪 You left " + ', '.join(f'**{n}**' for n in left) + '.'] if left else [])
+    lines = ([f"{E['fixed']} You test " + ', '.join(f'**{n}**' for n in joined) + ' now.'] if joined else []) + (["🚪 You left " + ', '.join(f'**{n}**' for n in left) + '.'] if left else [])
     return await i.edit_original_response(content=NL.join(lines) or 'Nothing changed.')

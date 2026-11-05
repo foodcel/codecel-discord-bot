@@ -1,6 +1,5 @@
 """Prints an embed's fields as text (for checking the card conversion). Run on the VM:  python scripts/dump_embed.py roster"""
 import asyncio
-import sys
 
 from _boot import boot, finish
 

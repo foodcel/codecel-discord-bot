@@ -3,7 +3,6 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot.ctx import ctx
 from bot.env import cfg
 
 

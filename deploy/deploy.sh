@@ -20,6 +20,12 @@ PYBIN=python3
 "$PYBIN" --version >/dev/null 2>&1 || PYBIN=python  # Windows has no working python3
 "$PYBIN" -m compileall -q bot scripts
 
+echo "==> Lint (unused code, undefined names)"
+"$PYBIN" -m pyflakes bot scripts tests || { echo "Fix the lint above first (pip install pyflakes if it is missing)."; exit 1; }
+
+echo "==> Tests"
+"$PYBIN" -m unittest discover -s tests -q || { echo "Tests failed: nothing was deployed."; exit 1; }
+
 echo "==> Pushing to GitHub"
 git push
 
