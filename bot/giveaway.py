@@ -29,6 +29,7 @@ from .ctx import ctx, fetch_channel
 from .db import add_timer, all_, cancel_timers, create_pending, db, del_pending, get_pending, now, one, run, set_pending
 from .env import cfg
 from .perms import level
+from .pngs import fit
 
 NL = chr(10)
 SMALL = discord.SeparatorSpacing.small
@@ -373,7 +374,8 @@ def card_items(g, gid=None, status='running', count=0):
                                   ui.Button(custom_id=mine, label='My entries', style=discord.ButtonStyle.secondary, emoji='🎟️')))
     if status == 'ended' and gid and c['claim_hours'] and any(w['state'] == 'pending' for w in g['result']['winners']):
         items.append(ui.ActionRow(ui.Button(custom_id=f'gw:claim:{gid}', label='Claim prize', style=discord.ButtonStyle.primary, emoji='🏆')))
-    return ui.Container(*items)
+    tail = 3 if isinstance(items[-1], ui.ActionRow) else 2
+    return ui.Container(*fit(items, keep_tail=tail, extra_parts=1))
 
 
 def ping_text(c):

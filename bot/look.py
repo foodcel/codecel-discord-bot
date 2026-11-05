@@ -7,7 +7,7 @@ import discord
 from discord import ui
 
 from .botnews import code_chip, date_button
-from .pngs import width_strip, with_strip
+from .pngs import fit, width_strip, with_strip
 
 NL = chr(10)
 ZWS = '​ㅤ   ⠀'  # the invisible characters the embeds use as spacers
@@ -160,6 +160,7 @@ def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=Fals
     view = ui.LayoutView()
     if ping:
         view.add_item(ui.TextDisplay(ping))
+    items = fit(items, keep_tail=2 if e.footer and e.footer.text else 0, extra_parts=(1 if ping else 0) + sum(1 + len(r.children) for r in below or []))
     items, strip_ = with_strip(items)  # the strip keeps every card the same width
     view.add_item(ui.Container(*items))
     for row in below or []:  # a picker or buttons sit under the card, outside it

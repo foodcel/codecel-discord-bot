@@ -9,7 +9,7 @@ import discord
 from discord import ui
 
 from .botnews import date_button, strip, tree
-from .pngs import with_strip
+from .pngs import fit, with_strip
 from .components import NO_MENTIONS
 from .ctx import fetch_channel
 from .db import add_timer, all_, kv_get, kv_set, now, one, run
@@ -69,6 +69,7 @@ def board_view():
         items.append(ui.Section(block, accessory=ui.Button(style=discord.ButtonStyle.link, label='Play test', url=g['test_link'], emoji='▶️')) if g.get('test_link') else ui.TextDisplay(block))
     items += [ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(NL.join('-# ' + x for x in FOOTER))]
     view = ui.LayoutView(timeout=None)
+    items = fit(items, keep_tail=2, extra_parts=2 if games else 0)
     items, strip_ = with_strip(items)
     view.add_item(ui.Container(*items))
     if games:  # the picker sits below the card, outside it: one dropdown where you pick every game you test (pick none to leave them all)
@@ -89,8 +90,11 @@ async def refresh_board():
         try:
             await ch.get_partial_message(int(ref['message'])).edit(view=view, attachments=files, allowed_mentions=NO_MENTIONS)
             return
-        except Exception:
-            pass
+        except discord.NotFound:
+            pass  # deleted: posted again below
+        except Exception as e:
+            print('tester board edit', repr(e)[:150])  # anything else: logged, never a repost (a repost loop would spam the channel)
+            return
         view, files = board_view()  # the files can be sent once
     msg = await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
     if ref.get('message'):

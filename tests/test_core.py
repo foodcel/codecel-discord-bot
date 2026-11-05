@@ -115,6 +115,18 @@ class InviteBurst(unittest.TestCase):
         self.assertEqual([r[1] for r in rows], ['7', '7', '7', None])  # three uses of abc, the fourth join is not from a known new use
 
 
+class CardLimits(unittest.TestCase):
+    def test_long_cards_fit(self):
+        from discord import ui
+        from bot.pngs import PART_LIMIT, TEXT_LIMIT, fit
+        items = [ui.TextDisplay('### head'), ui.Separator()] + [ui.TextDisplay('x' * 300) for _ in range(60)] + [ui.Separator(), ui.TextDisplay('-# foot')]
+        out = fit(items, keep_tail=2)
+        self.assertLessEqual(sum(len(getattr(x, 'content', '') or '') for x in out), TEXT_LIMIT)
+        self.assertLessEqual(len(out), PART_LIMIT)
+        self.assertEqual(out[-1].content, '-# foot')
+        self.assertIn('more not shown', out[-3].content)
+
+
 class AccessMatchesHelp(unittest.TestCase):
     def test_help_pages_agree_with_the_table(self):
         from bot.help import PAGES

@@ -47,3 +47,52 @@ def with_strip(items):
     k = next((k for k in range(len(items) - 1, -1, -1) if isinstance(items[k], ui.ActionRow)), len(items))
     items.insert(k, gallery)
     return items, strip
+
+
+TEXT_LIMIT = 3800   # Discord allows 4000 characters of text per message (all text parts together); some room is kept
+PART_LIMIT = 38     # and 40 components per message (every nested part counts)
+
+
+def _text_of(item):
+    from discord import ui
+    if isinstance(item, ui.TextDisplay):
+        return item.content
+    if isinstance(item, ui.Section):
+        return ''.join(c.content for c in item.children if isinstance(c, ui.TextDisplay))
+    return ''
+
+
+def _parts(item):
+    from discord import ui
+    if isinstance(item, ui.Section):
+        return 1 + len(item.children) + 1
+    if isinstance(item, (ui.ActionRow, ui.Container)):
+        return 1 + sum(_parts(c) for c in item.children)
+    return 1
+
+
+def fit(items, keep_tail=2, extra_parts=0):
+    """The card's items, shortened when it would break a limit. keep_tail: how many items at the end are the footer (always kept).
+    extra_parts: components outside the card (the ping text, a picker below) that count too."""
+    from discord import ui
+    items = list(items)
+    head, tail = items[:2], items[len(items) - keep_tail:] if keep_tail else []
+    body = items[2:len(items) - keep_tail] if keep_tail else items[2:]
+    dropped = 0
+
+    def total():
+        whole = head + body + tail
+        return sum(len(_text_of(x)) for x in whole) + 40, 1 + sum(_parts(x) for x in whole) + extra_parts + (1 if dropped else 0)
+
+    while body and (total()[0] > TEXT_LIMIT or total()[1] > PART_LIMIT):
+        body.pop()
+        dropped += 1
+    if dropped:
+        body.append(ui.TextDisplay(f'-# …and {dropped} more not shown'))
+    over = total()[0] - TEXT_LIMIT
+    if over > 0:  # one very long text: cut it
+        for k in range(len(body) - 1, -1, -1):
+            if isinstance(body[k], ui.TextDisplay) and len(body[k].content) > over + 20:
+                body[k] = ui.TextDisplay(body[k].content[:len(body[k].content) - over - 2] + '…')
+                break
+    return head + body + tail

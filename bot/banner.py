@@ -1,5 +1,6 @@
 """The Redwing Experiences banner for giveaways, drawn in code: the navy background with diagonal stripes, the red wing logo (cut from assets/games-banner.gif),
 a faint wing behind, a title in big condensed letters and a red bar at the bottom. The headline can be any text (the prize), so every giveaway gets its own banner."""
+import functools
 import io
 import re
 from pathlib import Path
@@ -67,6 +68,7 @@ def _spaced(draw, xy, text, font, fill, spacing=3):
     return x
 
 
+@functools.lru_cache(maxsize=32)  # the same words give the same picture: drawn once, not on every card edit
 def giveaway_banner(headline='GIVEAWAY', sub='', pill='ENTER BELOW'):
     """PNG bytes of the banner. headline: the big text (the prize). sub: a short line under the red bar. pill: the outlined text at the bottom."""
     img = _background()
