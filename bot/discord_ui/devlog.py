@@ -16,7 +16,7 @@ from bot.core.ctx import fetch_channel
 from bot.core.db import kv_del, kv_get, kv_set
 from bot.core.env import cfg
 from bot.core.perms import level
-from bot.discord_ui.ui import describe, flat, head
+from bot.discord_ui.card import card
 
 _capture = contextvars.ContextVar('devlog_capture', default=None)
 
@@ -25,9 +25,14 @@ _REFUSED = re.compile(r"^(Only |You do not|You cannot|You can't|Pick |Give |The 
                       r"Unknown|Nothing|There's no|No games|Someone|Skipped|This (draft|command)|The \w+ must)", re.I)
 
 
-def _note(text):
+def _note(text, view=None):
+    """Keeps a reply for the log entry: its text, or the text of the card it sent."""
     c = _capture.get()
-    if c is not None and isinstance(text, str) and text:
+    if c is None:
+        return
+    if not (isinstance(text, str) and text) and view is not None and hasattr(view, 'walk_children'):
+        text = ' · '.join(x.content for x in view.walk_children() if isinstance(x, discord.ui.TextDisplay))[:500]
+    if isinstance(text, str) and text:
         c.append(text)
 
 
@@ -37,15 +42,15 @@ def install():
     edit_original, webhook_send = discord.Interaction.edit_original_response, discord.Webhook.send
 
     async def _send_message(self, content=None, *a, **k):
-        _note(content)
+        _note(content, k.get('view'))
         return await send_message(self, content, *a, **k)
 
     async def _edit_message(self, **k):
-        _note(k.get('content'))
+        _note(k.get('content'), k.get('view'))
         return await edit_message(self, **k)
 
     async def _edit_original(self, **k):
-        _note(k.get('content'))
+        _note(k.get('content'), k.get('view'))
         return await edit_original(self, **k)
 
     async def _webhook_send(self, content=discord.utils.MISSING, *a, **k):
@@ -89,18 +94,11 @@ async def post(user, title, details='', result=None, ok=True, where=None):
         ch = await fetch_channel(cfg.devlog_id)
         if ch is None:
             return
-        e = flat()
-        e.title = head('📋' if ok else '⛔', _cut(title, 230))
         who = f'<@{user.id}>' + (f' in <#{where}>' if where else '')
-        lines = [who]
-        if details:
-            lines.append(_cut(details, 900))
-        if result:
-            lines.append(f'**Result** · {_cut(result, 500)}')
-        describe(e, '\n'.join(lines))
-        e.timestamp = datetime.now(timezone.utc)
-        e.set_footer(text=f'{user} · {user.id} · {level(user) if hasattr(user, "guild_permissions") else "?"}')
-        await ch.send(embeds=[e], allowed_mentions=discord.AllowedMentions.none())
+        lines = [who] + ([_cut(details, 900)] if details else []) + ([f'**Result** · {_cut(result, 500)}'] if result else [])
+        view, files = card(f"{'📋' if ok else '⛔'} {_cut(title, 200)}", ['\n'.join(lines)],
+                           [f'{user} · {user.id} · {level(user) if hasattr(user, "guild_permissions") else "?"} · <t:{int(datetime.now(timezone.utc).timestamp())}:T>'])
+        await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions.none())
     except Exception as ex:
         print('devlog', repr(ex))
 
@@ -216,17 +214,14 @@ async def update_step(pid, user, game_name, text, final=None):
             s['steps'] = s['steps'][-20:]
             if final:
                 s['final'] = final
-            e = flat()
             posted = bool(final) and final.startswith(('Posted', 'Added'))
-            e.title = head('📣' if posted else '📋', _cut(f"/update · {s['game']}" + (' · NOT POSTED' if final and not posted else ''), 230))
+            title = f"{'📣' if posted else '📋'} " + _cut(f"/update · {s['game']}" + (' · NOT POSTED' if final and not posted else ''), 200)
             status = f'**Result** · {final}' if final else '**Status** · Draft open, nothing posted yet'
             lines = []
             for ts, uid, step in s['steps']:
                 who = '' if uid == s['user'] else f' <@{uid}>'
                 lines.append(f'<t:{ts}:T>{who} · {_cut(step, 250)}')
-            describe(e, f"<@{s['user']}>\n{status}\n\n" + '\n'.join(lines))
-            e.timestamp = datetime.now(timezone.utc)
-            e.set_footer(text=f'{user} · {user.id} · draft #{pid}')
+            view, files = card(title, [f"<@{s['user']}>\n{status}", '\n'.join(lines)], [f'{user} · {user.id} · draft #{pid}'])
             ch = await fetch_channel(cfg.devlog_id)
             if ch is None:
                 return
@@ -237,9 +232,9 @@ async def update_step(pid, user, game_name, text, final=None):
                 except Exception:
                     msg = None
             if msg:
-                await msg.edit(embeds=[e])
+                await msg.edit(content=None, embeds=[], view=view, attachments=files)
             else:
-                msg = await ch.send(embeds=[e], allowed_mentions=discord.AllowedMentions.none())
+                msg = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions.none())
                 s['mid'] = str(msg.id)
             if final:
                 kv_del(f'devlog:upd:{pid}')  # finished: the next action on a new draft starts a new entry

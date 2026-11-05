@@ -1,5 +1,7 @@
 # Design language for the bot's posts
 
+**Cards only.** Every message the bot sends is a card (Discord's components), built with `bot/discord_ui/card.py` (`card()`, `row()`), or a short player reply from `bot/features/bugs/replies.py`. Never an embed: a test fails if one comes back. Columns are written as `**Label** · value` lines.
+
 The bot has **two looks**. Pick by who reads the post, then follow that look exactly. Read this before adding or changing any post.
 
 | | **Developer look** | **Community look** |
@@ -90,3 +92,7 @@ Code: `bot/discord_ui/banner.py` (the banner), `bot/features/giveaways/giveaway.
 - **Podium:** `### 🥇 2K Robux + Nitro` with `-# 1st and 2nd place` under it; the other places in bold.
 - **Prize pool:** `## 💰 10K Robux + 2× Nitro`, `-# the prize pool · 5 winners`, then every place on one line.
 - **Tiles:** every place in its own quoted block with the prize as a heading.
+
+# Player replies (community look, in report threads)
+`bot/features/bugs/replies.py`: one small card per event: a bold title that says what happened, one or two short lines, and a small hint saying what to do next.
+The player is pinged above the card only when they must act (needs info, duplicate, fixed). A missing-info card is a checklist of exactly what to send.

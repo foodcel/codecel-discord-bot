@@ -4,12 +4,14 @@ without one falls back to its definition, so a new command always shows up."""
 import re
 
 import discord
+from discord import ui
 
+from bot.discord_ui.card import card
 from bot.discord_ui.commands import BOARD_COMMANDS, COMMANDS
-from bot.discord_ui.components import button, make_view
+from bot.discord_ui.components import button
 from bot.core.env import cfg
 from bot.core.perms import level
-from bot.discord_ui.ui import EM, flat, head, section
+from bot.discord_ui.ui import EM
 
 # role -> (emoji, label, intro, [(group emoji, group title, [command names or (text, description)])])
 PAGES = {
@@ -90,7 +92,8 @@ def _tree(entries, desc):
     return '\n'.join(lines)
 
 
-def page_embed(role, n, total, member):
+def page_card(role, n, total, member):
+    """One page of /help as a card: (view, files). Previous / Next sit under it."""
     emoji, label, intro, groups = PAGES[role]
     if role == 'dev' and level(member) == 'jr':
         intro = 'You are a jr dev: you can look, but only full devs can use these.'
@@ -98,41 +101,23 @@ def page_embed(role, n, total, member):
     if role in ('dev', 'tester'):  # devs and testers can report a message
         groups.append(HUNTING)
     desc = descriptions()
-    e = flat()
-    e.title = head(emoji, f'Help · {label}')
-    e.description = f'-# {intro}'
-    for g_emoji, title, entries in groups:
-        section(e, head(g_emoji, title), _tree(entries, desc))
-    e.set_footer(text=f'Page {n + 1} of {total} · {label}')
-    return e
-
-
-def page_view(n, total):
-    return make_view([[
-        button(f'help:{n - 1}', 'Previous', discord.ButtonStyle.secondary, disabled=n == 0),
-        button(f'help:{n + 1}', 'Next', discord.ButtonStyle.primary, disabled=n >= total - 1),
-    ]]) if total > 1 else None
+    blocks = [f'-# {intro}'] + [f"**{g_emoji} {title}**{chr(10)}{_tree(entries, desc)}" for g_emoji, title, entries in groups]
+    below = [ui.ActionRow(button(f'help:{n - 1}', 'Previous', discord.ButtonStyle.secondary, disabled=n == 0),
+                          button(f'help:{n + 1}', 'Next', discord.ButtonStyle.primary, disabled=n >= total - 1))] if total > 1 else []
+    return card(f'{emoji} Help · {label}', blocks, [f'Page {n + 1} of {total} · {label}'], below=below)
 
 
 def _page(member, n):
     roles = roles_of(member)
     n = max(0, min(int(n), len(roles) - 1))
-    return page_embed(roles[n], n, len(roles), member), page_view(n, len(roles))
+    return page_card(roles[n], n, len(roles), member)
 
 
 async def command_help(i):
-    from bot.discord_ui.look import card_from_embed, clone_rows
-    e, view = _page(i.user, 0)
-    card, files = card_from_embed(e, below=clone_rows(view))
-    await i.response.send_message(view=card, files=files, ephemeral=True)
+    view, files = _page(i.user, 0)
+    await i.response.send_message(view=view, files=files, ephemeral=True)
 
 
 async def button_help(i, n):
-    from bot.discord_ui.look import card_from_embed, clone_rows
-    e, view = _page(i.user, n)
-    try:
-        card, files = card_from_embed(e, below=clone_rows(view))
-        await i.response.edit_message(content=None, embeds=[], view=card, attachments=files)
-    except Exception as ex:  # an old help message that Discord will not turn into a card keeps the old look
-        print('help card', repr(ex)[:120])
-        await i.response.edit_message(embeds=[e], view=view)
+    view, files = _page(i.user, n)
+    await i.response.edit_message(content=None, embeds=[], view=view, attachments=files)

@@ -66,7 +66,7 @@ ANALYZE_SCHEMA = {
     'type': 'object',
     'properties': {
         'complete': {'type': 'boolean'},
-        'missing': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Short items still needed, e.g. "Device / model"'},
+        'missing': {'type': 'array', 'items': {'type': 'string'}, 'description': 'What the reporter must still send, each 2-6 plain words telling them exactly what to write, e.g. "Which device you play on", "The steps to make it happen", "A screenshot or video"'},
         'game': {'type': ['string', 'null'], 'description': 'Exactly one of the listed game tags, or null'},
         'device': {'type': ['string', 'null'], 'description': 'Mobile, Computer, Controller, or null'},
         'severity': {'type': 'string', 'enum': ['low', 'medium', 'high', 'critical']},
@@ -220,7 +220,7 @@ SUGGEST_SCHEMA = {
     'properties': {
         'type': {'type': 'string', 'enum': ['suggestion', 'bug']},
         'complete': {'type': 'boolean'},
-        'missing': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Short items still needed, e.g. "Which game"'},
+        'missing': {'type': 'array', 'items': {'type': 'string'}, 'description': 'What the player must still send, each 2-6 plain words telling them exactly what to write, e.g. "Which game it is for", "What exactly should change"'},
         'game': {'type': ['string', 'null'], 'description': 'Exactly one of the listed games, or null'},
         'severity': {'type': 'string', 'enum': ['low', 'medium', 'high', 'critical']},
         'title': {'type': 'string'},

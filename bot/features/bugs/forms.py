@@ -8,6 +8,7 @@ import time
 
 import discord
 
+from bot.discord_ui.card import card, row, words
 from bot.discord_ui.components import NO_MENTIONS, FormModal
 from bot.core.ctx import fetch_channel
 from bot.core.db import bug_by_id, now, run, update_bug
@@ -15,7 +16,7 @@ from bot.core.env import cfg
 from bot.features.bugs.tags import find_device_tag, tag_name, to_suggest_tag_id
 from bot.features.bugs.tester import _keep, _pending, quote, safe
 from bot.features.bugs.transcript import download, upload_limit
-from bot.discord_ui.ui import E, EM, columns, cut, describe, flat, head, labeled, sentence
+from bot.discord_ui.ui import E, EM, cut, sentence
 
 # /improvement takes up to 5 screenshots and 2 videos (/bug takes 10 and 5, see tester.ATTACH)
 IMPROVE_ATTACH = {
@@ -87,31 +88,29 @@ async def command_form(i, opts, kind):
     return await i.response.send_modal(FormModal(f'fm:{kind}:{tag_id}:{token}', f"{meta['noun'].capitalize()} · {tag_name(tag_id)}"[:45], inputs))
 
 
-def _card(kind, user_id, game, form, too_big=None, image=None):
-    e = flat()
+def _card(kind, user_id, game, form, too_big=None, image=None, origin=None, footer=None):
+    """The first message of a /bug or /improvement post, as a card: (view, files). origin: the message a !bug reply saved."""
     meta = KINDS[kind]
-    e.title = head(meta['icon'], f'{game}')
-    describe(e, f"### {form['title']}")
+    who = 'Reporter' if kind == 'bug' else 'Player'
+    facts = [row('Game', game), row(who, f'<@{user_id}>')]
     if kind == 'bug':
-        columns(e, [
-            {'name': head(E['user'], 'Reporter'), 'lines': [f'<@{user_id}>']},
-            {'name': head(E['device'], 'Device'), 'lines': [f"`{form['device']}`" if form['device'] else 'Not given']},
-        ])
-        labeled(e, head(E['note'], 'What happened'), quote(sentence(form['what'])))
-        labeled(e, head('🔁', 'How to make it happen'), form['steps'])
+        facts.append(row('Device', f"`{form['device']}`" if form['device'] else 'Not given'))
+    blocks = [NL_.join(facts)]
+    if kind == 'bug':
+        blocks.append(f"**{E['note']} What happened**{NL_}{quote(sentence(form['what']))}")
+        if form['steps']:
+            blocks.append(f"**🔁 How to make it happen**{NL_}{form['steps']}")
         if form['expected']:
-            labeled(e, head(E['fixed'], 'Should happen'), sentence(form['expected']))
+            blocks.append(f"**{E['fixed']} Should happen**{NL_}{sentence(form['expected'])}")
     else:
-        columns(e, [{'name': head(E['user'], 'Player'), 'lines': [f'<@{user_id}>']}])
-        labeled(e, head('💡', 'The idea'), sentence(form['what']))
+        blocks.append(f"**💡 The idea**{NL_}{sentence(form['what'])}")
         if form['why']:
-            labeled(e, head(E['note'], 'Why'), sentence(form['why']))
+            blocks.append(f"**{E['note']} Why**{NL_}{sentence(form['why'])}")
+    if origin:
+        blocks.append(f"**🔗 Original message**{NL_}[Open it]({origin})")
     if too_big:
-        labeled(e, head(E['video'], 'Too big to attach'), '\n'.join(too_big) + '\nPost the file in this post.')
-    if image:
-        e.set_image(url=f'attachment://{image}')
-    e.set_footer(text=f"Sent with {meta['command']} · replies go in this post")
-    return e
+        blocks.append(f"**{E['video']} Too big to attach**{NL_}" + NL_.join(too_big) + f'{NL_}Post the file in this post.')
+    return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · replies go in this post"], image=image)
 
 
 async def _files(chosen):
@@ -161,7 +160,7 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
         tags.append(forum.get_tag(int(dev['id'])))
     batches, too_big, image = await _files(chosen)
     created = await forum.create_thread(
-        name=cut(form['title'], 100), embeds=[_card(kind, i.user.id, game, form, too_big, image)], files=batches[0],
+        name=cut(form['title'], 100), view=(made := _card(kind, i.user.id, game, form, too_big, image))[0], files=batches[0] + made[1],
         applied_tags=tags, allowed_mentions=NO_MENTIONS, reason=f"{meta['command']} by {i.user}")
     thread = created.thread
     for k, extra in enumerate(batches[1:]):
@@ -193,11 +192,8 @@ async def _analyze(id_, thread, kind):
 
 
 def message_text(src):
-    """The words of a message: its text, or the text of an embed a bot made."""
-    parts = [src.content or '']
-    for e in src.embeds:
-        parts += [e.title or '', e.description or ''] + [f'{f.name}: {f.value}' for f in e.fields]
-    return NL_.join(p.strip() for p in parts if p and p.strip())
+    """The words of a message: its text, an old embed, or a card a bot made."""
+    return words(src)
 
 
 NL_ = chr(10)
@@ -225,10 +221,9 @@ async def post_from_message(src, saver, kind, tag_id=None):
             tags.append(tag)
     batches, too_big, image = await _files(message_files(src))
     reporter = saver.id if src.author.bot else src.author.id
-    e = _card(kind, reporter, game or 'New report', form, too_big, image)
-    labeled(e, head('🔗', 'Original message'), f'[Open it]({src.jump_url})')
-    e.set_footer(text=f"Saved from a message by {saver.display_name} · replies go in this post")
-    created = await forum.create_thread(name=cut(form['title'], 100), embeds=[e], files=batches[0], applied_tags=tags,
+    view, card_files = _card(kind, reporter, game or 'New report', form, too_big, image, origin=src.jump_url,
+                             footer=f'Saved from a message by {saver.display_name} · replies go in this post')
+    created = await forum.create_thread(name=cut(form['title'], 100), view=view, files=batches[0] + card_files, applied_tags=tags,
                                         allowed_mentions=NO_MENTIONS, reason=f"{KINDS[kind]['command']} reply by {saver}")
     thread = created.thread
     for k, extra in enumerate(batches[1:]):
@@ -242,15 +237,13 @@ async def post_from_message(src, saver, kind, tag_id=None):
 
 
 def card_from_message(src, saver, kind, tag_id=None):
-    """The card a `!bug` reply would post, for the test channel: nothing is saved."""
+    """The card a `!bug` reply would post, for the test channel: (view, files). Nothing is saved."""
     text = message_text(src)
     first = (text.splitlines()[0] if text else '').strip()
     form = {'title': cut(first, 70) or 'Report from a message', 'what': cut(text, 1500) or 'See the attached files.',
             'steps': '', 'expected': '', 'device': '', 'why': ''}
     names = [a.filename for a in src.attachments]
-    e = _card(kind, saver.id if src.author.bot else src.author.id, tag_name(tag_id) if tag_id else 'New report', form,
-              [f'{n} (would be attached)' for n in names] or None)
-    labeled(e, head('🔗', 'Original message'), f'[Open it]({src.jump_url})')
-    e.set_footer(text=f'Saved from a message by {saver.display_name} · replies go in this post')
-    return e
+    return _card(kind, saver.id if src.author.bot else src.author.id, tag_name(tag_id) if tag_id else 'New report', form,
+                 [f'{n} (would be attached)' for n in names] or None, origin=src.jump_url,
+                 footer=f'Saved from a message by {saver.display_name} · replies go in this post')
 

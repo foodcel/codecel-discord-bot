@@ -83,7 +83,9 @@ async def handle(m):
         from bot.features.bugs.forms import card_from_message
         where = 'the bugs forum' if kind == 'bug' else 'the improvements forum'
         await m.channel.send(f"🧪 **TEST**{EM}·{EM}bug hunting would post this in {where} for <@{src.author.id}> (game: {game['name'] if game else 'not found'}). Nothing was saved or posted.",
-                             embeds=[card_from_message(src, member, kind, game['id'] if game else None)], allowed_mentions=NO_MENTIONS)
+                             allowed_mentions=NO_MENTIONS)
+        view, files = card_from_message(src, member, kind, game['id'] if game else None)
+        await m.channel.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
         await _remove(m)
         return True
     if in_testing and kind == 'bug':  # the testing channel: the report goes to the testers' forum, tagged with the game (made when it is missing)

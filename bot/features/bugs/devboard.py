@@ -3,16 +3,19 @@ Bugs are browsed in a private page (see bugview.py), never posted as messages.""
 import asyncio
 
 import discord
+from discord import ui
 
+from bot.discord_ui.card import card, row
 from bot.features.bugs.nums import label
 from bot.features.games.bounty import all_owner_ids, owners_for
 from bot.discord_ui.components import allowed, button, make_view, select
 from bot.core.ctx import ctx, fetch_channel
 from bot.core.db import all_, get_prefs, kv_get, kv_keys, kv_set, update_bug
 from bot.core.env import cfg
-from bot.discord_ui.ui import (E, EM, EN, GAP, SEVERITY, STATUS, ZW, columns, cut, describe, flat, head, labeled, lkey, sentence)
+from bot.discord_ui.ui import E, EM, GAP, SEVERITY, STATUS, cut, lkey, sentence
 
 _locks = {}
+NL = chr(10)
 
 
 async def _serial(key, fn):
@@ -48,53 +51,11 @@ def open_bugs_for(key):
     return out
 
 
-def board_embed(key):
-    bugs = open_bugs_for(key)
-    kind, base = kind_of(key), base_key(key)
-    e = flat()
-    if kind == 'suggestion':
-        e.title = head(E['game'] if base == 'unclaimed' else '💡', 'Unclaimed games' if base == 'unclaimed' else 'Your suggestion board')
-        e.set_footer(text='Pick a game below to browse its suggestions. You can also type "sonic 3 added", "sonic 1-5 added", "sonic 7 declined" here.')
-        if not bugs:
-            return describe(e, 'No open suggestions 🎉')
-        ordered = sorted(bugs, key=lambda b: (-b['votes'], b['id']))  # most votes at the top
-        describe(e, f"{E['new']} **{len(bugs)}** open{GAP}🙏 **{sum(b['votes'] for b in bugs)}** votes")
-        lst = ordered[:15]
-        columns(e, [
-            {'name': head('💡', 'Suggestion'), 'lines': [f"**{label(b)}**{EN}{'⚠️ ' if b['low_info'] else ''}{cut(b['title'], 24 if b['low_info'] else 26)}" for b in lst]},
-            {'name': head(E['game'], 'Game'), 'lines': [cut(b['game_name'] or 'Unknown', 18) for b in lst]},
-            {'name': head('🙏', 'Votes'), 'lines': [str(b['votes']) for b in lst]},
-        ])
-        if len(ordered) > 15:
-            e.add_field(name=ZW, value=f'…and {len(ordered) - 15} more. Pick a game below to see them.', inline=False)
-        return e
-    e.title = head(E['game'] if base == 'unclaimed' else '😊', 'Unclaimed games' if base == 'unclaimed' else 'Your bug board')
-    e.set_footer(text='Pick a game below to browse its bugs. You can also type "sonic 3 fixed", "sonic 1-5 fixed", "sonic 7 investigating" here.')
-    if not bugs:
-        return describe(e, 'No open bugs 🎉')
-    ordered = sorted(bugs, key=lambda b: (lkey(b['game_name'] or ''), b['id']))
-
-    def n(s):
-        return len([b for b in bugs if b['status'] == s])
-
-    # "open" = not picked up yet (status New). Investigating and fixing are counted on their own.
-    describe(e, f"{E['open']} **{n('new')}** open{GAP}{E['investigating']} **{n('investigating')}** investigating{GAP}{E['fixing']} **{n('fixing')}** fixing")
-    lst = ordered[:15]
-    columns(e, [
-        {'name': head(E['open'], 'Bug'), 'lines': [f"**{label(b)}**{EN}{'⚠️ ' if b['low_info'] else ''}{cut(b['title'], 24 if b['low_info'] else 26)}" for b in lst]},
-        {'name': head(E['game'], 'Game'), 'lines': [cut(b['game_name'] or 'Unknown', 18) for b in lst]},
-        {'name': head(E['status'], 'Status'), 'lines': [STATUS.get(b['status'], b['status']) for b in lst]},
-    ])
-    if len(ordered) > 15:
-        e.add_field(name=ZW, value=f'…and {len(ordered) - 15} more. Pick a game below to see them.', inline=False)
-    return e
-
-
 def board_card(key):
     """A dev's board as a card: the counts in the title, the open reports in a tree under each game, the commands in the footer, the pickers below."""
     import discord
     from discord import ui
-    from bot.discord_ui.look import clone_rows
+    from bot.discord_ui.card import clone_rows
     from bot.features.bugs.nums import label
     from bot.discord_ui.pngs import with_strip
     from bot.features.updates.botnews import date_button
@@ -130,8 +91,8 @@ def board_card(key):
     parts, strip_ = with_strip([head, ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay(body),
                                 ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small), ui.TextDisplay('-# ' + foot)])
     view.add_item(ui.Container(*parts))
-    for row in clone_rows(board_components(key)):
-        view.add_item(row)
+    for r in clone_rows(board_components(key)):
+        view.add_item(r)
     return view, [strip_]
 
 
@@ -185,12 +146,8 @@ async def _dev_thread(key, create):
     if forum is None:
         return None
     name = await board_name(key)
-    try:  # the board is a card; if Discord refuses a card in a new post it is an embed as before
-        view, files = board_card(key)
-        made = await forum.create_thread(name=name[:100], view=view, files=files)
-    except Exception as e:
-        print('board card post failed, using the embed', repr(e)[:150])
-        made = await forum.create_thread(name=name[:100], embeds=[board_embed(key)], view=board_components(key))
+    view, files = board_card(key)
+    made = await forum.create_thread(name=name[:100], view=view, files=files)
     kv_set('devthread:' + key, made.thread.id)
     try:
         await made.thread.edit(pinned=True)
@@ -215,12 +172,8 @@ async def refresh_board(key):
             print('board rename', e)
     try:
         starter = await t.fetch_message(t.id)
-        try:  # the board becomes a card in place; if Discord refuses, the embed stays
-            view, files = board_card(key)
-            await starter.edit(content=None, embeds=[], view=view, attachments=files)
-        except Exception as e:
-            print('board card edit failed, keeping the embed', repr(e)[:150])
-            await starter.edit(embeds=[board_embed(key)], view=board_components(key))
+        view, files = board_card(key)
+        await starter.edit(content=None, embeds=[], view=view, attachments=files)  # an old embed board turns into the card in place
     except Exception as e:
         print('board edit', e)
 
@@ -322,31 +275,26 @@ def exploit_status_line(status, silent=False, dm_ok=True):
 
 
 def exploit_buttons(bug_id, status):
-    """Status buttons on the card. Every change also messages the reporter, because their post was deleted."""
+    """Status buttons on the card (a list of ActionRows). Every change also messages the reporter, because their post was deleted."""
     if status in ('exploit_fixed', 'exploit_closed'):
-        return None
+        return []
     items = []
     if status == 'exploit':
         items.append(button(f'exp:{bug_id}:investigating', f"{E['investigating']} Investigating", discord.ButtonStyle.secondary))
     items.append(button(f'exp:{bug_id}:fixed', f"{E['fixed']} Fixed", discord.ButtonStyle.success))
     items.append(button(f'exp:{bug_id}:closed', f"{E['notbug']} Not an exploit", discord.ButtonStyle.secondary))
-    return make_view([items])
+    return [ui.ActionRow(*items)]
 
 
-def exploit_card(bug, text, silent, status='exploit', dm_ok=True):
-    """The card for a possible exploit report. It goes straight into the owner's dev board, not into #mod-log."""
-    e = flat()
-    e.title = head(E['lock'], 'High priority · possible exploit')
-    e.set_footer(text='Do not discuss exploit details in public channels.')
-    describe(e, exploit_status_line(status, silent, dm_ok))
-    columns(e, [
-        {'name': head(E['user'], 'Reporter'), 'lines': [f"<@{bug['reporter_id']}>"]},
-        {'name': head(E['game'], 'Game'), 'lines': [bug['game_name'] or 'Unknown']},
-        {'name': head(E['severity'], 'Severity'), 'lines': [SEVERITY.get(bug['severity']) or '?']},
-    ])
-    summary = f"{sentence(bug['summary'])}\n" if bug.get('summary') else ''
-    labeled(e, head(E['note'], 'Report'), f"**{bug['title'] or 'Untitled'}**\n{summary}>>> {str(text or '')[:700]}")
-    return e
+def exploit_card(bug, text, silent, status='exploit', dm_ok=True, ping=None):
+    """The card for a possible exploit report, posted straight into the owner's dev board: (view, files). The report text is in the database
+    (bugs.body), so a button press redraws the card from there."""
+    facts = NL.join([row('Reporter', f"<@{bug['reporter_id']}>"), row('Game', bug['game_name'] or 'Unknown'), row('Severity', SEVERITY.get(bug['severity']) or '?')])
+    summary = f"{sentence(bug['summary'])}{NL}" if bug.get('summary') else ''
+    report = f"**{E['note']} {bug['title'] or 'Untitled'}**{NL}{summary}>>> {str(text or '')[:700]}"
+    return card(f"{E['lock']} High priority · possible exploit", [exploit_status_line(status, silent, dm_ok), facts, report],
+                ['Do not discuss exploit details in public channels.'], ping=ping,
+                inside=[] if silent else exploit_buttons(bug['id'], status))
 
 
 async def post_exploit(bug, text, silent, dm_ok=True):
@@ -354,8 +302,7 @@ async def post_exploit(bug, text, silent, dm_ok=True):
     Owners are pinged unless they turned exploit pings off. Unclaimed pings the dev role. Old posts imported silently never ping."""
     owners = owners_for(bug['game_tag_id'], bug['game_name'])
     keys = owners if owners else ['unclaimed']
-    card = exploit_card(bug, text, silent, 'exploit', dm_ok)
-    view = None if silent else exploit_buttons(bug['id'], 'exploit')
+    update_bug(bug['id'], {'body': str(text or '')[:3000]})  # kept, so the card can be redrawn and nothing is lost when the post is deleted
     for key in keys:
         t = await dev_thread(key, True)
         if not t:
@@ -367,8 +314,9 @@ async def post_exploit(bug, text, silent, dm_ok=True):
         else:
             ping = f'<@{key}>' if get_prefs(key)['exploits'] else None
         try:
+            view, files = exploit_card(bug, text, silent, 'exploit', dm_ok, ping=ping)
             await t.send(
-                content=f"{f'{ping} ' if ping else ''}{E['lock']} **HIGH PRIORITY**", embeds=[card], view=view,
+                view=view, files=files,
                 allowed_mentions=allowed(
                     users=[key] if ping and key != 'unclaimed' else [],
                     roles=[cfg.dev_role] if ping and key == 'unclaimed' else []))

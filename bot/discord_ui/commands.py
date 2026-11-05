@@ -80,11 +80,8 @@ ONLINE = [('Online', 'online'), ('Offline for now', 'offline')]
 RELEASE_PING = [('@everyone', 'everyone'), ('@Updates', 'updates'), ('@Releases', 'releases'), ('No ping', 'none')]
 
 PREVIEW_CHOICES = [
-    ('everything (clears the test channel)', 'all'), ('dev board', 'board'), ('bug page', 'bug'),
-    ('announcements', 'announcement'), ('fix log', 'fixlog'), ('rules', 'rules'),
-    ('mod cards', 'mod'), ('bot messages', 'messages'), ('transcript', 'transcript'),
-    ('launch announcement draft', 'botnews'), ('tester report', 'tester'), ('tester announcement draft', 'testernews'),
-    ('games board', 'games'), ('bounty board announcement draft', 'boardnews'), ('suggestion boards announcement draft', 'suggestionnews'), ('tester roster announcements (testers and devs)', 'rosternews'),
+    ('everything (clears the test channel)', 'all'), ('dev board', 'board'), ('bug page', 'bug'), ('update draft', 'announcement'),
+    ('fix log', 'fixlog'), ('rules', 'rules'), ('mod cards', 'mod'), ('tester report', 'tester'), ('bounty board', 'games'),
 ]
 
 COMMANDS = [

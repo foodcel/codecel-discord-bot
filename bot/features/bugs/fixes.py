@@ -3,7 +3,7 @@ import asyncio
 
 import discord
 
-from bot.features.bugs.nums import label
+from bot.features.bugs import replies
 from bot.features.updates.announce import maybe_offer
 from bot.features.games.bounty import owners_for
 from bot.discord_ui.components import allowed
@@ -14,20 +14,9 @@ from bot.features.bugs.devboard import route_bug, schedule_boards
 from bot.features.bugs.fixlog import snapshot_bug
 from bot.core.perms import can_manage
 from bot.features.bugs.tags import set_tags
-from bot.discord_ui.ui import E, EM
 
 DAY = 86400000
 
-NOTE = {
-    'investigating': f"{E['investigating']} **INVESTIGATING**{EM}·{EM}A developer is looking into this.",
-    'fixing': f"{E['fixing']} **FIXING**{EM}·{EM}A fix is in progress.",
-    'not_a_bug': f"{E['notbug']} **NOT A BUG**{EM}·{EM}Reviewed as intended behavior or a feature request. Thanks for reporting! Suggestions go in the suggestions channel.",
-    'duplicate': f"{E['duplicate']} **DUPLICATE**{EM}·{EM}This was already reported. Please follow the original report.",
-    'declined': f"❌ **DECLINED**{EM}·{EM}The developers decided not to add this. Thanks for the idea! This post is removed in 24 hours.",
-}
-NOTE_SUGGESTION = {
-    'duplicate': f"{E['duplicate']} **DUPLICATE**{EM}·{EM}This was already suggested. Please add your vote to the original post.",
-}
 
 
 def fire(coro, label):
@@ -74,15 +63,9 @@ async def tell_fixed(bug, update_url=None):
             except Exception:
                 extra = []
         pings = [bug['reporter_id'], *extra]
-        if bug['kind'] == 'suggestion':
-            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **ADDED**{EM}·{EM}{bug['title']} ({label(bug)}). Thanks for the idea!\n"
-                    'This post closes now and is deleted in 24 hours.')
-        else:
-            where = f' It is in the new update: {update_url}' if update_url else ''
-            text = (f"{' '.join(f'<@{i}>' for i in pings)}\n{E['fixed']} **FIXED**{EM}·{EM}{bug['title']} ({label(bug)}).{where}\nThanks for reporting!\n"
-                    'This post closes now and is deleted in 24 hours. If it is still broken, reply here before then.')
         try:
-            await thread.send(content=text, allowed_mentions=allowed(users=pings))
+            view, files = replies.fixed(pings, bug, update_url)
+            await thread.send(view=view, files=files, allowed_mentions=allowed(users=pings))
         except Exception as e:
             print('fixed msg', e)
             return  # not told: retry_untold tries again
@@ -136,10 +119,10 @@ async def set_bug_status(bug, status, actor_id):
     thread = None if bug['deleted'] else await fetch_channel(bug['thread_id'])
     if thread:
         await set_tags(thread, status=None if status == 'new' else status, kind=bug['kind'])
-        note = (NOTE_SUGGESTION if bug['kind'] == 'suggestion' else {}).get(status) or NOTE.get(status)
+        note = replies.status_note(status, bug['kind'])
         if note:
             try:
-                await thread.send(note)
+                await thread.send(view=note[0], files=note[1])
             except Exception:
                 pass
         if status in ('not_a_bug', 'duplicate', 'declined'):
@@ -161,7 +144,8 @@ async def reopen(bug):
     if thread:
         await set_tags(thread, status=None)
         try:
-            await thread.send(f"{E['duplicate']} **REOPENED**{EM}·{EM}{label(bug)} is back on the board. The developer has been notified.")
+            view, files = replies.reopened(bug)
+            await thread.send(view=view, files=files)
         except Exception:
             pass
     await route_bug(bug_by_id(bug['id']))

@@ -4,16 +4,16 @@ devs) or on a break (💤)."""
 import asyncio
 import json
 import re
-import textwrap
 
 import discord
 
+from bot.discord_ui.card import card
 from bot.discord_ui.components import NO_MENTIONS, FormModal
 from bot.core.ctx import ctx, fetch_channel
 from bot.core.db import all_, kv_get, kv_set, one, run
 from bot.core.env import cfg
 from bot.core.perms import level
-from bot.discord_ui.ui import E, FILLER, ZW, describe, flat, gap, head, section
+from bot.discord_ui.ui import E
 
 MARK = {'active': '🟢', 'pending': '🟡', 'private': '🔒', 'inactive': '💤'}
 FIELDS = ('devices', 'recording', 'availability', 'best_for')
@@ -43,40 +43,27 @@ def report_counts():
 
 
 # ---- the two embeds ----
-def _wrap(text, width=78):
-    """Short lines: a long paragraph would stretch the embed to its full width."""
-    return '\n'.join(textwrap.wrap(text, width))
-
-
 def guide_embed():
-    e = flat()
-    e.title = head('🧪', 'Tester responsibilities')
-    describe(e, 'All testers are expected to:\n\n' + '\n'.join([
-        '✅ Test assigned games thoroughly',
-        '✅ Report bugs and gameplay issues',
-        '✅ Provide screenshots or recordings if you can',
-        '✅ Talk to the dev team regularly',
-        '✅ Stay active and finish your testing tasks',
-        '✅ Be patient with unfinished games']), WIDTH)  # the same width as the roster
-    section(e, head(E['warn'], 'Important'),
-            _wrap("We expect consistent effort, honesty and communication. If you're unavailable or unable to finish a test, please notify the developer(s)."))
+    """The Tester responsibilities card: (view, files)."""
     where = f'<#{cfg.testing_id}>' if cfg.testing_id else 'the testing channel'
-    section(e, head(E['open'], 'How to report bugs'),
-            f'Type `/bug` in {where}. It asks for:\n'
-            '• **Game** · which game (the dev is pinged)\n• **Issue** · what happened\n• **Steps** · how can we recreate it?\n'
-            '• **Evidence** · screenshots or videos\n• **Device** · your platform\n• **Frequency** · how often it happens')
-    section(e, head('👤', 'Your profile'), _wrap('Use `/tester profile` to tell the developers what you test on and when you are free.'))
-    gap(e)
-    e.set_footer(text='Questions? Ask here or message a developer.')
-    return e
+    return card('🧪 Tester responsibilities', [
+        'All testers are expected to:' + NL + NL + NL.join([
+            '✅ Test assigned games thoroughly', '✅ Report bugs and gameplay issues', '✅ Provide screenshots or recordings if you can',
+            '✅ Talk to the dev team regularly', '✅ Stay active and finish your testing tasks', '✅ Be patient with unfinished games']),
+        f"**{E['warn']} Important**{NL}We expect consistent effort, honesty and communication. If you're unavailable or unable to finish a test, please notify the developer(s).",
+        f"**{E['open']} How to report bugs**{NL}Type `/bug` in {where}. It asks for:{NL}"
+        f"• **Game** · which game (the dev is pinged){NL}• **Issue** · what happened{NL}• **Steps** · how can we recreate it?{NL}"
+        f"• **Evidence** · screenshots or videos{NL}• **Device** · your platform{NL}• **Frequency** · how often it happens",
+        f"**👤 Your profile**{NL}Use `/tester profile` to tell the developers what you test on and when you are free."],
+        ['Questions? Ask here or message a developer.'])
 
 
+NL = chr(10)
 LABEL = {'active': 'Active', 'private': 'Private', 'pending': 'Waiting for a reply', 'inactive': 'On a break'}
 COMMANDS_FOOTER = '\n'.join([
     '/tester profile · fill in or update your own details',
     '/tester find · devs: find testers open for a device',
 ])
-WIDTH = FILLER  # both embeds use the widest width, so they are always exactly as wide as each other
 
 
 def _name(uid):
@@ -138,27 +125,19 @@ def _block(r, reports):
 
 
 def roster_embed(rows=None, reports=None):
-    """The roster. `rows` and `reports` can be given to show an example."""
+    """The roster as a card: (view, files). The counts are in the title; one part per group, a blank line between testers.
+    `rows` and `reports` can be given to show an example."""
     rows = everyone() if rows is None else rows
     reports = report_counts() if reports is None else reports
     count = {st: sum(1 for r in rows if r['status'] == st) for st in MARK}
-    e = flat()
-    e.title = head('👥', 'Tester roster')
-    parts = [f"{MARK[st]} **{n}** {label}" for st, label in (('active', 'active'), ('private', 'private'), ('pending', 'waiting for a reply'), ('inactive', 'on a break')) if (n := count[st])]
-    describe(e, '  ·  '.join(parts) or 'Nobody on the roster yet.', WIDTH)
-    used = 0
+    parts = [f"{MARK[st]} {n} {label}" for st, label in (('active', 'active'), ('private', 'private'), ('pending', 'waiting for a reply'), ('inactive', 'on a break')) if (n := count[st])]
+    groups = []
     for st in ('active', 'private', 'pending', 'inactive'):
-        for k, r in enumerate([r for r in rows if r['status'] == st]):
-            if used >= 24:
-                break
-            if k == 0 and used:
-                gap(e)  # one empty line above each group name after the first
-            # the first tester of a group carries the group's name, the others a blank line above them
-            e.add_field(name=head(MARK[st], f'{LABEL[st]} · {count[st]}') if k == 0 else ZW, value=_block(r, reports)[:1024], inline=False)
-            used += 1
-    gap(e)
-    e.set_footer(text=COMMANDS_FOOTER)
-    return e
+        mine = [r for r in rows if r['status'] == st]
+        if mine:
+            groups.append(f"**{MARK[st]} {LABEL[st].upper()} · {count[st]}**" + NL + NL + (NL + NL).join(_block(r, reports) for r in mine))
+    title = '👥 Tester roster' + (' · ' + ' · '.join(parts) if parts else '')
+    return card(title, groups or ['Nobody on the roster yet.'], COMMANDS_FOOTER.split(NL))
 
 
 # ---- the posted messages ----
@@ -174,12 +153,12 @@ async def refresh_roster():
     ch = await fetch_channel(b['channelId'])
     if ch is None:
         return
-    from bot.discord_ui.look import card_from_embed, edit_card
     gch = await fetch_channel(b.get('guideChannelId') or b['channelId']) or ch  # the responsibilities card can live in its own channel
     try:
-        await edit_card(gch.get_partial_message(int(b['guide'])), guide_embed())
+        view, files = guide_embed()
+        await gch.get_partial_message(int(b['guide'])).edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=NO_MENTIONS)
     except discord.NotFound:
-        view, files = card_from_embed(guide_embed())
+        view, files = guide_embed()
         b['guide'] = str((await gch.send(view=view, files=files)).id)
         kv_set('testerboard', json.dumps(b))
     except Exception as e:
@@ -199,18 +178,17 @@ async def _refresh_roster_message(ch, b):
     """Edits the roster in place, always. It was sent silent, and that flag stays on the message, so adding a tester only adds their mention: nothing is sent again,
     so the other testers are not pinged (a new message with every mention would give each of them a notification badge). A message that is gone is sent again
     with no mentions allowed and silent, then edited."""
-    from bot.discord_ui.look import card_from_embed, edit_card
-    embed, opts = roster_embed(), {'inline_desc': True}
     try:
         msg = await ch.fetch_message(int(b['roster']))
     except discord.NotFound:
         msg = None
     if not msg:
-        view, files = card_from_embed(embed, **opts)
+        view, files = roster_embed()
         msg = await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS, silent=True)
         b['roster'] = str(msg.id)
         kv_set('testerboard', json.dumps(b))
-    await edit_card(msg, embed, allowed=_allowed_testers(), **opts)
+    view, files = roster_embed()
+    await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=_allowed_testers())
 
 
 def schedule_refresh():
@@ -233,11 +211,10 @@ async def post_board(ch):
     tester-information channel the two old messages are replaced too. Returns how many old messages were removed."""
     await sync_members()
     old = _board()
-    from bot.discord_ui.look import card_from_embed
-    gv, gf = card_from_embed(guide_embed())
+    gv, gf = guide_embed()
     gch = (await fetch_channel(old['guideChannelId']) if old and old.get('guideChannelId') else None) or ch  # it stays in its own channel when it has one
     g = await gch.send(view=gv, files=gf)
-    rv, rf = card_from_embed(roster_embed(), inline_desc=True)
+    rv, rf = roster_embed()
     r = await ch.send(view=rv, files=rf, allowed_mentions=NO_MENTIONS, silent=True)  # nobody is pinged by a posted board
     kv_set('testerboard', json.dumps({'channelId': str(ch.id), 'guide': str(g.id), 'roster': str(r.id), **({'guideChannelId': str(gch.id)} if gch.id != ch.id else {})}))
     await refresh_roster()  # the names are added by an edit, so nobody is notified

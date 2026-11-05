@@ -5,16 +5,19 @@ import json
 from datetime import datetime
 
 import discord
+from discord import ui
 
+from bot.discord_ui.card import card
 from bot.features.bugs.nums import label
-from bot.discord_ui.components import button, make_view, select
+from bot.discord_ui.components import button, select
 from bot.core.ctx import ctx, fetch_channel
 from bot.core.db import DATA_DIR, all_, bug_by_id, kv_get, kv_set
 from bot.features.bugs.devboard import on_boards_refreshed
 from bot.core.env import cfg
 from bot.features.bugs.transcript import bug_bundle, pack, plain_md, upload_limit
-from bot.discord_ui.ui import E, EM, EN, GAP, columns, cut, describe, flat, head, lkey, section
+from bot.discord_ui.ui import E, GAP, cut, lkey
 
+NL = chr(10)
 PER_PAGE = 8
 ARCHIVE = DATA_DIR / 'archive'
 
@@ -86,26 +89,18 @@ async def _name_of(id_):
         return str(id_ if id_ is not None else '?')
 
 
-def log_embed():
+def log_card():
+    """The pinned fix log post as a card, with the game picker under it: (view, files)."""
     rows = stats()
     f_total = sum(r['fixed'] for r in rows)
     o_total = sum(r['open'] for r in rows)
-    e = flat()
-    e.title = head(E['log'], 'Bug fix log')
-    e.set_footer(text='Pick a game below to see its fixes, updates and transcripts.')
+    picker = log_components()
     if not rows:
-        return describe(e, 'Nothing yet. Fixed bugs and posted updates show up here.')
-    describe(e, f"{E['fixed']} **{f_total}** fixed{GAP}{E['open']} **{o_total}** open")
-    lst = rows[:20]
-    # Discord shows at most 3 columns per row, so last fix lives in the game dropdown (see log_components).
-    columns(e, [
-        {'name': head(E['game'], 'Game'), 'lines': [f"**{cut(r['name'], 22)}**" for r in lst]},
-        {'name': head(E['fixed'], 'Fixed'), 'lines': [str(r['fixed']) for r in lst]},
-        {'name': head(E['open'], 'Open'), 'lines': [str(r['open']) for r in lst]},
-    ])
-    if len(rows) > 20:
-        e.add_field(name='​', value=f'…and {len(rows) - 20} more games', inline=False)
-    return e
+        return card(f"{E['log']} Bug fix log", ['Nothing yet. Fixed bugs and posted updates show up here.'], below=picker)
+    lines = [f"**{cut(r['name'], 30)}** · {r['fixed']} fixed · {r['open']} open" for r in rows[:30]]
+    more = f'{NL}-# …and {len(rows) - 30} more games' if len(rows) > 30 else ''
+    return card(f"{E['log']} Bug fix log · {f_total} fixed · {o_total} open", [NL.join(lines) + more],
+                ['Pick a game below to see its fixes, updates and transcripts.'], below=picker)
 
 
 def _short_date(ts_ms):
@@ -114,15 +109,16 @@ def _short_date(ts_ms):
 
 
 def log_components():
+    """The game picker under the fix log: a list of ActionRows (empty when there is nothing to pick)."""
     rows = stats()
     if not rows:
-        return None
+        return []
     options = [{'label': f"All games ({sum(r['fixed'] for r in rows)} fixed)", 'value': 'all'}] + [{
         'label': f"{r['name']} ({r['fixed']} fixed)"[:100],
         'description': (f"Last fix {_short_date(r['last_fix'])}" if r['last_fix'] else 'No fixes yet') + f" · {r['open']} open",
         'value': r['tag'],
     } for r in rows[:24]]
-    return make_view([[select('fl', "Open a game's log", options)]])
+    return [ui.ActionRow(select('fl', "Open a game's log", options))]
 
 
 async def _ensure():
@@ -136,7 +132,8 @@ async def _ensure():
                 pass
         return t
     forum = await fetch_channel(cfg.dev_forum_id)
-    made = await forum.create_thread(name='📜 Bug fix log', embeds=[log_embed()], view=log_components())
+    view, files = log_card()
+    made = await forum.create_thread(name='📜 Bug fix log', view=view, files=files)
     kv_set('logthread', made.thread.id)
     try:
         await made.thread.edit(pinned=True)
@@ -151,7 +148,8 @@ async def refresh_log():
         return
     try:
         starter = await t.fetch_message(t.id)
-        await starter.edit(content=None, embeds=[log_embed()], view=log_components())
+        view, files = log_card()
+        await starter.edit(content=None, embeds=[], view=view, attachments=files)  # an old embed post turns into the card in place
     except Exception as e:
         print('log edit', e)
 
@@ -160,7 +158,7 @@ on_boards_refreshed(refresh_log)
 
 
 async def render_log(tag, page=0):
-    """A game's log page (private): same look, same columns. Returns {'content', 'embeds', 'view'}."""
+    """A game's log page (private), as a card. Returns the keyword arguments of an edit."""
     where, args = _game_where(tag)
     fixes = all_(f"SELECT * FROM bugs WHERE kind='bug' AND status='fixed' AND {where} ORDER BY fixed_at DESC", *args)
     pages = max(1, -(-len(fixes) // PER_PAGE))
@@ -177,42 +175,35 @@ async def render_log(tag, page=0):
         anns = all_('SELECT * FROM announcements ORDER BY id DESC LIMIT 5')
     else:
         anns = all_('SELECT * FROM announcements WHERE tag_id=? ORDER BY id DESC LIMIT 5', tag)
-    e = flat()
-    e.title = f"{E['log']}{EM}{name.upper()}{EM}·{EM}FIX LOG"
-    in_update = f" · {E['update']} = in a posted update" if any(b['announced'] for b in sl) else ''
-    e.set_footer(text=f'Page {page + 1} of {pages}{in_update}')
     n_fixed = s['fixed'] if s else len(fixes)
     n_upd = s['updates'] if s else 0
     n_open = s['open'] if s else 0
-    describe(e, f"{E['fixed']} **{n_fixed}** fixed{GAP}{E['update']} **{n_upd}** update{'' if n_upd == 1 else 's'}{GAP}{E['open']} **{n_open}** open")
+    counts = f"{E['fixed']} **{n_fixed}** fixed{GAP}{E['update']} **{n_upd}** update{'' if n_upd == 1 else 's'}{GAP}{E['open']} **{n_open}** open"
     if sl:
-        columns(e, [
-            {'name': head(E['fix'], 'Fix'), 'lines': [f"**{label(b)}**{EN}{cut(b['title'], 28)}{f' {E['update']}' if b['announced'] else ''}" for b in sl]},
-            {'name': head(E['date'], 'Fixed'), 'lines': [f"<t:{b['fixed_at'] // 1000}:d>" for b in sl]},
-            {'name': head(E['game'], 'Game') if tag == 'all' else head(E['user'], 'Fixed by'),
-             'lines': [cut(b['game_name'] or 'Unknown', 18) if tag == 'all' else names[i] for i, b in enumerate(sl)]},
-        ])
+        fix_lines = [f"**{label(b)}** {cut(b['title'], 40)}{f' {E['update']}' if b['announced'] else ''}{NL}-# fixed <t:{b['fixed_at'] // 1000}:d> · "
+                     + (cut(b['game_name'] or 'Unknown', 24) if tag == 'all' else f'by {names[k]}') for k, b in enumerate(sl)]
+        fixes_block = '**Fixes**' + NL + NL.join(fix_lines)
     else:
-        section(e, head(E['fix'], 'Fixes'), 'No fixes logged yet.')
-    if anns:
-        section(e, head(E['update'], 'Updates posted'), '\n'.join(
-            f"<t:{a['posted_at'] // 1000}:d> · {len(json.loads(a['bug_ids']))} fixes · [view]({a['url']})"
-            f"{f' · {a['game_name']}' if tag == 'all' else ''}" for a in anns))
-    rows = [[
+        fixes_block = '**Fixes**' + NL + 'No fixes logged yet.'
+    updates_block = ('**Updates posted**' + NL + NL.join(
+        f"<t:{a['posted_at'] // 1000}:d> · {len(json.loads(a['bug_ids']))} fixes · [view]({a['url']})"
+        f"{f' · {a['game_name']}' if tag == 'all' else ''}" for a in anns)) if anns else ''
+    in_update = f" · {E['update']} = in a posted update" if any(b['announced'] for b in sl) else ''
+    rows = [ui.ActionRow(
         button(f'flp:{tag}:{page - 1}', '◀ Prev', discord.ButtonStyle.secondary, page == 0),
         button('flp:noop:0', f'{page + 1} / {pages}', discord.ButtonStyle.secondary, True),
-        button(f'flp:{tag}:{page + 1}', 'Next ▶', discord.ButtonStyle.secondary, page >= pages - 1),
-    ]]
+        button(f'flp:{tag}:{page + 1}', 'Next ▶', discord.ButtonStyle.secondary, page >= pages - 1))]
     if sl:
-        rows.append([select(f'flt:{tag}', '📋 Transcript of a fix',
-                            [{'label': f"{label(b)} {b['title']}"[:100], 'value': str(b['id'])} for b in sl])])
-    return {'content': None, 'embeds': [e], 'view': make_view(rows)}
+        rows.append(ui.ActionRow(select(f'flt:{tag}', '📋 Transcript of a fix', [{'label': f"{label(b)} {b['title']}"[:100], 'value': str(b['id'])} for b in sl])))
+    view, files = card(f"{E['log']} {name} · fix log", [counts, fixes_block, updates_block], [f'Page {page + 1} of {pages}{in_update}'], inside=rows)
+    return {'content': None, 'embeds': [], 'view': view, 'attachments': files}
 
 
 async def open_log(i, tag):
     await i.response.defer(ephemeral=True, thinking=True)
     try:
-        await i.message.edit(view=log_components())  # resets the dropdown
+        view, files = log_card()
+        await i.message.edit(view=view, attachments=files)  # resets the dropdown
     except Exception:
         pass
     return await i.edit_original_response(**await render_log(tag, 0))

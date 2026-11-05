@@ -17,7 +17,7 @@ from bot.discord_ui import commands as bounty_board_commands
 from bot.discord_ui.components import NO_MENTIONS, FormModal, make_view, modal_fields, select
 from bot.core.ctx import dm, fetch_channel
 from bot.core.db import (bug_by_id, create_pending, get_game, get_pending, get_prefs, set_pending, set_prefs, update_bug, upsert_game)
-from bot.features.bugs.devboard import board_components, exploit_buttons, exploit_status_line, open_bugs_for, route_bug, schedule_boards
+from bot.features.bugs.devboard import board_components, exploit_card, open_bugs_for, route_bug, schedule_boards
 from bot.discord_ui import devlog
 from bot.core.env import cfg
 from bot.features.bugs.fixlog import log_page, open_log, send_fix_transcript
@@ -26,11 +26,11 @@ from bot.features.games.release import command_release_edit, command_release_new
 from bot.features.games.reldraft import text_view
 from bot.core.perms import can_confirm, can_manage, level
 from bot.features.updates.previews import post_previews
-from bot.features.bugs.strikes import pardon, resolve_strike, rules_embed, strike_info
+from bot.features.bugs.strikes import pardon, resolve_strike, rules_card, strike_info
 from bot.features.bugs.tags import find_device_tag, find_game_tag, game_tags, set_tags, tag_name
 from bot.features.bugs.tester import command_bug, modal_bug
 from bot.features.bugs.transcript import board_transcript, single_transcript
-from bot.discord_ui.ui import E, EM, describe as describe_embed
+from bot.discord_ui.ui import E, EM
 import re
 
 
@@ -357,9 +357,8 @@ async def button_exploit(i, bug_id, action):
         'closed': f"{E['notbug']} **CLOSED**\nWe looked at your report \"{bug['title']}\" and it is not an exploit we can act on. Thanks for telling us.",
     }[action]
     dm_ok = await dm(bug['reporter_id'], text)
-    card = discord.Embed.from_dict(i.message.embeds[0].to_dict())
-    describe_embed(card, exploit_status_line(nxt, False, dm_ok))
-    return await i.edit_original_response(embeds=[card], view=exploit_buttons(bug['id'], nxt))
+    view, files = exploit_card(bug_by_id(bug['id']), bug.get('body'), False, nxt, dm_ok)  # redrawn from the database, buttons for the next step
+    return await i.edit_original_response(content=None, embeds=[], view=view, attachments=files)
 
 
 # ---- strikes ----
@@ -368,7 +367,14 @@ async def button_strike(i, action, log_id):
         return await deny(i, 'Only developers can confirm or dismiss this.')
     await i.response.defer()
     res = await resolve_strike(int(log_id), action == 'confirm', str(i.user.id))
-    return await i.edit_original_response(content=f'{i.message.content}\n\n{res}', view=None, allowed_mentions=NO_MENTIONS)
+    from bot.core.db import one
+    from bot.features.bugs.strikes import strike_card, step_for
+    r = one('SELECT * FROM strike_log WHERE id=?', int(log_id))
+    if not r:
+        return await i.followup.send(res, ephemeral=True)
+    count = strike_info(r['user_id'])['count']
+    view, files = strike_card(r['user_id'], count, r['step'] or step_for(max(count, 1)), r['reason'], r['bug_id'], r['state'] == 'pending', int(log_id), res)
+    return await i.edit_original_response(content=None, embeds=[], view=view, attachments=files, allowed_mentions=NO_MENTIONS)
 
 
 # ---- transcripts ----
@@ -531,9 +537,8 @@ async def handle_command(i):
     if name == 'botrules':
         if level(i.user) != 'admin':
             return await deny(i)
-        from bot.discord_ui.look import card_from_embed
         await i.response.defer(ephemeral=True)
-        view, files = card_from_embed(rules_embed())
+        view, files = rules_card()
         await i.channel.send(view=view, files=files)
         return await i.edit_original_response(content='Posted.')
 

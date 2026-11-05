@@ -4,17 +4,19 @@ import re
 
 import discord
 
+from bot.features.bugs import replies
+from bot.discord_ui.card import words
 from bot.features.bugs.nums import label
 from bot.core.ai import analyze_report, still_broken
 from bot.discord_ui.components import allowed
-from bot.core.ctx import dm, get_member, sleep, thread_link
+from bot.core.ctx import dm, get_member, sleep
 from bot.core.db import (add_timer, all_, bug_by_id, bug_by_thread, cancel_timers, kv_get, kv_set, now, run, update_bug)
 from bot.features.bugs.devboard import post_exploit, route_bug
 from bot.features.bugs.fixes import reopen
 from bot.core.perms import is_staff, level
 from bot.features.bugs.strikes import strike_user
 from bot.features.bugs.tags import applied_ids, find_device_tag, find_game_tag, game_tags, set_tags, tag_name, thread_game_tag
-from bot.discord_ui.ui import E, EM
+from bot.discord_ui.ui import E
 
 DAY = 86400000
 MAX_ASKS = 3  # questions to the player; after that the report is logged anyway and a dev is told to look into it
@@ -32,18 +34,8 @@ async def fetch_starter(thread):
 
 
 def _text(m):
-    """The words of a message: its text, or for a card made by the bot the text of its embed."""
-    if m.content:
-        return m.content
-    junk = chr(0x200b) + chr(0x2500) + ' '  # the invisible spacer and the rule lines of the cards
-    out = []
-    for e in m.embeds:
-        out.append((e.description or '').lstrip('# ').split('\n')[0])
-        for f in e.fields:
-            lines = [ln for ln in f.value.split('\n') if ln.strip(junk) and not re.fullmatch(r'<@!?\d+>', ln.strip())]
-            if lines:
-                out.append(f"{f.name.strip(junk + chr(0x2002))}: {' '.join(lines)}")
-    return '\n'.join(x for x in out if x)
+    """The words of a message: its text, or for a post made by the bot (a card, or an old embed) its text parts."""
+    return words(m)
 
 
 async def gather(thread, bug):
@@ -127,7 +119,8 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         update_bug(bug['id'], {'status': 'not_a_bug'})
         await set_tags(thread, game=gid, status='not_a_bug')
         try:
-            await thread.send(f"{E['warn']} **CLOSED**{EM}·{EM}Fake or abusive reports lead to strikes.")
+            view, files = replies.troll_closed('bug')
+            await thread.send(view=view, files=files)
         except Exception:
             pass
         try:
@@ -142,15 +135,10 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
     dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') in {k['id'] for k in known} else None  # only a report the AI was shown
     if dup and dup['kind'] == 'bug' and not silent and not dev_report:
         update_bug(bug['id'], {'status': 'duplicate', 'dup_of': dup['id']})
-        ref = (f"{label(dup)} \"{dup['title']}\"" if dup['deleted']
-               else f"[{label(dup)} {dup['title']}]({thread_link(dup['thread_id'])})")
-        if dup['status'] == 'fixed':
-            text = f"<@{bug['reporter_id']}> {E['duplicate']} **DUPLICATE**{EM}·{EM}already fixed on <t:{(dup['fixed_at'] or now()) // 1000}:D>: {ref}."
-        else:
-            text = f"<@{bug['reporter_id']}> {E['duplicate']} **DUPLICATE**{EM}·{EM}of {ref}. Please add any extra details there. This post is removed in 24 hours."
         await set_tags(thread, game=gid, device=did, status='duplicate')
         try:
-            await thread.send(content=text, allowed_mentions=allowed(users=[bug['reporter_id']]))
+            view, files = replies.duplicate(bug['reporter_id'], dup, 'bug')
+            await thread.send(view=view, files=files, allowed_mentions=allowed(users=[bug['reporter_id']]))
         except Exception:
             pass
         try:
@@ -169,15 +157,9 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         missing = a['missing'] if a['missing'] else ['More detail about what happened']
         if not game_tag and not any(re.search(r'game', m, re.I) for m in a['missing']):
             missing.insert(0, 'Which game')
-        bullets = '\n'.join(f'• {m}' for m in missing)
-        msg = f"<@{bug['reporter_id']}> ❓ **NEEDS INFO**\n{a['reply'] or 'Thanks for the report! A few details are missing.'}\n\n**STILL NEEDED**\n{bullets}"
-        if a['multiple_bugs']:
-            msg += '\n\nPlease post each bug separately.'
-        if a['personal_info']:
-            msg += f"\n\n{E['warn']} Your screenshot may show personal information. Please hide it."
-        msg += '\n\nReply in this post and I will check again.'
         try:
-            await thread.send(content=msg, allowed_mentions=allowed(users=[bug['reporter_id']]))
+            view, files = replies.needs_info(bug['reporter_id'], missing, 'bug', a.get('multiple_bugs'), a.get('personal_info'))
+            await thread.send(view=view, files=files, allowed_mentions=allowed(users=[bug['reporter_id']]))
         except Exception:
             pass
         cancel_timers('stale', thread.id)
@@ -196,17 +178,9 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
                 await thread.edit(name=f"{label(bug_by_id(bug['id']))} {thread.name}"[:100])
             except Exception:
                 pass
-        if dev_report:
-            msg = f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} is on the board."
-        elif low_info:
-            msg = (f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} Thanks! Some details are still missing, so a developer will come and check this out "
-                   'themselves, or ask you here.')
-        else:
-            msg = f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} is sent to the developer. {'Thanks, that covers it.' if was_asked else 'Thanks for the report!'}"
-        if a['personal_info']:
-            msg += f"\n{E['warn']} Your screenshot may show personal information. Please hide it."
         try:
-            await thread.send(msg)
+            view, files = replies.logged(bug_by_id(bug['id']), low_info, dev_report, was_asked)
+            await thread.send(view=view, files=files)
         except Exception:
             pass
     await route_bug(bug_by_id(bug['id']), silent=silent)

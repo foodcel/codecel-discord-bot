@@ -2,13 +2,15 @@
 from datetime import datetime, timedelta, timezone
 
 import discord
+from discord import ui
 
-from bot.discord_ui.components import NO_MENTIONS, allowed, button, make_view
+from bot.discord_ui.card import card, row
+from bot.discord_ui.components import NO_MENTIONS, allowed, button
 from bot.core.ctx import ctx, dm, get_member, modlog, thread_link
 from bot.core.db import add_timer, now, one, run
 from bot.core.env import cfg
 from bot.core.perms import is_staff
-from bot.discord_ui.ui import E, EM, columns, describe, flat, head, labeled, sentence, spaced
+from bot.discord_ui.ui import E, EM, sentence
 
 DAY = 86400000
 STEPS = ['warn', 'timeout', 'kick', 'ban7', 'permban']
@@ -26,33 +28,29 @@ LADDER_TEXT = '\n'.join([
 ])
 
 ACTION = {'warn': 'Warning', 'timeout': '1-day mute', 'kick': 'Kick', 'ban7': '7-day ban', 'permban': 'Permanent ban'}
+NL = chr(10)
 
 
-def rules_embed():
-    e = flat()
-    e.title = head(E['log'], 'Bug report rules')
-    describe(e, 'Honest reports are always welcome, even short or incomplete ones. The bot just asks for more details.')
-    # Sections are separated by one blank line instead of rule lines.
-    spaced(e, head(E['warn'], 'Strikes are only for'), 'Fake reports, spam, abuse, or insulting the developers.')
-    spaced(e, head('🚦', 'The ladder'), f'Each strike moves one step up:\n{LADDER_TEXT}')
-    spaced(e, head(E['lock'], 'Kicks and bans'), 'A developer confirms every kick and ban before it happens.')
-    return e
+def rules_card():
+    """The bug report rules (/botrules), as a card: (view, files)."""
+    return card(f"{E['log']} Bug report rules", [
+        'Honest reports are always welcome, even short or incomplete ones. The bot just asks for more details.',
+        f"**{E['warn']} Strikes are only for**{NL}Fake reports, spam, abuse, or insulting the developers.",
+        f"**🚦 The ladder**{NL}Each strike moves one step up:{NL}{LADDER_TEXT}",
+        f"**{E['lock']} Kicks and bans**{NL}A developer confirms every kick and ban before it happens."])
 
 
-def strike_embed(user_id, count, step, reason, bug_id=None, pending=False):
-    """The mod-log card for one strike."""
-    row = one('SELECT thread_id FROM bugs WHERE id=?', bug_id) if bug_id else None
-    post = row['thread_id'] if row else None
-    e = flat()
-    e.title = head(E['warn'], f'Strike {count}')
-    describe(e, f"{E['warn']} **NEEDS CONFIRMATION**" if pending else f"{E['fixed']} **APPLIED**")
-    columns(e, [
-        {'name': head(E['user'], 'User'), 'lines': [f'<@{user_id}>']},
-        {'name': head('🔢', 'Strike'), 'lines': [str(count)]},
-        {'name': head('🚦', 'Action'), 'lines': [ACTION[step]]},
-    ])
-    labeled(e, head(E['note'], 'Reason'), f"{sentence(reason)}{f'{chr(10)}[Open post]({thread_link(post)})' if post else ''}")
-    return e
+def strike_card(user_id, count, step, reason, bug_id=None, pending=False, log_id=None, result=None):
+    """The #mod-log card for one strike: (view, files). pending: a kick or ban waiting for a developer (with the Confirm and Dismiss buttons);
+    result: what happened after a button was pressed."""
+    found = one('SELECT thread_id FROM bugs WHERE id=?', bug_id) if bug_id else None
+    post = found['thread_id'] if found else None
+    status = result or (f"{E['warn']} **NEEDS CONFIRMATION**" if pending else f"{E['fixed']} **APPLIED**")
+    facts = NL.join([row('User', f'<@{user_id}>'), row('Strike', str(count)), row('Action', ACTION[step])])
+    reason_block = f"**{E['note']} Reason**{NL}{sentence(reason)}" + (f"{NL}[Open post]({thread_link(post)})" if post else '')
+    inside = [ui.ActionRow(button(f'strike:confirm:{log_id}', f'Confirm {ACTION[step].lower()}', discord.ButtonStyle.danger),
+                           button(f'strike:dismiss:{log_id}', 'Dismiss', discord.ButtonStyle.secondary))] if pending and log_id else []
+    return card(f"{E['warn']} Strike {count}", [status, facts, reason_block], ping=f'<@&{cfg.dev_role}>' if pending and not result else None, inside=inside)
 
 
 def step_for(count):
@@ -88,14 +86,11 @@ async def strike_user(user_id, reason, bug_id=None):
                 await member.timeout(timedelta(milliseconds=DAY), reason=f'Bug-report trolling: {reason}')
             except Exception as e:
                 print('timeout', e)
-        await modlog(embeds=[strike_embed(user_id, count, step, reason, bug_id, False)], allowed_mentions=NO_MENTIONS)
+        view, files = strike_card(user_id, count, step, reason, bug_id, False)
+        await modlog(view=view, files=files, allowed_mentions=NO_MENTIONS)
         return
-    view = make_view([[
-        button(f'strike:confirm:{log_id}', f'Confirm {ACTION[step].lower()}', discord.ButtonStyle.danger),
-        button(f'strike:dismiss:{log_id}', 'Dismiss', discord.ButtonStyle.secondary),
-    ]])
-    await modlog(content=f'<@&{cfg.dev_role}>', embeds=[strike_embed(user_id, count, step, reason, bug_id, True)],
-                 view=view, allowed_mentions=allowed(roles=[cfg.dev_role]))
+    view, files = strike_card(user_id, count, step, reason, bug_id, True, log_id)
+    await modlog(view=view, files=files, allowed_mentions=allowed(roles=[cfg.dev_role]))
 
 
 async def resolve_strike(log_id, confirm, by_user):

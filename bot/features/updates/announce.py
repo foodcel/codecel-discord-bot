@@ -1,10 +1,8 @@
 """Update announcements: drafts that grow as bugs get fixed, and the public embed."""
 import asyncio
 import json
-import re
 import time
 
-import aiohttp
 import discord
 from discord import ui
 
@@ -18,50 +16,12 @@ from bot.core.db import (bug_by_id, create_pending, one, del_pending, get_game, 
 from bot.features.bugs.devboard import dev_thread, schedule_boards
 from bot.core.env import cfg
 from bot.features.bugs.tags import tag_name
-from bot.discord_ui.ui import E, EM, GAP, columns, describe, flat, head, section
+from bot.discord_ui.ui import E, EM
 
 
 def unannounced(tag_id):
     """What an update can announce: every bug marked fixed in the bugs channel (that is the confirmation) and every added suggestion."""
     return all_("SELECT * FROM bugs WHERE game_tag_id=? AND status='fixed' AND announced=0 ORDER BY id", tag_id)
-
-
-async def resolve_icon(game):
-    if game.get('icon_url'):
-        return game['icon_url']
-    m = re.search(r'roblox\.com/(?:[a-z-]+/)?games/(\d+)', game.get('link') or '', re.I)
-    if not m:
-        return None
-    try:
-        url = (f'https://thumbnails.roblox.com/v1/places/gameicons?placeIds={m.group(1)}'
-               '&returnPolicy=PlaceHolder&size=256x256&format=Png&isCircular=false')
-        async with aiohttp.ClientSession() as s:
-            async with s.get(url) as r:
-                data = (await r.json()).get('data') or []
-        img = data[0].get('imageUrl') if data else None
-        if img:
-            upsert_game(game['tag_id'], game['name'], {'icon_url': img})
-        return img or None
-    except Exception:
-        return None
-
-
-def chunk_lines(lines, mx=1000):
-    out = []
-    cur = ''
-    for l in lines:
-        line = f'• {l}\n'
-        if len(cur) + len(line) > mx:
-            out.append(cur.rstrip())
-            cur = ''
-        cur += line
-    if cur:
-        out.append(cur.rstrip())
-    return out
-
-
-def http_url(u):
-    return bool(re.match(r'^https?://', u or '', re.I))
 
 
 HALF_RULE = '─' * 28  # fills one half of the embed
@@ -78,52 +38,6 @@ async def polish_dev_updates(game_name, lines):
     except Exception as e:
         print('polishUpdates', e)
     return lines
-
-
-async def build_embeds(game, bugfixes, updates, version=''):
-    """The public announcement: same flat look, game icon top right, game name links to the game."""
-    icon = await resolve_icon(game)
-    fix_chunks = chunk_lines(bugfixes, 880)
-    upd_chunks = chunk_lines(updates, 880)
-    first = flat()
-    first.title = f"{game['name'].upper()}{f'{EM}·{EM}{version}' if version else ''}"
-    describe(first, f"{E['update']} **UPDATE**{GAP}{E['date']} <t:{int(time.time())}:D>"
-                    f"{f'{GAP}[PLAY]({game['link']})' if http_url(game.get('link')) else ''}")
-    if http_url(game.get('link')):
-        first.url = game['link']
-    if http_url(icon):
-        first.set_thumbnail(url=icon)
-    embeds = [first]
-    state = {'cur': first, 'size': 300}
-
-    def room(chars):  # start a new embed when this one is full
-        if len(state['cur'].fields) >= 22 or state['size'] + chars > 5000:
-            state['cur'] = flat()
-            embeds.append(state['cur'])
-            state['size'] = 0
-        state['size'] += chars
-
-    if fix_chunks and upd_chunks:
-        # Bug fixes and updates side by side, so the full width of the embed is used.
-        for i in range(max(len(fix_chunks), len(upd_chunks))):
-            a = fix_chunks[i] if i < len(fix_chunks) else None
-            b = upd_chunks[i] if i < len(upd_chunks) else None
-            room((len(a) if a else 0) + (len(b) if b else 0) + 120)
-            columns(state['cur'], [
-                {'name': head(E['open'], 'Bug fixes (cont.)' if i else 'Bug fixes'), 'lines': a.split('\n') if a else ['—']},
-                {'name': head('✨', 'Updates (cont.)' if i else 'Updates'), 'lines': b.split('\n') if b else ['—']},
-            ], HALF_RULE)
-    elif fix_chunks or upd_chunks:
-        only = fix_chunks or upd_chunks
-        label = ['Bug fixes', E['open']] if fix_chunks else ['Updates', '✨']
-        for i, v in enumerate(only):
-            room(len(v) + 80)
-            section(state['cur'], head(label[1], f'{label[0]} (cont.)' if i else label[0]), v)
-    else:
-        room(80)
-        section(state['cur'], head('✨', 'Update'), 'Small improvements.')
-    embeds[-1].set_footer(text='Thanks to everyone who reported these.')
-    return embeds[:10]
 
 
 def items(p):
@@ -468,12 +382,10 @@ async def _merge_announcement(pending_id):
     new = new_old + [l for l in new_lines if l not in new_old]
     updates = changes + new
     version = p.get('version') or old.get('version') or ''
-    if msg.embeds:  # an update posted before the new look stays an embed
-        await msg.edit(embeds=await build_embeds(game, bugfixes, updates, version), allowed_mentions=NO_MENTIONS)
-    else:
-        from bot.features.games.cards import released_row_for, update_card
-        view, files = update_card(game, released_row_for(game['name']), bugfixes, changes, new, version, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
-        await msg.edit(view=view, attachments=files, allowed_mentions=NO_MENTIONS)
+    # an update posted in the old embed look becomes the card in place
+    from bot.features.games.cards import released_row_for, update_card
+    view, files = update_card(game, released_row_for(game['name']), bugfixes, changes, new, version, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
+    await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=NO_MENTIONS)
     b_ids, n_ids = chosen_ids(p)
     for i in b_ids + n_ids:
         update_bug(i, {'announced': 1})

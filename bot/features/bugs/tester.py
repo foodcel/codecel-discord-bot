@@ -6,6 +6,7 @@ import string
 import time
 import uuid
 
+from bot.discord_ui.card import card, row
 from bot.features.bugs.nums import label
 from bot.core.ai import summarize_tester_report
 from bot.discord_ui.components import NO_MENTIONS, FormModal
@@ -15,7 +16,7 @@ from bot.features.bugs.devboard import route_bug
 from bot.core.env import cfg
 from bot.core.perms import level
 from bot.features.bugs.tags import ensure_tester_tag, find_game_tag, game_tags, tag_name
-from bot.discord_ui.ui import E, EM, SEVERITY, columns, cut, describe, flat, head, labeled, sentence
+from bot.discord_ui.ui import E, EM, SEVERITY, cut, sentence
 
 # /bug takes up to 10 screenshots and 5 videos: screenshot, screenshot_2 ... screenshot_10, video, video_2 ... video_5
 ATTACH = {
@@ -99,36 +100,30 @@ async def command_bug(i, opts):
     ]))
 
 
+NL = chr(10)
+
+
 def quote(text):
     """What the player wrote, with a quote bar."""
     return '\n'.join('> ' + line for line in str(text).split('\n'))
 
 
 def tester_report_embed(bug, form, tester_id, too_big=None, image=None, origin=None):
-    """The report card posted inside the tester thread."""
-    e = flat()
-    e.title = head('🧪', f"{label(bug)} · {bug['game_name']}")
-    describe(e, f"### {bug['title']}\n{bug['summary'] or ''}")
-    columns(e, [
-        {'name': head(E['user'], 'Tester'), 'lines': [f'<@{tester_id}>']},
-        {'name': head(E['severity'], 'Severity'), 'lines': [SEVERITY.get(bug['severity']) or '?']},
-        {'name': head(E['device'], 'Device'), 'lines': [f"`{form['device']}`" if form['device'] else 'Not given']},
-    ])
-    labeled(e, head(E['note'], 'What happened'), quote(sentence(form['what'])))
+    """The report posted inside the tester thread, as a card: (view, files)."""
+    facts = NL.join([row('Game', bug['game_name']), row('Tester', f'<@{tester_id}>'), row('Severity', SEVERITY.get(bug['severity']) or '?'),
+                     row('Device', f"`{form['device']}`" if form['device'] else 'Not given')])
+    blocks = [bug['summary'] or '', facts, f"**{E['note']} What happened**{NL}{quote(sentence(form['what']))}"]
     if form['steps']:
-        labeled(e, head('🔁', 'Steps to reproduce'), form['steps'])
-    if origin:
-        labeled(e, head('🔗', 'Original message'), f'[Open it]({origin})')
+        blocks.append(f"**🔁 Steps to reproduce**{NL}{form['steps']}")
     if form['expected']:
-        labeled(e, head(E['fixed'], 'Should happen'), sentence(form['expected']))
+        blocks.append(f"**{E['fixed']} Should happen**{NL}{sentence(form['expected'])}")
+    if origin:
+        blocks.append(f"**🔗 Original message**{NL}[Open it]({origin})")
     if too_big:
-        labeled(e, head(E['video'], 'Too big to attach'), '\n'.join(too_big) + '\nPost the file in this thread.')
-    if image:
-        e.set_image(url=f'attachment://{image}')
-    e.set_footer(text='Tester report · devs reply in this post')
+        blocks.append(f"**{E['video']} Too big to attach**{NL}" + NL.join(too_big) + f'{NL}Post the file in this thread.')
     from datetime import datetime, timezone
-    e.timestamp = datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc)
-    return e
+    return card(f"🧪 {label(bug)} · {bug['title']}", blocks, ['Tester report · devs reply in this post'], image=image,
+                when=datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc))
 
 
 async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, image, origin=None, saved_by=None):
@@ -147,7 +142,7 @@ async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, i
     bug = bug_by_id(id_)
     try:
         created = await forum.create_thread(
-            name=cut(f"{label(bug)} {bug['title']}", 100), embeds=[tester_report_embed(bug, form, reporter_id, too_big, image, origin)], files=batches[0],
+            name=cut(f"{label(bug)} {bug['title']}", 100), view=(made := tester_report_embed(bug, form, reporter_id, too_big, image, origin))[0], files=batches[0] + made[1],
             applied_tags=[tag] if tag else [], allowed_mentions=NO_MENTIONS, reason=f'Tester report for {game}')
     except Exception:
         run('DELETE FROM bugs WHERE id=?', id_)

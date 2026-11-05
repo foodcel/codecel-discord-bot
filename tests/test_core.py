@@ -145,6 +145,15 @@ class StatusWords(unittest.TestCase):
         self.assertFalse(unknown, unknown)
 
 
+class CardsOnly(unittest.TestCase):
+    def test_the_bot_never_builds_an_embed(self):
+        import re
+        root = Path(__file__).resolve().parent.parent / 'bot'
+        found = [f'{f.name}:{n + 1}' for f in root.rglob('*.py') for n, line in enumerate(f.read_text(encoding='utf8').splitlines())
+                 if re.search(r'discord\.Embed\(|embeds=\[(?!\])|embed=', line)]
+        self.assertFalse(found, f'cards only (docs/DESIGN.md): {found}')
+
+
 class AccessMatchesHelp(unittest.TestCase):
     def test_help_pages_agree_with_the_table(self):
         from bot.discord_ui.help import PAGES

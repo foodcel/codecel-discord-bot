@@ -4,11 +4,12 @@ the game. A post that is really a bug becomes a normal bug. Statuses, dev boards
 import asyncio
 import re
 
+from bot.features.bugs import replies
 from bot.features.bugs.nums import label
 from bot.core.ai import analyze_suggestion
 from bot.features.games.board import vote_count
 from bot.discord_ui.components import allowed
-from bot.core.ctx import fetch_channel, get_member, thread_link
+from bot.core.ctx import fetch_channel, get_member
 from bot.core.db import add_timer, all_, bug_by_id, bug_by_thread, cancel_timers, now, run, update_bug
 from bot.features.bugs.devboard import route_bug, schedule_boards
 from bot.core.env import cfg
@@ -16,7 +17,6 @@ from bot.features.bugs.intake import CONFIDENT, DAY, MAX_ASKS, fetch_starter, ga
 from bot.core.perms import is_staff, level
 from bot.features.bugs.strikes import strike_user
 from bot.features.bugs.tags import canonical_game, find_game_tag, game_tags, set_tags, tag_name, thread_game_tag, applied_ids
-from bot.discord_ui.ui import E, EM
 
 _timers = {}
 
@@ -82,10 +82,8 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         if not silent:
             await set_tags(thread, game=gid, kind='bug')
             try:
-                await thread.send(
-                    content=f"<@{bug['reporter_id']}> 🐛 **THIS IS A BUG**{EM}·{EM}That is something broken, not a suggestion. I logged it as bug {label(bug)} "
-                            f"and sent it to the developer. Next time please post bugs in <#{cfg.bugs_id}>.",
-                    allowed_mentions=ping)
+                view, files = replies.now_a_bug(bug['reporter_id'], bug_by_id(bug['id']), cfg.bugs_id)
+                await thread.send(view=view, files=files, allowed_mentions=ping)
             except Exception:
                 pass
         from bot.features.bugs.intake import analyze_and_act as bug_check
@@ -99,7 +97,8 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         update_bug(bug['id'], {'status': 'declined'})
         await set_tags(thread, game=gid, status='declined', kind='suggestion')
         try:
-            await thread.send(f"{E['warn']} **CLOSED**{EM}·{EM}Fake or abusive posts lead to strikes.")
+            view, files = replies.troll_closed('suggestion')
+            await thread.send(view=view, files=files)
         except Exception:
             pass
         try:
@@ -114,16 +113,10 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
     dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') in {k['id'] for k in known} else None  # only a post the AI was shown
     if dup and dup['kind'] == 'suggestion' and not silent:
         update_bug(bug['id'], {'status': 'duplicate', 'dup_of': dup['id']})
-        ref = (f"{label(dup)} \"{dup['title']}\"" if dup['deleted']
-               else f"[{label(dup)} {dup['title']}]({thread_link(dup['thread_id'])})")
-        if dup['status'] == 'fixed':
-            text = f"<@{bug['reporter_id']}> {E['duplicate']} **DUPLICATE**{EM}·{EM}already added on <t:{(dup['fixed_at'] or now()) // 1000}:D>: {ref}."
-        else:
-            text = (f"<@{bug['reporter_id']}> {E['duplicate']} **DUPLICATE**{EM}·{EM}someone already suggested this: {ref}. "
-                    "Add your vote there. This post is removed in 24 hours.")
         await set_tags(thread, game=gid, status='duplicate', kind='suggestion')
         try:
-            await thread.send(content=text, allowed_mentions=ping)
+            view, files = replies.duplicate(bug['reporter_id'], dup, 'suggestion')
+            await thread.send(view=view, files=files, allowed_mentions=ping)
         except Exception:
             pass
         try:
@@ -141,11 +134,9 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         missing = a['missing'] if a['missing'] else ['A bit more detail about what you would like']
         if not game_tag and not any(re.search(r'game', m, re.I) for m in a['missing']):
             missing.insert(0, 'Which game')
-        bullets = '\n'.join(f'• {m}' for m in missing)
-        msg = (f"<@{bug['reporter_id']}> ❓ **NEEDS INFO**\n{a['reply'] or 'Thanks for the idea! A few details are missing.'}\n\n"
-               f"**STILL NEEDED**\n{bullets}\n\nReply in this post and I will check again.")
         try:
-            await thread.send(content=msg, allowed_mentions=ping)
+            view, files = replies.needs_info(bug['reporter_id'], missing, 'suggestion')
+            await thread.send(view=view, files=files, allowed_mentions=ping)
         except Exception:
             pass
         cancel_timers('stale', thread.id)
@@ -165,12 +156,8 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
             except Exception:
                 pass
         try:
-            if low_info:
-                await thread.send(f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} Thanks! Some details are still missing, so a developer "
-                                  'will come and look at it themselves, or ask you here.')
-            else:
-                await thread.send(f"{E['new']} **LOGGED**{EM}·{EM}{label(bug_by_id(bug['id']))} is sent to the developer. "
-                                  f"{'Thanks, that covers it.' if was_asked else 'Thanks for the idea!'} Votes help it get noticed.")
+            view, files = replies.logged(bug_by_id(bug['id']), low_info, False, was_asked)
+            await thread.send(view=view, files=files)
         except Exception:
             pass
     await route_bug(bug_by_id(bug['id']), silent=silent)

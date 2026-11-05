@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from discord import app_commands
 
+from bot.discord_ui.card import card
 from bot.core.links import roblox_any, roblox_game, web_url
 from bot.core.ai import clean_game_names
 from bot.features.games.bounty import get_claims
@@ -14,7 +15,7 @@ from bot.core.ctx import ctx, fetch_channel
 from bot.core.db import all_, kv_del, kv_get, kv_set, now, one, run
 from bot.features.bugs.devboard import on_boards_refreshed
 from bot.core.perms import level, owns
-from bot.discord_ui.ui import E, EM, ZW, columns, cut, describe, flat, head, lkey, RULE, gap
+from bot.discord_ui.ui import E, EM, ZW, cut, lkey
 
 FOOT_UNRELEASED = '\n'.join([
     '/claim · take a game (add its Steam page with link:)',
@@ -139,46 +140,8 @@ async def rows_by_dev(entries):
     return out
 
 
+NL = chr(10)
 GAP_ROW = object()  # marks the blank line between two devs
-
-
-def table(e, headings, rows):
-    """Columns of lines. Game names are cut so no column grows past its share of the embed: that is what keeps
-    the columns in the same place in both embeds. A long list is split into several rows of columns (a field holds 1024 characters),
-    and the split falls between two devs, never inside one."""
-    n = len(headings)
-    state = {'chunk': [], 'first': True}
-    blank = [ZW] * n
-
-    def size(chunk):
-        return [sum(len(r[i]) + 1 for r in chunk) for i in range(n)]
-
-    def emit(chunk):
-        columns(e, [{'name': name if state['first'] else ZW, 'lines': [r[i] for r in chunk]} for i, name in enumerate(headings)],
-                RULE if state['first'] else '')
-        for _ in range(3 - n):  # Discord puts three fields on a row
-            e.add_field(name=ZW, value=ZW, inline=True)
-        state['first'] = False
-
-    for r in rows:
-        if r is GAP_ROW:
-            if state['chunk']:  # an empty line between two devs (never at the top of a block)
-                r = blank
-            else:
-                continue
-        trial = state['chunk'] + [r]
-        if state['chunk'] and max(size(trial)) > 1000:
-            chunk = state['chunk']
-            cuts = [k for k, x in enumerate(chunk) if x is blank]
-            if cuts and cuts[-1] > 0:  # carry the dev that is still being written over to the next block of columns
-                emit(chunk[:cuts[-1]])
-                state['chunk'] = chunk[cuts[-1] + 1:]
-            else:
-                emit(chunk)
-                state['chunk'] = []
-        state['chunk'].append(r)
-    if state['chunk']:
-        emit(state['chunk'])
 
 
 def bar(percent):
@@ -229,7 +192,20 @@ def tree_rows(rows, second, counts=False):
     return out
 
 
+def _tree_text(rows):
+    """tree_rows as card lines: the dev, then '├─ game · second column', with a blank line between devs."""
+    out = []
+    for r in rows:
+        if r is GAP_ROW:
+            out.append('')
+            continue
+        left, right = r
+        out.append(left if not str(right).strip(ZW + ' ') else f'{left} · {right}')
+    return NL.join(out)
+
+
 async def game_embeds(lists=None):
+    """The released and the unreleased games as two cards: [(view, files), (view, files)]."""
     lists = lists or game_lists()
     rel = await rows_by_dev([{'name': r.get('title') or clean_name(r['name']), 'owners': owner_ids(r), 'at': r['released_at'], 'link': r['link'], 'testing': bool(r.get('testing_at'))}
                              for r in lists['released']])
@@ -238,28 +214,12 @@ async def game_embeds(lists=None):
 
     def n_games(rows):
         return len({r['name'] for r in rows})
-
-    e1 = flat()
-    e1.title = head('✅', 'Released games')
-    describe(e1, f"{E['fixed']} **{n_games(rel)}** released")
-    if rel:
-        table(e1, [head(E['game'], 'Games'), head(E['date'], 'Released')], tree_rows(
-            rel, lambda r: datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d')))
-    else:
-        e1.add_field(name=ZW, value='None yet.', inline=False)
-    gap(e1)
-    e1.set_footer(text=FOOT_RELEASED)
-
-    e2 = flat()
-    e2.title = head('🛠️', 'Unreleased games')
-    describe(e2, f'🛠️ **{n_games(dev)}** in development')
-    if dev:
-        table(e2, [head(E['game'], 'Games'), head('📊', 'Progress')], tree_rows(dev, progress_cell, counts=True))
-    else:
-        e2.add_field(name=ZW, value='None yet.', inline=False)
-    gap(e2)
-    e2.set_footer(text=FOOT_UNRELEASED)
-    return [e1, e2]
+    released = card(f'✅ Released games · {n_games(rel)} released', [
+        _tree_text(tree_rows(rel, lambda r: datetime.fromtimestamp(r['at'] / 1000, timezone.utc).strftime('%Y-%m-%d'))) if rel else 'None yet.'],
+        FOOT_RELEASED.split(NL))
+    unreleased = card(f'🛠️ Unreleased games · {n_games(dev)} in development', [
+        _tree_text(tree_rows(dev, progress_cell, counts=True)) if dev else 'None yet.'], FOOT_UNRELEASED.split(NL))
+    return [released, unreleased]
 
 
 # ---- the live board message (posted once with /games post, then kept up to date) ----
@@ -290,7 +250,8 @@ async def refresh_game_board():
         return
     await ensure_names()
     try:
-        await msg.edit(embeds=await game_embeds())
+        view, files = (await game_embeds())[1]
+        await msg.edit(content=None, embeds=[], view=view, attachments=files)
     except Exception as e:
         print('game board', e)
 
@@ -518,7 +479,8 @@ async def command_games(i, sub, opts):
     await i.response.defer(ephemeral=True, thinking=True)
     await ensure_names()
     old = kv_get('gameboard')
-    msg = await i.channel.send(embeds=await game_embeds())
+    view, files = (await game_embeds())[1]
+    msg = await i.channel.send(view=view, files=files)
     kv_set('gameboard', json.dumps({'channelId': str(msg.channel.id), 'messageId': str(msg.id)}))
     if old:  # the previous board stops updating, remove it so there is only one
         d = json.loads(old)

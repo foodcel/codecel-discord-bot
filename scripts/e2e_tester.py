@@ -38,9 +38,9 @@ async def main():
     print('bug row:', {k: bug[k] for k in ('id', 'game_name', 'title', 'severity', 'device', 'status', 'routed')})
     thread = await fetch_channel(bug['thread_id'])
     print('thread in #testing:', thread.name if thread else None, '| parent ok:', bool(thread) and str(thread.parent_id) == cfg.testing_id)
-    emb = (await bug_embeds(bug))[0]
-    print('bug page device field:', next((f.value.strip() for f in emb.fields if 'DEVICE' in f.name), None),
-          '| quote shown:', 'What happened' in (emb.description or ''))
+    view, _ = await bug_embeds(bug)  # the bug page is a card
+    text = ' '.join(getattr(c, 'content', '') for c in view.walk_children())
+    print('bug page device line:', 'Device' in text, '| quote shown:', '>' in text)
     print('on unclaimed board:', any(b['id'] == bug['id'] for b in open_bugs_for('unclaimed')))
     t = await single_transcript(bug['id'])
     print('transcript has tester body:', 'Report as written by the tester' in (t['inline'] or ''))

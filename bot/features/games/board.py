@@ -8,11 +8,12 @@ import re
 import discord
 from discord import app_commands
 
+from bot.discord_ui.card import card
 from bot.discord_ui.components import NO_MENTIONS
 from bot.core.ctx import ctx, fetch_channel
 from bot.core.db import all_, kv_get, kv_set, one, run
 from bot.core.perms import level
-from bot.discord_ui.ui import E, EN, SEP, cut, describe, flat, head, gap
+from bot.discord_ui.ui import E, EN, SEP, cut
 
 TOP_LIMIT = 25  # posts listed in the top suggestions message
 DESCRIPTION_LIMIT = 3800  # embed descriptions cap at 4096
@@ -129,25 +130,20 @@ def fit(lines):
 
 
 def top_embed():
-    """The best-voted suggestions nobody has claimed yet, in the bot's own look."""
+    """The best-voted suggestions nobody has claimed yet, as a card: (view, files)."""
     ps, cs = posts(), claims()
     taken = {c['post_id'] for c in cs if c['post_id']}
     ranked = sorted((p for p in ps if p['post_id'] not in taken and not p['excluded']), key=lambda p: (-p['votes'], p['title'].lower()))
-    e = flat()
-    e.title = head('🏆', 'Top suggestions')
     lines = []
     for n, p in enumerate(ranked[:TOP_LIMIT], 1):
         title = cut(p['title'], 38).replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
         lines.append(f"**{n}**{EN}[{title}](https://discord.com/channels/{ctx.guild.id}/{p['post_id']}){SEP}🔥 {p['votes']}")
-    summary = f"{E['open']} **{len(ranked)}** open suggestions" if ranked else 'No open suggestions.'
-    describe(e, summary + ('\n\n' + fit(lines) if lines else ''))
-    gap(e)
-    e.set_footer(text=FOOT_TOP)
-    return e
+    title = f"🏆 Top suggestions · {E['open']} {len(ranked)} open" if ranked else '🏆 Top suggestions'
+    return card(title, [fit(lines) if lines else 'No open suggestions.'], FOOT_TOP.split(chr(10)))
 
 
 async def build_embeds():
-    """The three pinned messages: top suggestions, the games being worked on, and the released games."""
+    """The three pinned messages as cards [(view, files)]: top suggestions, the games being worked on, and the released games."""
     from bot.features.games.games import game_embeds
     released, unreleased = await game_embeds()
     return [top_embed(), unreleased, released]
@@ -289,25 +285,18 @@ async def refresh_board():
             schedule_boards()
         old = [c.get('top'), c.get('claims'), c.get('completed')]
         ids = []
-        from bot.discord_ui.look import card_from_embed, edit_card
-        card_opts_all = [{'inline_desc': True, 'first_sub': [(' open suggestions', ' open')]}, {'inline_desc': True, 'plain_count': True}, {'inline_desc': True, 'plain_count': True}]
-        for n, (mid, embed) in enumerate(zip(old, await build_embeds())):
-            as_card = True  # all three are cards: lines under the title and above the commands, the counts in the title
+        for n, (mid, built) in enumerate(zip(old, await build_embeds())):
+            view, files = built
             try:
                 if mid:
                     try:
-                        if as_card:
-                            await edit_card(ch.get_partial_message(int(mid)), embed, **card_opts_all[n])
-                        else:
-                            await ch.get_partial_message(int(mid)).edit(content=None, embeds=[embed], attachments=[])
+                        await ch.get_partial_message(int(mid)).edit(content=None, embeds=[], view=view, attachments=files,
+                                                                     allowed_mentions=discord.AllowedMentions.none())
                     except discord.NotFound:
                         mid = None
+                        view, files = (await build_embeds())[n]  # the files can be sent once
                 if not mid:
-                    if as_card:
-                        view, files = card_from_embed(embed, **card_opts_all[n])
-                        msg = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions.none())
-                    else:
-                        msg = await ch.send(embed=embed)
+                    msg = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions.none())
                     mid = str(msg.id)
                     await msg.pin()
             except discord.HTTPException as e:

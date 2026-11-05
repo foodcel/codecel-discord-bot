@@ -8,7 +8,6 @@ from bot.core.ctx import ctx, fetch_channel, remove_thread_notice
 from bot.core.db import all_, bug_by_thread, now, run, update_bug
 from bot.features.bugs.devboard import schedule_boards
 from bot.features.bugs.tags import set_tags
-from bot.discord_ui.ui import E, EM
 
 
 async def _exec(t):
@@ -53,7 +52,9 @@ async def _exec(t):
         if thread:
             await set_tags(thread, status=None)
             try:
-                await thread.send(f"{E['warn']} **CLOSED**{EM}·{EM}The missing details never came in. Post a new report with everything filled in and it will be looked at. <@{bug['reporter_id']}>")
+                from bot.features.bugs import replies
+                view, files = replies.stale_closed(bug['reporter_id'])
+                await thread.send(view=view, files=files)
             except Exception:
                 pass
             try:

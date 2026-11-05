@@ -35,14 +35,6 @@ def select(custom_id, placeholder, options, min_values=1, max_values=1):
                  for o in options])
 
 
-def disable_all(view):
-    """The same view with every button and dropdown switched off (used for previews)."""
-    if view is not None:
-        for it in view.children:
-            it.disabled = True
-    return view
-
-
 def allowed(users=(), roles=()):
     """Only the listed users and roles can be pinged (never @everyone). Empty = nobody."""
     return discord.AllowedMentions(

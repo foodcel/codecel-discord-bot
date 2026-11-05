@@ -4,31 +4,41 @@ import re
 from datetime import datetime, timezone
 
 import discord
+from discord import ui
 
+from bot.discord_ui.card import card, row, stamp
+from bot.features.bugs.intake import MAX_ASKS
 from bot.features.bugs.nums import label
 from bot.features.games.bounty import owners_for
-from bot.discord_ui.components import FormModal, button, link_button, make_view
-from bot.core.ctx import ctx, fetch_channel, thread_link
+from bot.discord_ui.components import FormModal, button, link_button
+from bot.core.ctx import fetch_channel, thread_link
 from bot.core.db import bug_by_id
 from bot.features.bugs.devboard import board_components, open_bugs_for
 from bot.features.bugs.fixes import apply_status
 from bot.features.bugs.media import live_media
 from bot.core.perms import can_manage
 from bot.features.bugs.tags import applied_ids, device_tags, tag_name
-from bot.discord_ui.ui import E, FILLER, FILLER_SHORT, SEVERITY, STATUS, ZW, columns, describe, flat, head, plain
+from bot.discord_ui.ui import E, SEVERITY, STATUS
+
+
+NL = chr(10)
+
+
+def _text_page(text):
+    """A one-line page (the bug page is a card, so its edits must stay cards)."""
+    view = ui.LayoutView()
+    view.add_item(ui.TextDisplay(text))
+    return {'content': None, 'embeds': [], 'view': view, 'attachments': []}
 
 
 def list_for(key, game):
     return [b for b in open_bugs_for(key) if game == 'all' or (b['game_tag_id'] or 'none') == game]
 
 
-async def bug_embeds(bug):
+async def bug_embeds(bug, rows=(), counter=''):
+    """The page of one report as a card: (view, files). rows: the button rows shown inside it. counter: 'Bug 2 of 5'."""
     thread = await fetch_channel(bug['thread_id'])
     media = await live_media(thread, bug) if thread else {'text': '', 'images': [], 'videos': []}
-    try:
-        reporter = await ctx.client.fetch_user(int(bug['reporter_id']))
-    except Exception:
-        reporter = None
     device_names = [t['name'] for t in device_tags()]
     if bug.get('device'):
         devices = [bug['device']]
@@ -36,50 +46,32 @@ async def bug_embeds(bug):
         devices = [n for n in (tag_name(i) for i in applied_ids(thread)) if n in device_names]
     else:
         devices = []
-    url = thread_link(bug['thread_id'])
-    quote = f"\n\n> {re.sub(r'\n+', '\n> ', media['text'])[:700]}" if media['text'] else ''
-    embed = flat()
-    embed.url = url
+    quote = f"> {re.sub(r'\n+', '\n> ', media['text'])[:700]}" if media['text'] else ''
     suggestion = bug.get('kind') == 'suggestion'
-    embed.title = head('💡' if suggestion else E['open'], f"{label(bug)} · {bug['game_name'] or 'Unknown game'}")
-    embed.set_footer(text=f"{'Suggestion' if suggestion else 'Bug'} {label(bug)} · {'posted' if suggestion else 'reported'}")
-    embed.timestamp = datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc)
-    describe(embed, f"### {bug['title']}\n{bug['summary'] or ''}{quote}"[:3900], FILLER_SHORT if media['images'] else FILLER)
     if suggestion:
         status_text = {'new': f"{E['new']} New", 'fixed': f"{E['fixed']} Added", 'declined': '❌ Declined'}.get(bug['status']) or STATUS.get(bug['status'], bug['status'])
-        columns(embed, [
-            {'name': head(E['status'], 'Status'), 'lines': [status_text, ZW]},
-            {'name': head('🙏', 'Votes'), 'lines': [str(bug['votes']), ZW]},
-            {'name': head(E['game'], 'Game'), 'lines': [bug['game_name'] or 'Not given', ZW]},
-        ], '')
+        facts = [row('Game', bug['game_name'] or 'Not given'), row('Status', status_text), row('Votes', str(bug['votes'])),
+                 row('Posted by', f"<@{bug['reporter_id']}>")]
     else:
-        columns(embed, [
-            {'name': head(E['status'], 'Status'), 'lines': [STATUS.get(bug['status'], bug['status']), ZW]},
-            {'name': head(E['severity'], 'Severity'), 'lines': [SEVERITY.get(bug['severity']) or '?', ZW]},
-            {'name': head(E['device'], 'Device'), 'lines': [', '.join(devices) or 'Not given', ZW]},
-        ], '')  # no rule lines on this page
+        facts = [row('Game', bug['game_name'] or 'Unknown game'), row('Status', STATUS.get(bug['status'], bug['status'])),
+                 row('Severity', SEVERITY.get(bug['severity']) or '?'), row('Device', ', '.join(devices) or 'Not given'),
+                 row('Reported by', f"<@{bug['reporter_id']}>")]
+    blocks = [bug['summary'] or '', quote, NL.join(facts)]
     if bug.get('low_info'):
-        plain(embed, head('⚠️', 'Low info'), 'The player did not give enough details after 3 questions. Look into it yourself, or talk to them in the post.')
-    if reporter:
-        embed.set_author(name=reporter.display_name, icon_url=reporter.display_avatar.url)
+        blocks.append(f"**⚠️ Low info**{NL}The player did not give enough details after {MAX_ASKS} questions. Look into it yourself, or talk to them in the post.")
     if media['videos']:
-        plain(embed, head(E['video'], 'Videos & media'), '\n'.join(f"[{v['label']}]({v['url']})" for v in media['videos'][:6]))
-    embeds = [embed]
-    if media['images']:
-        embed.set_image(url=media['images'][0])
-        for img in media['images'][1:]:
-            extra = flat()
-            extra.url = url
-            extra.set_image(url=img)
-            embeds.append(extra)
-    return embeds
+        blocks.append(f"**{E['video']} Videos & media**{NL}" + NL.join(f"[{v['label']}]({v['url']})" for v in media['videos'][:6]))
+    icon = '💡' if suggestion else E['open']
+    foot = f"{counter} · " if counter else ''
+    return card(f"{icon} {label(bug)} · {bug['title']}"[:200], blocks, [f"{foot}{'posted' if suggestion else 'reported'} {stamp(bug['created_at'])}"],
+                gallery=media['images'], inside=rows, when=datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc))
 
 
 async def render_view(member, key, game, bug_id):
     """The private page. Returns {'content', 'embeds', 'view'} for send / edit calls."""
     lst = list_for(key, game)
     if not lst:
-        return {'content': f"No more open {'suggestions' if key.startswith('S') else 'bugs'} here 🎉", 'embeds': [], 'view': None}
+        return _text_page(f"No more open {'suggestions' if key.startswith('S') else 'bugs'} here 🎉")
     idx = next((i for i, b in enumerate(lst) if b['id'] == bug_id), -1)
     if idx < 0:
         nxt = next((i for i, b in enumerate(lst) if b['id'] > bug_id), -1)
@@ -114,7 +106,8 @@ async def render_view(member, key, game, bug_id):
         tools.append(button(cid('note'), '🎮 Set game / add note'))
     tools.append(link_button('Open post', thread_link(bug['thread_id'])))
     rows.append(tools)
-    return {'content': f"{'Suggestion' if bug['kind'] == 'suggestion' else 'Bug'} {idx + 1} of {len(lst)}", 'embeds': await bug_embeds(bug), 'view': make_view(rows)}
+    view, files = await bug_embeds(bug, [ui.ActionRow(*r) for r in rows if r], f"{'Suggestion' if bug['kind'] == 'suggestion' else 'Bug'} {idx + 1} of {len(lst)}")
+    return {'content': None, 'embeds': [], 'view': view, 'attachments': files}
 
 
 async def open_game(i, key, game):
@@ -126,7 +119,7 @@ async def open_game(i, key, game):
         pass
     lst = list_for(key, game)
     if not lst:
-        return await i.edit_original_response(content=f"No open {'suggestions' if key.startswith('S') else 'bugs'} for that game.")
+        return await i.edit_original_response(**_text_page(f"No open {'suggestions' if key.startswith('S') else 'bugs'} for that game."))
     return await i.edit_original_response(**await render_view(i.user, key, game, lst[0]['id']))
 
 
