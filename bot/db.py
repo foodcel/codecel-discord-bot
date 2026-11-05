@@ -87,6 +87,12 @@ try:  # a fixed bug's reporter is told when the update with the fix is released 
 except Exception:
     pass
 
+for _col in ('num INTEGER', 'num_scope TEXT'):  # the number people see (#3) and the game it counts in: stored, so it never shifts
+    try:
+        db.execute(f'ALTER TABLE bugs ADD COLUMN {_col}')
+    except sqlite3.OperationalError:
+        pass
+
 try:  # timers that failed are tried again
     db.execute('ALTER TABLE timers ADD COLUMN tries INTEGER NOT NULL DEFAULT 0')
 except sqlite3.OperationalError:
@@ -172,6 +178,9 @@ def bug_by_thread(thread_id):
 def update_bug(id_, patch: dict):
     keys = list(patch)
     run(f"UPDATE bugs SET {','.join(k + '=?' for k in keys)} WHERE id=?", *[patch[k] for k in keys], id_)
+    if 'game_name' in patch or 'kind' in patch:
+        from .nums import forget
+        forget()  # its number moves with it (the others keep theirs)
 
 
 # ---- timers ----

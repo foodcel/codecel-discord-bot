@@ -34,13 +34,13 @@ echo "==> Updating the VM and restarting the bot"
 "${SSH[@]}" "cd $VM_DIR && git pull -q && .venv/bin/pip install -q -r requirements.txt && systemctl --user restart codecel-bot"
 
 echo "==> Waiting for the bot to log in"
-for _ in $(seq 1 20); do
-  sleep 3
+for _ in $(seq 1 60); do
+  sleep 4
   if "${SSH[@]}" "journalctl --user -u codecel-bot --no-pager --since '-90sec' | grep -q 'Ready. Catch-up finished.'"; then
     echo "==> OK: the bot is up on the VM at commit $("${SSH[@]}" "cd $VM_DIR && git log --oneline -1")"
     exit 0
   fi
 done
-echo "==> The bot did not report Ready within a minute. Last log lines:"
+echo "==> The bot did not report Ready within 4 minutes. Last log lines:"
 "${SSH[@]}" "journalctl --user -u codecel-bot --no-pager -n 20"
 exit 1

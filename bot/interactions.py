@@ -20,7 +20,6 @@ from .db import (bug_by_id, create_pending, get_game, get_pending, get_prefs, se
 from .devboard import board_components, exploit_buttons, exploit_status_line, open_bugs_for, route_bug, schedule_boards
 from . import devlog
 from .env import cfg
-from .fixes import apply_status
 from .fixlog import log_page, open_log, send_fix_transcript
 from .games import autocomplete_games, command_gamelink, command_progress, command_games, command_release
 from .release import command_release_edit, command_release_new
@@ -300,16 +299,6 @@ async def select_ann(i, pid):
 
 
 # ---- status buttons on old per-bug messages (kept so nothing breaks) ----
-async def button_bug(i, id_, status):
-    bug = bug_by_id(int(id_))
-    if not bug:
-        return await deny(i, 'That bug no longer exists.')
-    await i.response.defer(ephemeral=True, thinking=True)
-    done, skipped = await apply_status([bug['id']], status, i.user, via='button')
-    return await i.edit_original_response(
-        content=f"{label(bug)} → {status.replace('_', ' ', 1)}" if done else f"Could not change {label(bug)}: {skipped[0] if skipped else 'unknown'}")
-
-
 # ---- a dev's note on a bug ----
 async def modal_note(i, bug_id, fields):
     """Dev note on a bug: the bot works out the game (and device/severity), retags the post and moves the bug to the right board."""
@@ -549,93 +538,79 @@ async def handle_command(i):
         return await i.edit_original_response(content='Posted.')
 
 
+def _arg(parts, n):
+    return parts[n] if len(parts) > n else None
+
+
+async def _lazy(module, name, *args):
+    """Calls bot.<module>.<name>(*args), imported when first needed (keeps the import graph free of cycles)."""
+    import importlib
+    return await getattr(importlib.import_module(f'.{module}', __package__), name)(*args)
+
+
+async def _trpick(i, p):
+    await i.response.defer(ephemeral=True, thinking=True)
+    try:
+        await i.message.edit(view=board_components(p[1]))  # resets the dropdown
+    except Exception:
+        pass
+    return await i.edit_original_response(**await game_transcript_reply(p[1], (i.data.get('values') or [None])[0]))
+
+
+# custom_id prefix -> handler(interaction, parts). One table per component type; anything else gets a clear answer instead of "interaction failed".
+BUTTONS = {
+    'gw': lambda i, p: _lazy('giveaway', 'on_component', i, p),              # giveaways: enter, leave, claim, the preview
+    'rel': lambda i, p: _lazy('reldraft', 'on_button', i, p[1], int(p[2])),  # the /release preview
+    'tbd': lambda i, p: _lazy('testerboard', 'on_button', i, p[1], _arg(p, 2)),
+    'help': lambda i, p: _lazy('help', 'button_help', i, p[1]),
+    'ann': lambda i, p: button_ann(i, p[1], int(p[2]), _arg(p, 3)),
+    'strike': lambda i, p: button_strike(i, p[1], p[2]),
+    'exp': lambda i, p: button_exploit(i, p[1], p[2]),                       # status buttons on a high-priority exploit card
+    'v': lambda i, p: handle_view(i),
+    'flp': lambda i, p: log_page(i, p[1], p[2]),
+    'trg': lambda i, p: button_game_transcript(i, p[1], p[2]),
+    'tr': lambda i, p: button_transcript(i, p[1]),
+    'trall': lambda i, p: button_transcript_all(i, p[1]),
+}
+SELECTS = {
+    'gw': lambda i, p: _lazy('giveaway', 'on_component', i, p),
+    'rel': lambda i, p: _lazy('reldraft', 'on_select', i, int(p[2]), (i.data.get('values') or [None])[0]),
+    'tbd': lambda i, p: _lazy('testerboard', 'on_select', i, p[1], i.data.get('values') or []),
+    'ann': lambda i, p: select_ann(i, int(p[2])),
+    'trgame': lambda i, p: select_transcript(i, p[1]),
+    'bd': lambda i, p: open_game(i, p[1], (i.data.get('values') or [None])[0]),
+    'fl': lambda i, p: open_log(i, (i.data.get('values') or [None])[0]),
+    'flt': lambda i, p: send_fix_transcript(i, (i.data.get('values') or [None])[0]),
+    'trpick': _trpick,
+}
+MODALS = {
+    'tb': lambda i, p, f: modal_bug(i, p[1], p[2], f),
+    'fm': lambda i, p, f: _lazy('forms', 'modal_form', i, p[1], p[2], p[3], f),  # fm:<bug|suggestion>:<game tag>:<token>
+    'tp': lambda i, p, f: testers.modal_profile(i, f),
+    'note': lambda i, p, f: modal_note(i, p[1], f),
+    'annedit': lambda i, p, f: modal_ann_edit(i, int(p[1]), f),
+    'gwp': lambda i, p, f: _lazy('giveaway', 'on_modal', i, p[0], int(p[1]), f),
+    'gwr': lambda i, p, f: _lazy('giveaway', 'on_modal', i, p[0], int(p[1]), f),
+    'gwb': lambda i, p, f: _lazy('giveaway', 'on_modal', i, p[0], int(p[1]), f),
+    'reled': lambda i, p, f: _lazy('reldraft', 'on_modal', i, int(p[1]), f),
+}
+GONE = 'This button no longer works. Use the newest message, or run the command again.'
+
+
 async def handle_component(i):
-    cid = i.data['custom_id']
-    parts = cid.split(':')
-    kind = parts[0]
-    a = parts[1] if len(parts) > 1 else None
-    b = parts[2] if len(parts) > 2 else None
-    ctype = i.data.get('component_type')
-    if kind == 'gw':  # giveaways: enter, leave, claim and the preview's buttons
-        from .giveaway import on_component
-        return await on_component(i, parts)
-    if kind == 'mock':  # the buttons of a mockup in the test channel
+    parts = i.data['custom_id'].split(':')
+    if parts[0] == 'mock':  # the buttons of a mockup in the test channel
         return await i.response.send_message('This is only a mockup, the buttons do nothing yet.', ephemeral=True)
-    if ctype == 2:  # button
-        if kind == 'rel':  # the preview of /release new, quiet and edit
-            from .reldraft import on_button
-            return await on_button(i, a, int(b))
-        if kind == 'tbd':  # the tester board and its cards
-            from .testerboard import on_button
-            return await on_button(i, a, b)
-        if kind == 'help':
-            from .help import button_help
-            return await button_help(i, a)
-        if kind == 'bug':
-            return await button_bug(i, a, b)
-        if kind == 'ann':
-            return await button_ann(i, a, int(b), parts[3] if len(parts) > 3 else None)
-        if kind == 'strike':
-            return await button_strike(i, a, b)
-        if kind == 'exp':
-            return await button_exploit(i, a, b)  # status buttons on a high-priority exploit card
-        if kind == 'v':
-            return await handle_view(i)
-        if kind == 'flp':
-            return await log_page(i, a, b)
-        if kind == 'trg':
-            return await button_game_transcript(i, a, b)
-        if kind == 'tr':
-            return await button_transcript(i, a)
-        if kind == 'trall':
-            return await button_transcript_all(i, a)
-    elif ctype == 3:  # dropdown
-        value = (i.data.get('values') or [None])[0]
-        if kind == 'rel' and a == 'ping':
-            from .reldraft import on_select
-            return await on_select(i, int(b), value)
-        if kind == 'tbd':
-            from .testerboard import on_select
-            return await on_select(i, a, i.data.get('values') or [])
-        if kind == 'ann' and a == 'sel':
-            return await select_ann(i, int(b))
-        if kind == 'trgame':
-            return await select_transcript(i, a)
-        if kind == 'bd':
-            return await open_game(i, a, value)
-        if kind == 'fl':
-            return await open_log(i, value)
-        if kind == 'flt':
-            return await send_fix_transcript(i, value)
-        if kind == 'trpick':
-            await i.response.defer(ephemeral=True, thinking=True)
-            try:
-                await i.message.edit(view=board_components(a))  # resets the dropdown
-            except Exception:
-                pass
-            return await i.edit_original_response(**await game_transcript_reply(a, value))
+    table = BUTTONS if i.data.get('component_type') == 2 else SELECTS
+    handler = table.get(parts[0])
+    if handler is None:
+        return await i.response.send_message(GONE, ephemeral=True)
+    return await handler(i, parts)
 
 
 async def handle_modal(i):
     parts = i.data['custom_id'].split(':')
-    kind = parts[0]
-    a = parts[1] if len(parts) > 1 else None
-    b = parts[2] if len(parts) > 2 else None
-    fields = modal_fields(i)
-    if kind == 'tb':
-        return await modal_bug(i, a, b, fields)
-    if kind == 'fm':  # fm:<bug|suggestion>:<game tag>:<token>
-        from .forms import modal_form
-        return await modal_form(i, a, b, parts[3], fields)
-    if kind == 'tp':
-        return await testers.modal_profile(i, fields)
-    if kind == 'note':
-        return await modal_note(i, a, fields)
-    if kind == 'annedit':
-        return await modal_ann_edit(i, int(a), fields)
-    if kind in ('gwp', 'gwr', 'gwb'):
-        from .giveaway import on_modal as giveaway_modal
-        return await giveaway_modal(i, kind, int(a), fields)
-    if kind == 'reled':
-        from .reldraft import on_modal
-        return await on_modal(i, int(a), fields)
+    handler = MODALS.get(parts[0])
+    if handler is None:
+        return await i.response.send_message('This form is out of date. Open it again.', ephemeral=True)
+    return await handler(i, parts, modal_fields(i))

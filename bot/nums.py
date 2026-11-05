@@ -1,33 +1,65 @@
 """Bug and suggestion numbers. Every game counts its own: Sonic Dimensions #3 and Peggle #3 are different reports. The database id stays the real key
-(buttons, links, transcripts); the number is only what people read and type. It is the place of the report among those of the same game and kind,
-oldest first, so it never changes and nothing has to be stored."""
+(buttons, links, transcripts); the number is only what people read and type. A report gets its number the first time it is counted, and the number is
+STORED (bugs.num, bugs.num_scope), so it never shifts: not when an older report changes game, not when a suggestion becomes a bug. Only the report that
+moved gets a new number at the end of its new game. The first run stores the numbers people already see (same order, same values)."""
 import re
+import time
 
-from .db import all_, one
+from .db import all_, one, run
 
 
 def _norm(s):
     return re.sub(r'[^a-z0-9]', '', str(s or '').lower())
 
 
+_cache = (0.0, None)
+
+
 def _table():
-    """({id: (number, scope)}, {(scope, number): id}). A scope is (kind, game)."""
-    by_id, by_num, count = {}, {}, {}
-    for r in all_('SELECT id, kind, game_name FROM bugs ORDER BY id'):
+    """({id: (number, scope)}, {(scope, number): id}). A scope is (kind, game). Missing or moved numbers are given (and stored) here."""
+    global _cache
+    if _cache[1] is not None and time.time() - _cache[0] < 2:
+        return _cache[1]
+    rows = all_('SELECT id, kind, game_name, num, num_scope FROM bugs ORDER BY id')
+    top = {}
+    for r in rows:
+        if r['num'] is not None and r['num_scope']:
+            top[r['num_scope']] = max(top.get(r['num_scope'], 0), r['num'])
+    by_id, by_num = {}, {}
+    for r in rows:
         scope = (r['kind'] or 'bug', _norm(r['game_name']))
-        count[scope] = count.get(scope, 0) + 1
-        by_id[r['id']] = (count[scope], scope)
-        by_num[(scope, count[scope])] = r['id']
+        key = f'{scope[0]}|{scope[1]}'
+        if r['num'] is None or r['num_scope'] != key:  # new, or it moved to another game or kind: the next number there
+            top[key] = top.get(key, 0) + 1
+            r['num'], r['num_scope'] = top[key], key
+            run('UPDATE bugs SET num=?, num_scope=? WHERE id=?', r['num'], key, r['id'])
+        by_id[r['id']] = (r['num'], scope)
+        by_num[(scope, r['num'])] = r['id']
+    _cache = (time.time(), (by_id, by_num))
     return by_id, by_num
+
+
+def forget():
+    """A report was added or changed game: the next lookup reads the table again."""
+    global _cache
+    _cache = (0.0, None)
 
 
 def _id(b):
     return b['id'] if isinstance(b, dict) else int(b)
 
 
+def _entry(b):
+    t = _table()[0]
+    if _id(b) not in t:  # added a moment ago: read again
+        forget()
+        t = _table()[0]
+    return t.get(_id(b), (_id(b), None))
+
+
 def num(b):
     """The number of a report (a bug row or an id) within its game."""
-    return _table()[0].get(_id(b), (_id(b), None))[0]
+    return _entry(b)[0]
 
 
 def label(b):
@@ -42,7 +74,7 @@ def full(b):
 
 
 def scope_of(b):
-    return _table()[0].get(_id(b), (None, None))[1]
+    return _entry(b)[1]
 
 
 def game_scope(text, kind):
