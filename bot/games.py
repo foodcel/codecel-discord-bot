@@ -482,6 +482,11 @@ async def command_progress(i, opts):
     if link and testing != 'off':
         run('UPDATE game_status SET test_link=? WHERE key=?', None if link == '-' else link, key(g['name']))
         tag_note += '\n▶️ Testers get a Play button for it on the tester board.' if link != '-' else '\n▶️ The Play button was removed.'
+        try:
+            from .testerboard import update_card
+            await update_card(key(g['name']))  # the "needs testers" card, if it is still up
+        except Exception as e:
+            print('tester card update', repr(e))
     await refresh_game_board()
     shown = clean_name(g['name'])
     if rel and not dev:
