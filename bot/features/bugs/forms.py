@@ -97,7 +97,7 @@ def _card(kind, user_id, game, form, too_big=None, media=None, origin=None, foot
         blocks.append(f"**🔗 Links**{NL_}" + NL_.join(typed))
     if too_big:
         blocks.append(f"**{E['video']} Too big to attach**{NL_}" + NL_.join(too_big) + f'{NL_}Post the file in this post.')
-    return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · more files: /attach in this post"], media=media)
+    return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · reply here to add more files or links"], media=media)
 
 
 async def with_clips(chosen, *texts):
@@ -180,7 +180,7 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
               form['device'] or None, body, kind).lastrowid
     if analyze:
         asyncio.ensure_future(_analyze(id_, thread, kind))
-    await i.edit_original_response(view=notice(f"{E['fixed']} **Posted**{EM}·{EM}{thread.jump_url}\nMore files or links? Use /attach or reply in the post.")[0])
+    await i.edit_original_response(view=notice(f"{E['fixed']} **Posted**{EM}·{EM}{thread.jump_url}\nMore files or links? Reply in the post, as many as you like.")[0])
     return id_
 
 

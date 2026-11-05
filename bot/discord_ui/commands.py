@@ -25,10 +25,9 @@ def sub(name, description, options=None):
 
 
 def _evidence_options():
-    """Up to 3 files and a links box on /bug and /improvement. More files go in with /attach inside the post."""
-    return [option(ATTACHMENT, 'file', 'A screenshot or video (optional)'), option(ATTACHMENT, 'file_2', 'Another file (optional)'),
-            option(ATTACHMENT, 'file_3', 'Another file (optional)'),
-            option(STRING, 'links', 'Clip or video links, separated by spaces (optional)', max_length=400)]
+    """Up to 10 files and a links box on /bug and /improvement. Anything more goes in as replies in the post, which have no limit."""
+    files = [option(ATTACHMENT, 'file' if n == 1 else f'file_{n}', 'A screenshot or video (optional)' if n == 1 else 'Another file (optional)') for n in range(1, 11)]
+    return files + [option(STRING, 'links', 'Clip or video links, separated by spaces (optional)', max_length=400)]
 
 
 def _bug_command():
@@ -99,8 +98,6 @@ COMMANDS = [
     _bug_command(),
     _improvement_command(),
     command('help', 'Show the commands you can use'),
-    command('attach', 'Add another screenshot or video to your report. Use it inside the report post', [
-        option(ATTACHMENT, 'file', 'The screenshot or video', required=True), option(STRING, 'note', 'A few words about it (optional)', max_length=200)]),
     command('mog', 'Admin: Codecel posts a mog GIF and pings Robin and Redwing Helper'),
     {'type': 3, 'name': 'Mog'},  # right click a message, Apps, Mog: Codecel replies to it with a GIF
     command('pings', 'Choose when the bot pings you', [

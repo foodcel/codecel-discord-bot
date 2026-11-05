@@ -29,7 +29,7 @@ _pending = {}  # token -> {'files': [...], 't': ms}
 def evidence(opts):
     """([files the player attached], the links box) from a /bug or /improvement command."""
     files = [{'url': a['url'], 'name': a['filename'], 'size': a['size'], 'type': a.get('content_type') or ''}
-             for a in (opts.get(n) for n in ('file', 'file_2', 'file_3')) if a]
+             for a in (opts.get(n) for n in ('file',) + tuple(f'file_{n}' for n in range(2, 11))) if a]
     return files, (opts.get('links') or '').strip()
 
 
@@ -120,7 +120,7 @@ def tester_report_embed(bug, form, tester_id, too_big=None, media=None, origin=N
     if too_big:
         blocks.append(f"**{E['video']} Too big to attach**{NL}" + NL.join(too_big) + f'{NL}Post the file in this thread.')
     from datetime import datetime, timezone
-    return card(f"🧪 {label(bug)} · {bug['title']}", blocks, ['Tester report · more files: /attach in this post'], media=media,
+    return card(f"🧪 {label(bug)} · {bug['title']}", blocks, ['Tester report · reply here to add more files or links'], media=media,
                 when=datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc))
 
 
@@ -179,7 +179,7 @@ async def modal_bug(i, tag_id, token, fields):
     if not done:
         return await i.edit_original_response(content='I could not find the testers forum. Ask a developer.')
     id_, thread = done
-    return await i.edit_original_response(view=notice(f"{E['fixed']} **Sent**{EM}·{EM}to the {game} developer: {thread.jump_url}\nMore files or links? Use /attach or reply in the post.")[0])
+    return await i.edit_original_response(view=notice(f"{E['fixed']} **Sent**{EM}·{EM}to the {game} developer: {thread.jump_url}\nMore files or links? Reply in the post, as many as you like.")[0])
 
 
 async def report_from_message(src, saver, game, tag_id):
