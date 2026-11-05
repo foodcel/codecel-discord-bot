@@ -1,6 +1,8 @@
 # Plan: the codecel MCP (bug reports and updates inside a dev's AI session)
 
-Status: planned, not built. Decisions are made in chat; this file is the build plan.
+Status: planned, not built.
+Decided (2026-11-05): hosting through a **Cloudflare Tunnel** (`cloudflared` on the bot's VM, outbound only, no open port); the audit **only suggests**;
+updates through the MCP: **game owners and admins**, same as `/update`, pings limited to none / the game's role / @Updates.
 
 ## What it is
 A small server that runs inside the bot. A dev adds it to their AI agent (Claude Code, Codex, Pi, anything that speaks MCP) with one URL and a personal token.
@@ -53,8 +55,10 @@ The card template is the existing update card, so the post looks exactly like `/
 - **Media:** Discord links expire, so the bot serves media through short-lived links of its own.
 
 ## Where it runs
-Inside the bot process (it already has the database, Discord and the card code), using the official Python MCP SDK over HTTP. Devs reach it at an HTTPS address.
-- **Needs from you:** the VM must be reachable from the internet over HTTPS. Easiest: a small domain + Caddy on the VM (automatic certificate), or a Cloudflare Tunnel (no open ports). The VM belongs to your friend: they must allow it.
+Inside the bot process (it already has the database, Discord and the card code), using the official Python MCP SDK over HTTP.
+- **Cloudflare has no VM to rent.** The bot stays on its VM. `cloudflared` (a small program, installed over SSH by me) keeps an outbound connection to Cloudflare, and Cloudflare serves `https://mcp.<your domain>` to the devs. Nothing is opened on the VM and Cloudflare handles the HTTPS certificate.
+- **Needs from you (I cannot do these):** a free Cloudflare account, and a domain on it for a stable address (buy one in Cloudflare, about $10 a year at cost; or one you own). Without a domain the address changes on every restart (a `trycloudflare.com` quick tunnel), which is only good for testing.
+- **Needs from your friend:** OK to install `cloudflared` on the VM (outbound connection only).
 - Agents that only speak "local command" MCP use a one-line proxy (`mcp-remote`) in front of the same URL.
 
 ## Build phases (my work, in order, each ships alone)
