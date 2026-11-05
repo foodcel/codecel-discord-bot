@@ -168,6 +168,7 @@ COMMANDS = [
             option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True),
             option(INTEGER, 'place', 'Which place (1 = first). Empty = every unclaimed place', min_value=1, max_value=50)]),
         sub('cancel', 'Cancel a running giveaway', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
+        sub('stats', 'How many new members the giveaway brought (joins, links, who is verified)', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
         sub('list', 'The latest giveaways'),
     ]),
     command('invites', 'Invites: your numbers and the leaderboard', [
