@@ -6,7 +6,7 @@ import string
 import time
 import uuid
 
-from bot.discord_ui.card import card, row
+from bot.discord_ui.card import card, links_in, row
 from bot.features.bugs.nums import label
 from bot.core.ai import summarize_tester_report
 from bot.discord_ui.components import NO_MENTIONS, FormModal
@@ -108,7 +108,7 @@ def quote(text):
     return '\n'.join('> ' + line for line in str(text).split('\n'))
 
 
-def tester_report_embed(bug, form, tester_id, too_big=None, image=None, origin=None):
+def tester_report_embed(bug, form, tester_id, too_big=None, media=None, origin=None):
     """The report posted inside the tester thread, as a card: (view, files)."""
     facts = NL.join([row('Game', bug['game_name']), row('Tester', f'<@{tester_id}>'), row('Severity', SEVERITY.get(bug['severity']) or '?'),
                      row('Device', f"`{form['device']}`" if form['device'] else 'Not given')])
@@ -119,14 +119,17 @@ def tester_report_embed(bug, form, tester_id, too_big=None, image=None, origin=N
         blocks.append(f"**{E['fixed']} Should happen**{NL}{sentence(form['expected'])}")
     if origin:
         blocks.append(f"**🔗 Original message**{NL}[Open it]({origin})")
+    typed = links_in(form.get('what'), form.get('steps'), form.get('expected'))
+    if typed:
+        blocks.append(f"**🔗 Links**{NL}" + NL.join(typed))
     if too_big:
         blocks.append(f"**{E['video']} Too big to attach**{NL}" + NL.join(too_big) + f'{NL}Post the file in this thread.')
     from datetime import datetime, timezone
-    return card(f"🧪 {label(bug)} · {bug['title']}", blocks, ['Tester report · devs reply in this post'], image=image,
+    return card(f"🧪 {label(bug)} · {bug['title']}", blocks, ['Tester report · devs reply in this post'], media=media,
                 when=datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc))
 
 
-async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, image, origin=None, saved_by=None):
+async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, media, origin=None, saved_by=None):
     """The post in the testers' forum (tagged with the game), the bug saved, and the owner told. Returns (bug id, thread), or None without the forum."""
     forum = await fetch_channel(cfg.tester_forum_id)
     if forum is None:
@@ -142,7 +145,7 @@ async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, i
     bug = bug_by_id(id_)
     try:
         created = await forum.create_thread(
-            name=cut(f"{label(bug)} {bug['title']}", 100), view=(made := tester_report_embed(bug, form, reporter_id, too_big, image, origin))[0], files=batches[0] + made[1],
+            name=cut(f"{label(bug)} {bug['title']}", 100), view=(made := tester_report_embed(bug, form, reporter_id, too_big, media, origin))[0], files=batches[0] + made[1],
             applied_tags=[tag] if tag else [], allowed_mentions=NO_MENTIONS, reason=f'Tester report for {game}')
     except Exception:
         run('DELETE FROM bugs WHERE id=?', id_)
@@ -174,8 +177,8 @@ async def modal_bug(i, tag_id, token, fields):
     except Exception as e:
         print('summarizeTesterReport', e)
     from bot.features.bugs.forms import _files
-    batches, too_big, image = await _files(chosen)  # re-uploaded so the files never expire
-    done = await create_report(i.user.id, game, tag_id, form, ai, batches, too_big, image)
+    batches, too_big, media = await _files(chosen)  # re-uploaded so the files never expire
+    done = await create_report(i.user.id, game, tag_id, form, ai, batches, too_big, media)
     if not done:
         return await i.edit_original_response(content='I could not find the testers forum. Ask a developer.')
     id_, thread = done
@@ -193,6 +196,6 @@ async def report_from_message(src, saver, game, tag_id):
         ai = await summarize_tester_report(game, form['title'], form['what'], '', '', '')
     except Exception as e:
         print('summarizeTesterReport', e)
-    batches, too_big, image = await _files(message_files(src))
+    batches, too_big, media = await _files(message_files(src))
     reporter = saver.id if src.author.bot else src.author.id
-    return await create_report(reporter, game, tag_id, form, ai, batches, too_big, image, origin=src.jump_url, saved_by=saver.id)
+    return await create_report(reporter, game, tag_id, form, ai, batches, too_big, media, origin=src.jump_url, saved_by=saver.id)

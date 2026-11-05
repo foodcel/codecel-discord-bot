@@ -17,7 +17,33 @@ def row(label, value):
     return f'**{label}** · {value}'
 
 
-def card(title, blocks=(), footer=(), right='date', ping=None, image=None, inside=(), below=(), files=(), when=None, gallery=()):
+def media_items(media):
+    """The attached files of a report as card parts, each kind under its own heading. media: {'images': [names], 'videos': [names], 'files': [names]}
+    (names of files uploaded with the message)."""
+    out = []
+    media = media or {}
+    if media.get('images'):
+        out += [ui.TextDisplay('**📷 Screenshots**'), ui.MediaGallery(*[discord.MediaGalleryItem(f'attachment://{n}') for n in media['images'][:10]])]
+    if media.get('videos'):
+        out += [ui.TextDisplay('**🎬 Videos**'), ui.MediaGallery(*[discord.MediaGalleryItem(f'attachment://{n}') for n in media['videos'][:10]])]
+    if media.get('files'):
+        out += [ui.TextDisplay('**📎 Files**')] + [ui.File(f'attachment://{n}') for n in media['files'][:5]]
+    return out
+
+
+def links_in(*texts):
+    """The web links written in some text, once each, in order (a card shows no link previews, so they are listed)."""
+    import re
+    seen = []
+    for t in texts:
+        for u in re.findall(r'https?://[^\s<>()\[\]"]+', str(t or '')):
+            u = u.rstrip('.,;:!?')
+            if u not in seen:
+                seen.append(u)
+    return seen[:8]
+
+
+def card(title, blocks=(), footer=(), right='date', ping=None, image=None, inside=(), below=(), files=(), when=None, gallery=(), media=None):
     """(view, files).
     title: the header text. right: 'date' (the date button), a picture URL (a thumbnail), or None.
     blocks: the body, one text part each (empty ones are skipped). footer: small lines; a 'cmd · text' line that starts with / or ! becomes a chip.
@@ -40,8 +66,11 @@ def card(title, blocks=(), footer=(), right='date', ping=None, image=None, insid
         items += [ui.Separator(visible=True, spacing=SMALL), ui.TextDisplay(NL.join('-# ' + code_chip(x) for x in footer))]
         tail = 2
     items += list(inside)
-    outside = (1 if ping else 0) + sum(1 + len(r.children) for r in below)
+    shown = media_items(media)
+    outside = (1 if ping else 0) + sum(1 + len(r.children) for r in below) + len(shown)
     items = fit(items, keep_tail=tail + len(inside), extra_parts=outside)
+    at = len(items) - tail - len(inside)
+    items[at:at] = shown  # the files sit after the text and before the footer, and are never cut off
     items, strip = with_strip(items)
     view = ui.LayoutView(timeout=None)
     if ping:

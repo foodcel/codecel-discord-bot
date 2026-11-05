@@ -8,7 +8,7 @@ import time
 
 import discord
 
-from bot.discord_ui.card import card, row, words
+from bot.discord_ui.card import card, links_in, row, words
 from bot.discord_ui.components import NO_MENTIONS, FormModal
 from bot.core.ctx import fetch_channel
 from bot.core.db import bug_by_id, now, run, update_bug
@@ -88,7 +88,7 @@ async def command_form(i, opts, kind):
     return await i.response.send_modal(FormModal(f'fm:{kind}:{tag_id}:{token}', f"{meta['noun'].capitalize()} · {tag_name(tag_id)}"[:45], inputs))
 
 
-def _card(kind, user_id, game, form, too_big=None, image=None, origin=None, footer=None):
+def _card(kind, user_id, game, form, too_big=None, media=None, origin=None, footer=None):
     """The first message of a /bug or /improvement post, as a card: (view, files). origin: the message a !bug reply saved."""
     meta = KINDS[kind]
     who = 'Reporter' if kind == 'bug' else 'Player'
@@ -108,9 +108,12 @@ def _card(kind, user_id, game, form, too_big=None, image=None, origin=None, foot
             blocks.append(f"**{E['note']} Why**{NL_}{sentence(form['why'])}")
     if origin:
         blocks.append(f"**🔗 Original message**{NL_}[Open it]({origin})")
+    typed = links_in(form.get('what'), form.get('steps'), form.get('expected'), form.get('why'))
+    if typed:
+        blocks.append(f"**🔗 Links**{NL_}" + NL_.join(typed))
     if too_big:
         blocks.append(f"**{E['video']} Too big to attach**{NL_}" + NL_.join(too_big) + f'{NL_}Post the file in this post.')
-    return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · replies go in this post"], image=image)
+    return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · replies go in this post"], media=media)
 
 
 async def _files(chosen):
@@ -133,8 +136,13 @@ async def _files(chosen):
             used += f['size']
         except Exception:
             too_big.append(f"[{f['name']}]({f['url']})")
-    first_image = next((p for p in placed if p['first'] and re.match(r'^image/(png|jpe?g|gif|webp)', p['f']['type'])), None)
-    return batches, too_big, first_image['name'] if first_image else None
+    media = {'images': [], 'videos': [], 'files': []}
+    for p in placed:
+        if not p['first']:
+            continue  # later batches are sent as their own messages
+        t = p['f']['type']
+        media['images' if re.match(r'^image/(png|jpe?g|gif|webp)', t) else 'videos' if t.startswith('video/') else 'files'].append(p['name'])
+    return batches, too_big, media
 
 
 async def modal_form(i, kind, tag_id, token, fields, analyze=True):
@@ -158,9 +166,9 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
     dev = _device_tag(form['device']) if kind == 'bug' else None
     if dev and forum.get_tag(int(dev['id'])):
         tags.append(forum.get_tag(int(dev['id'])))
-    batches, too_big, image = await _files(chosen)
+    batches, too_big, media = await _files(chosen)
     created = await forum.create_thread(
-        name=cut(form['title'], 100), view=(made := _card(kind, i.user.id, game, form, too_big, image))[0], files=batches[0] + made[1],
+        name=cut(form['title'], 100), view=(made := _card(kind, i.user.id, game, form, too_big, media))[0], files=batches[0] + made[1],
         applied_tags=tags, allowed_mentions=NO_MENTIONS, reason=f"{meta['command']} by {i.user}")
     thread = created.thread
     for k, extra in enumerate(batches[1:]):
@@ -219,9 +227,9 @@ async def post_from_message(src, saver, kind, tag_id=None):
         tag = forum.get_tag(int(tag_id if kind == 'bug' else to_suggest_tag_id(tag_id) or 0))
         if tag:
             tags.append(tag)
-    batches, too_big, image = await _files(message_files(src))
+    batches, too_big, media = await _files(message_files(src))
     reporter = saver.id if src.author.bot else src.author.id
-    view, card_files = _card(kind, reporter, game or 'New report', form, too_big, image, origin=src.jump_url,
+    view, card_files = _card(kind, reporter, game or 'New report', form, too_big, media, origin=src.jump_url,
                              footer=f'Saved from a message by {saver.display_name} · replies go in this post')
     created = await forum.create_thread(name=cut(form['title'], 100), view=view, files=batches[0] + card_files, applied_tags=tags,
                                         allowed_mentions=NO_MENTIONS, reason=f"{KINDS[kind]['command']} reply by {saver}")
