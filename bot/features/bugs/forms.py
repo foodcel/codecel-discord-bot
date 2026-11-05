@@ -18,11 +18,6 @@ from bot.features.bugs.tester import _keep, _pending, quote, safe
 from bot.features.bugs.transcript import download, upload_limit
 from bot.discord_ui.ui import E, EM, cut, sentence
 
-# /improvement takes up to 5 screenshots and 2 videos (/bug takes 10 and 5, see tester.ATTACH)
-IMPROVE_ATTACH = {
-    'screenshots': [f'screenshot_{k + 1}' if k else 'screenshot' for k in range(5)],
-    'videos': [f'video_{k + 1}' if k else 'video' for k in range(2)],
-}
 COOLDOWN = 45  # seconds between two forms of the same player
 _last = {}
 
@@ -30,12 +25,6 @@ KINDS = {
     'bug': {'noun': 'bug report', 'command': '/bug', 'icon': '🐛'},
     'suggestion': {'noun': 'improvement', 'command': '/improvement', 'icon': '💡'},
 }
-
-
-def _attach_names(kind):
-    from bot.features.bugs.tester import ATTACH
-    a = ATTACH if kind == 'bug' else IMPROVE_ATTACH
-    return [*a['screenshots'], *a['videos']]
 
 
 def _device_tag(text):
@@ -65,12 +54,7 @@ async def command_form(i, opts, kind):
         return await reply('Pick a game from the list.', ephemeral=True)
     if kind == 'suggestion' and not to_suggest_tag_id(tag_id):
         return await reply('That game has no tag in the improvement forum yet. Ask a developer.', ephemeral=True)
-    files = []
-    for n in _attach_names(kind):
-        a = opts.get(n)
-        if a:
-            files.append({'url': a['url'], 'name': a['filename'], 'size': a['size'], 'type': a.get('content_type') or ''})
-    token = _keep(files)
+    token = _keep([])
     if kind == 'bug':
         inputs = [
             {'id': 'title', 'label': 'Short title', 'style': 'short', 'required': True, 'max': 80, 'placeholder': 'e.g. Notes stop responding after restarting a song'},
@@ -113,7 +97,7 @@ def _card(kind, user_id, game, form, too_big=None, media=None, origin=None, foot
         blocks.append(f"**🔗 Links**{NL_}" + NL_.join(typed))
     if too_big:
         blocks.append(f"**{E['video']} Too big to attach**{NL_}" + NL_.join(too_big) + f'{NL_}Post the file in this post.')
-    return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · replies go in this post"], media=media)
+    return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · reply here to add screenshots, videos or links"], media=media)
 
 
 async def _files(chosen):
@@ -182,7 +166,7 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
               form['device'] or None, body, kind).lastrowid
     if analyze:
         asyncio.ensure_future(_analyze(id_, thread, kind))
-    await i.edit_original_response(content=f"{E['fixed']} **POSTED**{EM}·{EM}Your {meta['noun']} is here: {thread.jump_url}\nThe bot is checking it now. If it needs anything it will ask you in the post.")
+    await i.edit_original_response(content=f"{E['fixed']} Posted: {thread.jump_url}\nAdd screenshots, videos or links by replying in the post.")
     return id_
 
 

@@ -1,6 +1,4 @@
 """The slash command definitions, in the raw form Discord expects."""
-from bot.features.bugs.forms import IMPROVE_ATTACH
-from bot.features.bugs.tester import ATTACH
 
 SUB, STRING, INTEGER, BOOLEAN, USER, CHANNEL, ROLE, ATTACHMENT = 1, 3, 4, 5, 6, 7, 8, 11
 GUILD_TEXT, GUILD_ANNOUNCEMENT = 0, 5
@@ -28,20 +26,12 @@ def sub(name, description, options=None):
 
 def _bug_command():
     opts = [option(STRING, 'game', 'Which game', required=True, autocomplete=True)]
-    for k, name in enumerate(ATTACH['screenshots']):
-        opts.append(option(ATTACHMENT, name, f'Screenshot {k + 1} (optional)'))
-    for k, name in enumerate(ATTACH['videos']):
-        opts.append(option(ATTACHMENT, name, f'Video {k + 1} (optional)'))
-    return command('bug', 'Report a bug: pick the game, fill in a short form, and the bot posts it for you', opts)
+    return command('bug', 'Report a bug: pick the game, fill in a short form. Add screenshots and videos in the post after', opts)
 
 
 def _improvement_command():
     opts = [option(STRING, 'game', 'Which game', required=True, autocomplete=True)]
-    for k, name in enumerate(IMPROVE_ATTACH['screenshots']):
-        opts.append(option(ATTACHMENT, name, f'Screenshot {k + 1} (optional)'))
-    for k, name in enumerate(IMPROVE_ATTACH['videos']):
-        opts.append(option(ATTACHMENT, name, f'Video {k + 1} (optional)'))
-    return command('improvement', 'Suggest an improvement: pick the game, fill in a short form, and the bot posts it for you', opts)
+    return command('improvement', 'Suggest an improvement: pick the game, fill in a short form. Add screenshots and videos after', opts)
 
 
 FORUM, TEXT = 15, 0

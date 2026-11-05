@@ -22,7 +22,7 @@ Built with Python (discord.py), SQLite and the Anthropic API (Claude Haiku by de
 
 **Suggestions** (optional, `SUGGESTIONS_CHANNEL_ID` and `DEV_SUGGESTIONS_FORUM_ID`): the same idea for a forum where players suggest improvements. Claude checks each post, tags the game, asks for what is missing, spots duplicates and sends it to the dev who owns the game, on a suggestion board in its own dev-only forum (with the 🙏 votes). Devs type `12 added` or `7 declined`, or use the buttons; the player is pinged and the post is deleted after 24 hours. Added suggestions go into the update announcements next to the bug fixes. A bug posted there becomes a normal bug and the player is told. The bot creates the Added / Declined / Duplicate / Needs Info tags in that forum itself.
 
-**Reports by command**: anyone can use `/bug` (a short form, up to 10 screenshots and 5 videos) or `/improvement` (up to 5 screenshots and 2 videos). The bot makes the post in the bug or suggestions forum for the player and then handles it like a post written by hand. Testers using `/bug` in the testing channel get a thread there instead, and the bug goes straight to the owning dev's board.
+**Reports by command**: anyone can use `/bug` (a short form) or `/improvement` (a short form). Screenshots, videos and links are added by replying in the post, as many as needed. The bot makes the post in the bug or suggestions forum for the player and then handles it like a post written by hand. Testers using `/bug` in the testing channel get a thread there instead, and the bug goes straight to the owning dev's board.
 
 **Offline-safe**: when the bot starts it catches up on everything it missed (new posts, replies, timers, deletes).
 

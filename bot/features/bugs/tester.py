@@ -18,13 +18,6 @@ from bot.core.perms import level
 from bot.features.bugs.tags import ensure_tester_tag, find_game_tag, game_tags, tag_name
 from bot.discord_ui.ui import E, EM, SEVERITY, cut, sentence
 
-# /bug takes up to 10 screenshots and 5 videos: screenshot, screenshot_2 ... screenshot_10, video, video_2 ... video_5
-ATTACH = {
-    'screenshots': [f'screenshot_{k + 1}' if k else 'screenshot' for k in range(10)],
-    'videos': [f'video_{k + 1}' if k else 'video' for k in range(5)],
-}
-
-
 def safe(n):
     return re.sub(r'[^\w.\-]+', '_', str(n), flags=re.ASCII)[:60]
 
@@ -85,12 +78,7 @@ async def command_bug(i, opts):
     game, tag_id = resolve_game(opts.get('game'))
     if not game:
         return await reply('Pick a game from the list.', ephemeral=True)
-    files = []
-    for n in [*ATTACH['screenshots'], *ATTACH['videos']]:
-        a = opts.get(n)
-        if a:
-            files.append({'url': a['url'], 'name': a['filename'], 'size': a['size'], 'type': a.get('content_type') or ''})
-    token = _keep(files, game)
+    token = _keep([], game)
     return await i.response.send_modal(FormModal(f'tb:{tag_id or 0}:{token}', f'Bug report · {game}'[:45], [
         {'id': 'title', 'label': 'Short title', 'style': 'short', 'required': True, 'max': 80, 'placeholder': 'e.g. Car falls through the map'},
         {'id': 'what', 'label': 'What happened', 'style': 'paragraph', 'required': True, 'max': 1000, 'placeholder': 'Describe the bug'},
@@ -125,7 +113,7 @@ def tester_report_embed(bug, form, tester_id, too_big=None, media=None, origin=N
     if too_big:
         blocks.append(f"**{E['video']} Too big to attach**{NL}" + NL.join(too_big) + f'{NL}Post the file in this thread.')
     from datetime import datetime, timezone
-    return card(f"🧪 {label(bug)} · {bug['title']}", blocks, ['Tester report · devs reply in this post'], media=media,
+    return card(f"🧪 {label(bug)} · {bug['title']}", blocks, ['Tester report · reply here to add screenshots, videos or links'], media=media,
                 when=datetime.fromtimestamp(bug['created_at'] / 1000, timezone.utc))
 
 
@@ -182,7 +170,7 @@ async def modal_bug(i, tag_id, token, fields):
     if not done:
         return await i.edit_original_response(content='I could not find the testers forum. Ask a developer.')
     id_, thread = done
-    return await i.edit_original_response(content=f"{E['fixed']} **SENT**{EM}·{EM}{label(id_)} went to the {game} developer. Follow it here: {thread.jump_url}")
+    return await i.edit_original_response(content=f"{E['fixed']} Sent to the {game} developer: {thread.jump_url}\nAdd screenshots, videos or links by replying in the post.")
 
 
 async def report_from_message(src, saver, game, tag_id):
