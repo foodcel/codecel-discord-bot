@@ -12,11 +12,11 @@ from pathlib import Path
 from .ctx import fetch_channel
 from .db import create_pending, now, one, run
 from .env import cfg
-from .games import NONE, _find, clean_name, http, key, owner_ids, refresh_game_board
+from .games import NONE, _find, clean_name, owner_ids, refresh_game_board
+from .links import roblox_game, roblox_place
 from .perms import level, owns
 from .ui import E, EM
 
-ROBLOX_GAME = re.compile(r'roblox\.com/(?:[a-z]{2}/)?games/(\d+)', re.I)
 STEAM_APP = re.compile(r'store\.steampowered\.com/app/(\d+)', re.I)
 HERO_DIR = Path(__file__).resolve().parent.parent / 'data' / 'heroes'
 MAX_IMAGE = 8 * 1024 * 1024
@@ -39,10 +39,10 @@ async def _json(url):
 
 async def roblox_info(link):
     """{'place_id', 'name', 'creator', 'hero_url'} from a Roblox game link; None when it is not one. Fields Roblox does not answer stay empty."""
-    m = ROBLOX_GAME.search(link or '')
-    if not m:
+    place = roblox_place(link)
+    if not place:
         return None
-    out = {'place_id': m.group(1), 'name': None, 'creator': None, 'hero_url': None, 'icon_url': None}
+    out = {'place_id': place, 'name': None, 'creator': None, 'hero_url': None, 'icon_url': None}
     u = await _json(f'https://apis.roblox.com/universes/v1/places/{out["place_id"]}/universe')
     uid = (u or {}).get('universeId')
     if not uid:
@@ -184,8 +184,9 @@ async def command_release_new(i, opts, quiet=False):
     link = (opts.get('link') or '').strip()
     if not link:  # a game released before (then moved back) keeps the Roblox link it had
         link = ((one('SELECT link FROM game_status WHERE key=?', k) or {}).get('link') or '').strip()
-    if not ROBLOX_GAME.search(link):
-        return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
+    link = roblox_game(link)
+    if not link:
+        return await reply('Paste the Roblox game page link: it looks like https://www.roblox.com/games/123456/Name', ephemeral=True)
     ping = 'none' if quiet else (opts.get('ping') or 'everyone')
     test = in_test_channel(i)
     await i.response.defer(ephemeral=True, thinking=True)
@@ -319,8 +320,9 @@ async def command_release_edit(i, opts):
     if n:  # a short line under the game; a single - removes it
         changes['notes'] = None if n == '-' else n[:140]
     link = (opts.get('link') or '').strip()
-    if link and not ROBLOX_GAME.search(link):
-        return await reply('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
+    if link and not roblox_game(link):
+        return await reply('Paste the Roblox game page link: it looks like https://www.roblox.com/games/123456/Name', ephemeral=True)
+    link = roblox_game(link) if link else link
     if not changes and not link and not opts.get('image'):
         return await reply('Nothing to change. Give a title, link, image, studio, original, description or online.', ephemeral=True)
     await i.response.defer(ephemeral=True, thinking=True)

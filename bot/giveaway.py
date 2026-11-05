@@ -994,9 +994,10 @@ async def command_giveaway(i, sub, opts):
         pid = new_draft(i.user.id, i.channel_id, str(opts['prize']).strip()[:40], min(seconds, 60 * 86400), min(int(opts.get('winners') or 1), MAX_WINNERS))
         return await i.edit_original_response(**payload(pid))
     if sub == 'list':
+        await i.response.defer(ephemeral=True)
         rows = all_("SELECT * FROM giveaways WHERE status IN ('running','ended') ORDER BY id DESC LIMIT 10")
         lines = [f"#{r['id']} · **{r['title']}** · {r['status']} · <#{r['channel_id']}> · {len(valid_pool(_g(r['id']))) if r['status'] == 'running' else (_g(r['id'])['result'] or {}).get('eligible', 0)} entered" + (f" · ends <t:{r['ends_at'] // 1000}:f>" if r['status'] == 'running' else '') for r in rows]
-        return await i.response.send_message('\n'.join(lines) or 'No giveaways yet.', ephemeral=True, allowed_mentions=NO_MENTIONS)
+        return await i.edit_original_response(content='\n'.join(lines) or 'No giveaways yet.', allowed_mentions=NO_MENTIONS)
     gid = _pick(opts.get('giveaway'))
     if not gid or not _g(gid):
         return await i.response.send_message('Pick a giveaway from the list.', ephemeral=True)

@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import io
 import json
+import time
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -554,7 +555,7 @@ def expected_ids():
 
 
 async def guard_tick():
-    """Once a second: every message of the library and every live card is still there, or it is sent again at once.
+    """Every message of the library and every live card is still there, or it is sent again at once.
     One request when all is well (the newest 100 messages); a message that is not among them is looked up, and only a missing one is re-posted."""
     conf = library_config()
     if not conf or not conf['messages']:
@@ -586,14 +587,18 @@ async def guard_tick():
 
 
 async def guard_loop():
-    """Always on. A once-a-second watch, plus a full refresh every 90 seconds (doubles, rival bots, edited games)."""
-    n = 0
+    """Always on, as a safety net: deleted library messages and rival posts are handled the moment the gateway reports them
+    (on_raw_message_delete, on_message, on_webhooks_update). Here: a check every 20 seconds and a full refresh every 90 (doubles, edited games).
+    It used to poll every second, about 170,000 requests a day."""
+    last_full = 0.0
     while True:
         try:
-            n += 1
-            await (refresh_library() if n % 90 == 0 else guard_tick())
+            if time.time() - last_full >= 90:
+                last_full = time.time()
+                await refresh_library()
+            else:
+                await guard_tick()
         except Exception as e:
             print('library guard', repr(e))
-            await asyncio.sleep(4)
-        await asyncio.sleep(1)
+        await asyncio.sleep(20)
 

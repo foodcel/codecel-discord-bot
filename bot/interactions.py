@@ -3,6 +3,7 @@ custom_id, so buttons on old messages keep working after a restart."""
 import discord
 from discord import app_commands
 
+from .links import web_url
 from .nums import label
 from .ai import interpret_note
 from .announce import (_ago, chosen, chosen_ids, confirm_view, draft_payload, edit_kw, items, merge_announcement, ping_role, polish_dev_updates,
@@ -34,7 +35,7 @@ import re
 
 
 def http(u):
-    return bool(re.match(r'^https?://', u or '', re.I))
+    return bool(web_url(u)) and bool(re.match(r'^https?://', u or '', re.I))
 
 
 # ---- reading what Discord sent ----
@@ -495,10 +496,11 @@ async def handle_command(i):
         return await i.response.send_message(f"<@{u}> has **{info['count']}** strike(s).\n{rows}", ephemeral=True, allowed_mentions=NO_MENTIONS)
     if name == 'pardon':
         u = opts['user']
+        await i.response.defer(ephemeral=True)
         c = await pardon(u)
         from .hunting import lift
         back = ' Bug hunting is back too.' if lift(u) else ''
-        return await i.response.send_message(f'Removed one strike from <@{u}>. They now have {c}.{back}', ephemeral=True, allowed_mentions=NO_MENTIONS)
+        return await i.edit_original_response(content=f'Removed one strike from <@{u}>. They now have {c}.{back}', allowed_mentions=NO_MENTIONS)
     if name == 'pings':
         b = opts.get('bugs')
         x = opts.get('exploits')
@@ -529,9 +531,10 @@ async def handle_command(i):
         if level(i.user) != 'admin':
             return await deny(i)
         from .look import card_from_embed
+        await i.response.defer(ephemeral=True)
         view, files = card_from_embed(rules_embed())
         await i.channel.send(view=view, files=files)
-        return await i.response.send_message('Posted.', ephemeral=True)
+        return await i.edit_original_response(content='Posted.')
 
 
 async def handle_component(i):

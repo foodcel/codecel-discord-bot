@@ -405,21 +405,21 @@ async def command_tester(i, sub, opts):
                    **{k: _text(opts.get(k)) for k in FIELDS if opts.get(k)})
         problem = await give_role(uid)
         note = f' (but {problem})' if problem else ''
-        await refresh_roster()
+        schedule_refresh()
         return await reply(f"Added <@{uid}> as {MARK[row['status']]} {row['status']}{note}.", ephemeral=True, allowed_mentions=NO_MENTIONS)
     if not get(uid):
         return await reply('That person is not on the roster. Add them with `/tester add`.', ephemeral=True)
     if sub == 'remove':
         run('DELETE FROM testers WHERE user_id=?', uid)
         problem = await take_roles(uid)
-        await refresh_roster()
+        schedule_refresh()
         return await reply(f"Removed <@{uid}> from the roster{f' (but {problem})' if problem else ' and took the Tester role'}.", ephemeral=True, allowed_mentions=NO_MENTIONS)
     if sub == 'status':
         status = opts['status']
         if status == 'private' and not opts.get('only_for'):
             opts['only_for'] = str(i.user.id)  # defaults to whoever runs the command: pass only_for for another dev
         row = save(uid, status=status, only_for=str(opts['only_for']) if status == 'private' else None)
-        await refresh_roster()
+        schedule_refresh()
         extra = (" They only test developers' games and are never shown to players." if row['only_for'] == ANY_DEV else
                  f" They only test <@{row['only_for']}>'s games and are never offered to other devs.") if status == 'private' else \
             ' They are not offered to devs while they are on a break.' if status == 'inactive' else ''
@@ -429,7 +429,7 @@ async def command_tester(i, sub, opts):
         if not changes:
             return await reply('Nothing to change. Pass at least one field.', ephemeral=True)
         save(uid, **changes)
-        await refresh_roster()
+        schedule_refresh()
         return await reply(f"Updated <@{uid}>: {', '.join(changes)}.", ephemeral=True, allowed_mentions=NO_MENTIONS)
 
 
@@ -440,5 +440,5 @@ async def modal_profile(i, fields):
     save(uid, **vals)
     if (not row or row['status'] == 'pending') and vals['devices'] and vals['recording'] and vals['availability']:
         save(uid, status='active')  # a complete profile moves them from waiting to open
-    await refresh_roster()
+    schedule_refresh()
     return await i.response.send_message('Thanks! Your tester profile is saved.', ephemeral=True)

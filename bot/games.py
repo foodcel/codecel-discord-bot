@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from discord import app_commands
 
+from .links import roblox_any, roblox_game, web_url
 from .ai import clean_game_names
 from .bounty import get_claims
 from .ctx import ctx, fetch_channel
@@ -36,7 +37,8 @@ def key(s):
 
 
 def http(u):
-    return bool(re.match(r'^https?://', u or '', re.I))
+    """A real http(s) link (see links.py)."""
+    return bool(web_url(u)) and bool(re.match(r'^https?://', u or '', re.I))
 
 
 def owner_ids(g):
@@ -387,15 +389,16 @@ async def command_release(i, opts, undo=False):
             ON CONFLICT(key) DO UPDATE SET status='released', released_at=excluded.released_at, released_by=excluded.released_by,
             link=COALESCE(excluded.link, game_status.link), owners=excluded.owners, name=excluded.name""",
             k, g['name'], ','.join(owner_ids(g)), g.get('since'), now(), str(i.user.id), link or None)
+    await i.response.defer(ephemeral=True, thinking=True)  # the boards below take longer than the 3 seconds Discord waits
     from . import board
     if board.is_live():  # releasing a game completes its claim on the bounty board, moving it back reopens it
         board.set_completed(g['name'], not undo)
         await board.reload_claims()
     await refresh_game_board()
     shown = clean_name(g['name'])
-    return await reply(
+    return await i.edit_original_response(content=
         f"{E['warn']} **UNRELEASED**{EM}·{EM}{shown} is back in development." if undo
-        else f"{E['fixed']} **RELEASED**{EM}·{EM}{shown} is now in the released list.", ephemeral=True)
+        else f"{E['fixed']} **RELEASED**{EM}·{EM}{shown} is now in the released list.")
 
 
 def set_source_link(name, owners, since, link):
@@ -419,12 +422,17 @@ async def command_gamelink(i, opts):
     link = (opts.get('link') or '').strip()
     if not http(link):
         return await reply('The link must start with http:// or https://', ephemeral=True)
+    if rel and not dev:  # a released game links to its Roblox page
+        link = roblox_game(link)
+        if not link:
+            return await reply('A released game links to its Roblox page, like https://www.roblox.com/games/123456/Name', ephemeral=True)
+    await i.response.defer(ephemeral=True, thinking=True)
     if dev:
         set_source_link(g['name'], owner_ids(g), g.get('since'), link)
     else:
         run('UPDATE game_status SET link=? WHERE key=?', link, k)
     await refresh_game_board()
-    return await reply(f"{E['fixed']} **LINKED**{EM}·{EM}{clean_name(g['name'])} now links to {link}", ephemeral=True)
+    return await i.edit_original_response(content=f"{E['fixed']} **LINKED**{EM}·{EM}{clean_name(g['name'])} now links to {link}")
 
 
 async def command_progress(i, opts):
@@ -442,7 +450,7 @@ async def command_progress(i, opts):
     percent, working, testing = opts.get('percent'), opts.get('working'), opts.get('testing')
     link = (opts.get('link') or '').strip()
     if link and link != '-':
-        link = roblox_url(link)
+        link = roblox_any(link)
         if not link:
             return await reply('That does not look like a Roblox link. Paste the game page, like `https://www.roblox.com/games/123456/Name`.', ephemeral=True)
         if testing != 'on' and not g.get('testing_at'):
@@ -504,16 +512,6 @@ async def _tester_tag_note(name):
         print('tester tag', repr(e))
         return ''
     return f"\n🏷️ Testers can report it now: its tag **{tag.name}** is ready in the testers forum." if tag else (f'\n⚠️ {problem}' if problem else '')
-
-
-def roblox_url(text):
-    """The link as https://..., or None when it is not a Roblox address (roblox.com or ro.blox.com)."""
-    text = text.strip()
-    if not re.match(r'^https?://', text, re.I):
-        text = 'https://' + text
-    m = re.match(r'^https?://([^/?#]+)', text, re.I)
-    host = (m[1] if m else '').lower()
-    return text if host == 'ro.blox.com' or host == 'roblox.com' or host.endswith('.roblox.com') else None
 
 
 def set_progress(name, owners, since, percent, working):

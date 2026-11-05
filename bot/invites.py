@@ -74,17 +74,29 @@ async def on_member_join(member):
             print('invite tracker: could not read the invites', repr(e)[:120])
             fresh = None
         if fresh is not None:
-            for c, v in fresh.items():  # the invite whose use count went up
-                if v['uses'] > (_cache.get(c) or {}).get('uses', 0):
+            # the invite whose count went up. Only ONE use is taken for this join: when several people join at once, the next joins
+            # find the uses that are still pending, so each of them is attributed (before, all but the first went unattributed)
+            for c, v in fresh.items():
+                if c in _cache and v['uses'] > _cache[c]['uses']:
                     code, inviter = c, v['inviter']
                     break
-            if not code:  # an invite that is gone now: its last use was this join
+            if not code:  # an invite that is gone now (used up): its last use was this join
                 for c, old in _cache.items():
                     if c not in fresh and old['max'] and old['uses'] + 1 >= old['max']:
                         code, inviter = c, old['inviter']
                         break
-            _cache.clear()
-            _cache.update(fresh)
+            for c, v in fresh.items():
+                if c not in _cache:
+                    _cache[c] = dict(v)  # a link the bot had not seen yet: its uses so far are history, not this join
+                else:
+                    _cache[c]['inviter'] = v['inviter']
+            if code in _cache and code in fresh:
+                _cache[code]['uses'] += 1
+            for c in [c for c in _cache if c not in fresh]:
+                if c == code or not _cache[c]['max'] or _cache[c]['uses'] + 1 >= _cache[c]['max']:
+                    _cache.pop(c)  # gone for good (used up, expired or deleted)
+        if inviter == str(member.id):
+            inviter = None  # nobody invites themselves
         run('INSERT INTO invite_joins(user_id,inviter_id,code,joined_at) VALUES(?,?,?,?)', str(member.id), inviter, code, now())
         global _legacy
         _legacy = (0, {})
@@ -128,9 +140,13 @@ def legacy_by_inviter():
     return out
 
 
+LATEST = """SELECT user_id, inviter_id FROM invite_joins j WHERE id = (SELECT MAX(id) FROM invite_joins WHERE user_id = j.user_id)
+    AND inviter_id IS NOT NULL AND inviter_id <> user_id"""  # each person once: their latest join decides who invited them
+
+
 def stats(user_id):
     """One person's numbers. `score` is what counts: tracked people who are still here and verified, plus earlier invites from before tracking."""
-    rows = all_('SELECT user_id FROM invite_joins WHERE inviter_id=? ORDER BY joined_at', str(user_id))
+    rows = all_(LATEST + ' AND inviter_id=?', str(user_id))
     b = _bucket(rows)
     b['uses'] = sum(v['uses'] for v in _cache.values() if v['inviter'] == str(user_id))  # Discord's own count of their live invites
     b['legacy'] = legacy_by_inviter().get(str(user_id), 0)
@@ -146,7 +162,7 @@ def qualified(user_id):
 def leaderboard():
     """[(user id, stats)] best first, only people with at least one counting invite."""
     by = {}
-    for r in all_('SELECT user_id, inviter_id FROM invite_joins WHERE inviter_id IS NOT NULL ORDER BY joined_at'):
+    for r in all_(LATEST):
         by.setdefault(r['inviter_id'], []).append(r)
     old = legacy_by_inviter()
     rows = []
@@ -280,7 +296,6 @@ async def check_card(member):
     people.sort(key=lambda p: (order[p[0]], -p[2]['joined_at']))
     count = {k: sum(1 for p in people if p[0] == k) for k in order}
     uses = sum(i.uses or 0 for i in live)
-    on_live = sum(1 for r in rows if r['code'] in {i.code for i in live})
     first = (all_('SELECT MIN(joined_at) first FROM invite_joins') or [{}])[0].get('first')
     me = ctx.guild.get_member(member.id)
     head = f'## 🔎 Invite check{NL}-# <@{member.id}> · joined {_ts(member.joined_at.timestamp() * 1000) if member.joined_at else "?"} · account made {_ts(member.created_at.timestamp() * 1000)}' \

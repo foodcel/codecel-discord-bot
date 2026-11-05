@@ -4,13 +4,13 @@ the bot switches it on again and says so. A game a dev marked offline by hand is
 import asyncio
 import json
 
-import discord
 
 from .components import allowed
 from .ctx import fetch_channel
 from .db import all_, kv_get, kv_set, run
 from .games import clean_name, owner_ids, refresh_game_board
-from .release import ROBLOX_GAME, _json
+from .links import roblox_place
+from .release import _json
 from .ui import EM
 
 DEV_CHAT = 1565918318664093766
@@ -20,10 +20,10 @@ FAILS = 2        # checks in a row that must fail before a game is called down
 
 async def is_up(link):
     """True: Roblox shows the game. False: it does not (taken down or deleted). None: could not tell (Roblox did not answer)."""
-    m = ROBLOX_GAME.search(link or '')
-    if not m:
+    place = roblox_place(link)
+    if not place:
         return None
-    u = await _json(f'https://apis.roblox.com/universes/v1/places/{m.group(1)}/universe')
+    u = await _json(f'https://apis.roblox.com/universes/v1/places/{place}/universe')
     if u is None:
         return None
     uid = u.get('universeId')

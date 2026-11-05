@@ -11,7 +11,8 @@ from .components import NO_MENTIONS, FormModal
 from .db import del_pending, get_pending, set_pending
 from .games import clean_name
 from .perms import level
-from .release import ROBLOX_GAME, commit_edit, commit_release, roblox_info, summary
+from .links import roblox_game
+from .release import commit_edit, commit_release, roblox_info, summary
 
 NL = chr(10)
 PINGS = [('everyone', '@everyone', 'Everyone in the server'), ('updates', '@Updates', 'Only people who want updates'),
@@ -133,8 +134,9 @@ async def on_modal(i, pid, fields):
         return await i.response.send_message('This draft belongs to someone else.', ephemeral=True)
     f = {k: (v or '').strip() for k, v in fields.items()}
     link = f.get('link', '')
-    if link and not ROBLOX_GAME.search(link):
-        return await i.response.send_message('Paste the Roblox game link: it looks like roblox.com/games/123456/Name', ephemeral=True)
+    if link and not roblox_game(link):
+        return await i.response.send_message('Paste the Roblox game page link: it looks like https://www.roblox.com/games/123456/Name', ephemeral=True)
+    link = roblox_game(link) if link else link
     if link and link != _row(d).get('link'):  # a new link: the name, creator and picture come from it
         await i.response.defer()
         info = await roblox_info(link) or {}

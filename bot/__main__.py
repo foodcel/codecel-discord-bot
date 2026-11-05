@@ -195,7 +195,7 @@ async def on_raw_reaction_clear_emoji(p):
 @client.event
 async def on_raw_message_delete(p):
     conf = cards.library_config()
-    if conf and str(p.channel_id) == str(conf['channel']) and str(p.message_id) in [str(i) for i in conf['messages']]:
+    if conf and str(p.channel_id) == str(conf['channel']) and str(p.message_id) in {str(i) for i in cards.expected_ids()}:  # the library or a live card
         try:
             await cards.keep_library()
         except Exception:
