@@ -56,9 +56,12 @@ The card template is the existing update card, so the post looks exactly like `/
 
 ## Where it runs
 Inside the bot process (it already has the database, Discord and the card code), using the official Python MCP SDK over HTTP.
-- **Cloudflare has no VM to rent.** The bot stays on its VM. `cloudflared` (a small program, installed over SSH by me) keeps an outbound connection to Cloudflare, and Cloudflare serves `https://mcp.<your domain>` to the devs. Nothing is opened on the VM and Cloudflare handles the HTTPS certificate.
-- **Needs from you (I cannot do these):** a free Cloudflare account, and a domain on it for a stable address (buy one in Cloudflare, about $10 a year at cost; or one you own). Without a domain the address changes on every restart (a `trycloudflare.com` quick tunnel), which is only good for testing.
-- **Needs from your friend:** OK to install `cloudflared` on the VM (outbound connection only).
+- **A domain is NOT required.** The bot's VM is the friend's Oracle VM (not a Cloudflare VM). It only needs a public HTTPS address. Options, best first:
+  1. **Tailscale Funnel** (free, no domain): stable `https://<vm>.<tailnet>.ts.net`, outbound only, HTTPS handled. Needs a free Tailscale account and the friend's OK to install it.
+  2. **Caddy + sslip.io** (free, no domain): `https://<vm-ip>.sslip.io` with a free Let's Encrypt certificate. Needs port 443 opened in the Oracle console (friend) and a public IP.
+  3. **Cloudflare quick tunnel** (free, no account): random `trycloudflare.com` URL that changes on every restart. Testing only.
+  4. Cloudflare named tunnel: the only option that needs a domain (a stable name on Cloudflare).
+- **Needs from your friend:** OK to install the chosen program on the VM (Tailscale / Caddy / cloudflared).
 - Agents that only speak "local command" MCP use a one-line proxy (`mcp-remote`) in front of the same URL.
 
 ## Build phases (my work, in order, each ships alone)
