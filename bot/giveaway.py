@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 import discord
 from discord import ui
 
-from . import invites
+from . import boosts, invites
 from .banner import banner_file
 from .botnews import code_chip
 from .components import NO_MENTIONS, FormModal
@@ -264,6 +264,9 @@ def entries_for(member, c):
         if not lv and len(rest) > 1 and not any(_level_of(ctx.guild.get_role(int(r))) is not None for r in c['bonus']):
             held = [max(rest, key=lambda h: h[1])]  # no level roles in this giveaway: the setting means highest only for all of them
     rows += [(_role(rid), n) for rid, n in held]
+    n = boosts.count(member) if c.get('per_boost') else 0  # every server boost they gave (read from the boosters channel), only while they still hold the Server Booster role
+    if n:
+        rows.append((f"{n} server boost{'s' if n != 1 else ''}", c['per_boost'] * n))
     if c['invite_entries']:
         q = invites.qualified(member.id)
         inv = q - c['min_invites']
@@ -312,6 +315,8 @@ def required_block(c):
 
 def bonus_block(c):
     rows = [f"⭐ {_role(r)} **+{n}** {'entry' if n == 1 else 'entries'}" for r, n in c['bonus'].items()]
+    if c.get('per_boost'):
+        rows.append(f"🚀 **+{c['per_boost']}** {'entry' if c['per_boost'] == 1 else 'entries'} for every server boost")
     if c['invite_entries']:
         rows.append('➕ **+1** entry for every invite' + (f" · max **{c['invite_cap']}** entries in total" if c['invite_cap'] else ''))
     if rows and c.get('bonus_best') and len(c['bonus']) > 1:
@@ -429,6 +434,7 @@ async def redraw(gid):
     msg = await _message(g)
     if not msg:
         return
+    await boosts.refresh()
     status = 'ended' if g['status'] == 'ended' else 'running'
     # the banner is uploaded again with every edit: a card that points at attachment://giveaway.png needs the file in the same request
     count = g['result']['eligible'] if status == 'ended' and g['result'] else len(valid_pool(g))  # "entered" counts the people who have at least one entry, not everyone who pressed Enter
@@ -483,6 +489,7 @@ def _entry_word(total):
 
 
 async def enter(i, gid):
+    await boosts.refresh()
     g = _g(gid)
     if not g or g['status'] != 'running':
         return await i.response.send_message('This giveaway is over.', ephemeral=True)
@@ -499,6 +506,7 @@ async def enter(i, gid):
 
 async def mine(i, gid):
     """The My entries button: whether you are in, and how many entries you have."""
+    await boosts.refresh()
     g = _g(gid)
     if not g or g['status'] == 'cancelled':
         return await i.response.send_message('This giveaway is over.', ephemeral=True)
@@ -608,6 +616,7 @@ async def end(gid, by=None):
     if not g or g['status'] != 'running':
         return None
     cancel_timers('gw_end', gid)
+    await boosts.refresh(force=True)  # the draw uses today's boost numbers
     g['status'] = 'ended'
     pool = await _pool(g)
     g['result'] = {'winners': [], 'history': [], 'seeds': [], 'eligible': len(pool), 'entries': sum(w for _, w in pool)}
@@ -703,7 +712,7 @@ FIELDS = ('prizes', 'req_roles', 'req_mode', 'blacklist', 'bonus', 'min_invites'
 def new_draft(user_id, channel_id, prize, seconds, winners):
     return create_pending({'kind': 'giveaway', 'user': str(user_id), 'channel': str(channel_id), 'title': f'{prize} giveaway'[:100], 'seconds': seconds,
                            'prizes': split_prize(prize, winners), 'req_roles': [], 'req_mode': 'any', 'blacklist': [], 'bonus': {},
-                           'min_invites': 0, 'invite_entries': False, 'invite_cap': 0, 'min_days': 0, 'claim_hours': 0, 'ping': 'none', 'bonus_best': False, 'bypass_roles': [],
+                           'min_invites': 0, 'invite_entries': False, 'invite_cap': 0, 'min_days': 0, 'claim_hours': 0, 'ping': 'none', 'bonus_best': False, 'bypass_roles': [], 'per_boost': 0,
                            'hosts': [str(user_id)], 'banner': {'headline': prize}})
 
 
@@ -780,13 +789,13 @@ async def on_component(i, parts):
         del_pending(pid)
         return await i.response.edit_message(view=text_view('🗑️ **CANCELLED**\nNothing was posted.'), attachments=[])
     if action == 'edit':
-        bonus = NL.join(f"{ctx.guild.get_role(int(r)).name}: {n}" for r, n in d['bonus'].items() if ctx.guild.get_role(int(r)))
+        bonus = NL.join(([f"each boost: {d['per_boost']}"] if d.get('per_boost') else []) + [f"{ctx.guild.get_role(int(r)).name}: {n}" for r, n in d['bonus'].items() if ctx.guild.get_role(int(r))])
         return await i.response.send_modal(FormModal(f'gwp:{pid}', 'Prizes & time', [
             _spec('title', 'Name (shown in the winner messages)', d['title'], required=True),
             _spec('prizes', 'Prizes per place', prize_text_of(d['prizes']), 'paragraph', 800, '1: 2K Robux + Nitro\n2-5: 2K Robux'),
             _spec('duration', 'How long (3d, 12h, 1d 6h)', fmt_duration(d['seconds']), required=True),
             _spec('winners', 'Winners (splits the banner prize again)', len(d['prizes']), mx=3),
-            _spec('bonus', 'Bonus entries for roles (Booster: 2)', bonus, 'paragraph', 400, 'Booster: 2\nDonator: 3')]))
+            _spec('bonus', 'Bonus entries (Donator: 3 / each boost: 3)', bonus, 'paragraph', 400, 'Donator: 3\neach boost: 3')]))
     if action == 'banner':
         b = d['banner']
         return await i.response.send_modal(FormModal(f'gwb:{pid}', 'Banner', [
@@ -843,10 +852,17 @@ async def on_modal(i, kind, pid, f):
             prizes, err = parse_prizes(f.get('prizes'), winners)
             if err:
                 return await i.response.send_message(err, ephemeral=True)
-        bonus, bad = parse_bonus(f.get('bonus'))
+        per, rest = 0, []
+        for line in str(f.get('bonus') or '').splitlines():
+            m = re.match(r'^\s*(?:each|per|every)\s+(?:server\s+)?boosts?\s*[:=x+]?\s*\+?(\d+)\s*$', line, re.I)
+            if m:
+                per = min(int(m[1]), 100)
+            else:
+                rest.append(line)
+        bonus, bad = parse_bonus(NL.join(rest))
         if bad:
             return await i.response.send_message('I could not read these bonus lines: ' + '; '.join(f'`{b}`' for b in bad[:4]) + '. Write them like `Booster: 2` with the exact role name.', ephemeral=True)
-        d.update(title=f.get('title')[:100] or d['title'], seconds=min(seconds, 60 * 86400), prizes=prizes, bonus=bonus)
+        d.update(title=f.get('title')[:100] or d['title'], seconds=min(seconds, 60 * 86400), prizes=prizes, bonus=bonus, per_boost=per)
     elif kind == 'gwb':
         d['banner'] = {'headline': f.get('headline')[:40] or d['banner'].get('headline'), 'sub': f.get('sub')[:60], 'pill': f.get('pill')[:30] or 'ENTER BELOW'}
     else:
