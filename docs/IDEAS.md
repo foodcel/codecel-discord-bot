@@ -17,7 +17,7 @@ Devs and testers can turn any message into a report without retyping it.
 One command that explains the bot, organized per role. You only see the sections for the roles you have.
 
 - **Sections.** Everyone (`/bug`, `/improvement`, where to use them), Tester (`/tester profile`, the testing channel and `/bug` there),
-  Dev (`/claim`, `/unclaim`, `/release`, `/unrelease`, `/progress`, `/gamelink`, `/update`, `/config`, `/pings`, `/tester find`, typed commands like `12 fixed`
+  Dev (`/claim`, `/unclaim`, `/release`, `/unrelease`, `/progress`, `/gamelink`, `/update`, `/config`, `/pings`, typed commands like `12 fixed`
   and `7 added`), Admin (`/assign`, `/exclude`, `/include`, `/bounty-board`, `/tester add|remove|status|edit|post`, `/games`, `/strikes`, `/pardon`, `/botrules`, `/preview`).
   Jr devs see the dev section marked "read only".
 - **Look.** One embed in the same style as the boards: a section per role with a tree of commands and one short line each, plus a footer with where to ask.

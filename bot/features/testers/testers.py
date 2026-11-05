@@ -62,7 +62,6 @@ NL = chr(10)
 LABEL = {'active': 'Active', 'private': 'Private', 'pending': 'Waiting for a reply', 'inactive': 'On a break'}
 COMMANDS_FOOTER = '\n'.join([
     '/tester profile · fill in or update your own details',
-    '/tester find · devs: find testers open for a device',
 ])
 
 
@@ -320,16 +319,6 @@ async def command_tester(i, sub, opts):
             {'id': 'availability', 'label': 'When are you free?', 'style': 'short', 'required': True, 'max': 120, 'value': me.get('availability') or '', 'placeholder': 'e.g. After 2 PM, 3 days a week, short notice ok'},
             {'id': 'best_for', 'label': 'What are you best for?', 'style': 'short', 'required': False, 'max': 120, 'value': me.get('best_for') or '', 'placeholder': 'e.g. PC, long playthroughs, urgent testing'},
         ]))
-    if sub == 'find':
-        if level(i.user) == 'none' and not any(str(r.id) in cfg.tester_roles for r in i.user.roles):
-            return await reply('Only devs can look for testers.', ephemeral=True)
-        q = str(opts.get('device') or '').lower()
-        found = []
-        for r in everyone():
-            if r['status'] == 'active' or (r['status'] == 'private' and r['only_for'] in (str(i.user.id), ANY_DEV)):
-                if q in f"{r['devices'] or ''} {r['best_for'] or ''}".lower():
-                    found.append(f"{MARK[r['status']]} <@{r['user_id']}> · 🎮 {r['devices'] or '?'} · 🕐 {r['availability'] or '?'}")
-        return await reply('\n'.join(found)[:1900] or f'Nobody open for testing matches "{q}".', ephemeral=True, allowed_mentions=NO_MENTIONS)
     if sub == 'post':
         ch = await fetch_channel(opts.get('channel')) if opts.get('channel') else i.channel
         await i.response.defer(ephemeral=True, thinking=True)

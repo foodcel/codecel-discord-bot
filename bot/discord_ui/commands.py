@@ -194,7 +194,6 @@ COMMANDS = [
             option(STRING, 'best_for', 'What they are best for', max_length=120),
         ]),
         sub('profile', 'Fill in or update your own tester profile'),
-        sub('find', 'Find testers who are open for testing on a device (devs)', [option(STRING, 'device', 'e.g. Xbox, Mobile, PS5', required=True)]),
         sub('post', 'Post the tester guide and the roster in a channel; they update by themselves (admins)', [
             option(CHANNEL, 'channel', 'Default: this channel', channel_types=[GUILD_TEXT])]),
     ]),
