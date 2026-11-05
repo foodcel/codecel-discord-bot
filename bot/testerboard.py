@@ -132,7 +132,24 @@ async def post_card(g, ping=True):
     view, files, role = card_view(g, ping)
     sent = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(role))]) if role else NO_MENTIONS)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_HOURS * 3600000)
+    kv_set(f"testcard:{g['key']}", json.dumps({'channel': str(ch.id), 'message': str(sent.id), 'ping': bool(role), 'owners': g['owners'], 'name': g['name']}))  # to edit it in place later (a new Play link)
     return sent
+
+
+async def update_card(game_key):
+    """The card of a game that went into testing, edited in place (its Play button follows the game's test link). Does nothing once the card is gone."""
+    ref = json.loads(kv_get(f'testcard:{game_key}') or 'null')
+    if not ref:
+        return False
+    try:
+        ch = await fetch_channel(ref['channel'])
+        msg = await ch.fetch_message(int(ref['message']))
+        view, files, _ = card_view({'key': game_key, 'name': ref['name'], 'owners': ref['owners']}, ref['ping'])
+        await msg.edit(view=view, attachments=files, allowed_mentions=NO_MENTIONS)  # an edit never pings again: the mention stays as it was sent
+        return True
+    except Exception as e:
+        print('update tester card', repr(e)[:120])
+        return False
 
 
 async def _join(i, k):
