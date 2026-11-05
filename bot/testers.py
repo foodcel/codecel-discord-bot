@@ -196,26 +196,21 @@ def _allowed_testers():
 
 
 async def _refresh_roster_message(ch, b):
-    """Edits the roster in place. When it carries a mention that Discord does not know about yet (a new tester), it is sent again silently instead,
-    because an edit that adds a mention could ping that person."""
+    """Edits the roster in place, always. It was sent silent, and that flag stays on the message, so adding a tester only adds their mention: nothing is sent again,
+    so the other testers are not pinged (a new message with every mention would give each of them a notification badge). A message that is gone is sent again
+    with no mentions allowed and silent, then edited."""
     from .look import card_from_embed, edit_card
     embed, opts = roster_embed(), {'inline_desc': True}
-    ids = {int(r['user_id']) for r in everyone()}
     try:
         msg = await ch.fetch_message(int(b['roster']))
     except discord.NotFound:
         msg = None
-    if msg and ids <= {u.id for u in msg.mentions}:
-        return await edit_card(msg, embed, allowed=_allowed_testers(), **opts)
-    view, files = card_from_embed(embed, **opts)
-    new = await ch.send(view=view, files=files, allowed_mentions=_allowed_testers(), silent=True)
-    b['roster'] = str(new.id)
-    kv_set('testerboard', json.dumps(b))
-    if msg:
-        try:
-            await msg.delete()
-        except Exception:
-            pass
+    if not msg:
+        view, files = card_from_embed(embed, **opts)
+        msg = await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS, silent=True)
+        b['roster'] = str(msg.id)
+        kv_set('testerboard', json.dumps(b))
+    await edit_card(msg, embed, allowed=_allowed_testers(), **opts)
 
 
 def schedule_refresh():
@@ -244,8 +239,9 @@ async def post_board(ch):
     gch = (await fetch_channel(old['guideChannelId']) if old and old.get('guideChannelId') else None) or ch  # it stays in its own channel when it has one
     g = await gch.send(view=gv, files=gf)
     rv, rf = card_from_embed(roster_embed(), inline_desc=True)
-    r = await ch.send(view=rv, files=rf, allowed_mentions=_allowed_testers(), silent=True)
+    r = await ch.send(view=rv, files=rf, allowed_mentions=NO_MENTIONS, silent=True)  # nobody is pinged by a posted board
     kv_set('testerboard', json.dumps({'channelId': str(ch.id), 'guide': str(g.id), 'roster': str(r.id), **({'guideChannelId': str(gch.id)} if gch.id != ch.id else {})}))
+    await refresh_roster()  # the names are added by an edit, so nobody is notified
     removed = 0
     if old and (old['channelId'], old['roster']) != (str(ch.id), str(r.id)):  # the earlier copy stops updating: remove it
         for k, cid in (('guide', old.get('guideChannelId') or old['channelId']), ('roster', old['channelId'])):
