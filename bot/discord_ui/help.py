@@ -39,7 +39,7 @@ PAGES = {
 ORDER = ['admin', 'dev', 'tester', 'everyone']
 # every page that may report a message (testers and devs): bug hunting
 HUNTING = ('🔍', 'Bug hunting', [('!bug', 'reply to a message to post it in the bugs forum'),
-                                  ('!improve', 'the same for an idea in the improvements forum')])
+                                  ('!suggest', 'the same for an idea in the improvements forum')])
 
 SHORT = {
     'assign': 'give a game to a dev, even if someone holds it', 'exclude': 'take a post off the bounty board', 'include': 'put an excluded post back',

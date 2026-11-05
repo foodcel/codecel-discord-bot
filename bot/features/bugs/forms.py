@@ -210,7 +210,7 @@ def message_files(src):
 
 
 async def post_from_message(src, saver, kind, tag_id=None):
-    """A dev replied `!bug` or `!improve` to a message: the forum post is made from it, then checked like any other post.
+    """A dev replied `!bug` or `!suggest` to a message: the forum post is made from it, then checked like any other post.
     The player who wrote the message is the reporter (they hear when it is fixed); the dev who saved it is named in the footer."""
     text = message_text(src)
     first = (text.splitlines()[0] if text else '').strip()

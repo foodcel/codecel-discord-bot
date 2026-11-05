@@ -1,4 +1,4 @@
-"""Bug hunting: replying `!bug` or `!improve` to a message makes a post in the forum for the player who wrote it.
+"""Bug hunting: replying `!bug` or `!suggest` to a message makes a post in the forum for the player who wrote it.
 The limit: when 5 of the posts someone saved were false (a dev marked them Not a bug, or an idea Declined), they lose the command and an admin is asked to talk to them."""
 import discord
 

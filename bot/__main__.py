@@ -161,7 +161,7 @@ async def on_message(m):
     if cards.in_library_channel(m.channel.id) and await cards.purge_rivals(m):  # another bot posting in the library channel: gone
         return
     try:
-        if msgreport.wants(m) and await msgreport.handle(m):  # a reply of `!bug` or `!improve`
+        if msgreport.wants(m) and await msgreport.handle(m):  # a reply of `!bug` or `!suggest`
             return
         await handle_message(m)
     except Exception:

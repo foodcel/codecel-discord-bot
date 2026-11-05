@@ -1,4 +1,4 @@
-"""Bug hunting: reply to a message with `!bug` or `!improve` (optionally followed by the game) to report that message.
+"""Bug hunting: reply to a message with `!bug` or `!suggest` (optionally followed by the game) to report that message.
 Devs and testers alike get a post in the bugs forum (or the improvements forum) in the name of the player who wrote the message.
 The bot answers under the message and removes the `!bug` reply. Five false posts (marked Not a bug or Declined) and the command is taken away (bot/hunting.py)."""
 import re
@@ -21,7 +21,7 @@ def for_game(id_):
     return f' for {g}' if g else ''
 
 
-COMMAND = re.compile(r'^!(bug|improve|improvement)\b\s*(.*)$', re.I | re.S)
+COMMAND = re.compile(r'^!(bug|suggest|suggestion|improve|improvement)\b\s*(.*)$', re.I | re.S)
 
 
 def wants(m):

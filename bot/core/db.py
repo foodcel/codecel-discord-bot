@@ -98,7 +98,7 @@ try:  # timers that failed are tried again
 except sqlite3.OperationalError:
     pass
 
-for _col in ('saved_by TEXT',):  # bug hunting: who replied !bug / !improve
+for _col in ('saved_by TEXT',):  # bug hunting: who replied !bug / !suggest
     try:
         db.execute(f'ALTER TABLE bugs ADD COLUMN {_col}')
     except Exception:
