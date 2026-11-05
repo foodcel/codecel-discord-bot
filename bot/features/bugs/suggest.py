@@ -169,6 +169,9 @@ def handle_suggestion_message(msg):
     if not bug or bug['kind'] != 'suggestion':
         return
     run('UPDATE bugs SET last_msg_id=? WHERE id=?', str(msg.id), bug['id'])
+    if not msg.author.bot and str(msg.author.id) == bug['reporter_id'] and msg.content:
+        from bot.features.bugs.intake import attach_clips
+        asyncio.ensure_future(attach_clips(msg))  # clip links become videos in the post
     if msg.author.bot or str(msg.author.id) != bug['reporter_id'] or bug['status'] != 'needs_info':
         return
     old = _timers.pop(bug['id'], None)

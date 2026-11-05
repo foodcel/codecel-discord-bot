@@ -164,7 +164,8 @@ async def modal_bug(i, tag_id, token, fields):
         ai = await summarize_tester_report(game, form['title'], form['what'], form['steps'], form['expected'], form['device'])
     except Exception as e:
         print('summarizeTesterReport', e)
-    from bot.features.bugs.forms import _files
+    from bot.features.bugs.forms import _files, with_clips
+    chosen = await with_clips(chosen, form['what'], form['steps'], form['expected'])  # clip links become real videos
     batches, too_big, media = await _files(chosen)  # re-uploaded so the files never expire
     done = await create_report(i.user.id, game, tag_id, form, ai, batches, too_big, media)
     if not done:
@@ -175,7 +176,7 @@ async def modal_bug(i, tag_id, token, fields):
 
 async def report_from_message(src, saver, game, tag_id):
     """A tester replied `!bug` to a message in the testing channel: the post is made from it. The player who wrote the message is the reporter."""
-    from bot.features.bugs.forms import _files, message_files, message_text
+    from bot.features.bugs.forms import _files, message_files, message_text, with_clips
     text = message_text(src)
     first = (text.splitlines()[0] if text else '').strip()
     form = {'title': cut(first, 70) or 'Report from a message', 'what': cut(text, 1500) or 'See the attached files.', 'steps': '', 'expected': '', 'device': ''}
@@ -184,6 +185,6 @@ async def report_from_message(src, saver, game, tag_id):
         ai = await summarize_tester_report(game, form['title'], form['what'], '', '', '')
     except Exception as e:
         print('summarizeTesterReport', e)
-    batches, too_big, media = await _files(message_files(src))
+    batches, too_big, media = await _files(await with_clips(message_files(src), text))
     reporter = saver.id if src.author.bot else src.author.id
     return await create_report(reporter, game, tag_id, form, ai, batches, too_big, media, origin=src.jump_url, saved_by=saver.id)

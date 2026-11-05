@@ -1,5 +1,6 @@
 """New posts in the bug forum: Claude checks them, tags them, asks for missing info, spots duplicates, exploits and trolls."""
 import asyncio
+import io
 import re
 
 import discord
@@ -210,12 +211,40 @@ async def add_info(bug, msg):
     await notify_info(bug_by_id(bug['id']), msg)
 
 
+async def attach_clips(msg):
+    """The reporter pasted clip links (Medal, Streamable, ...): the videos are downloaded and posted under the message."""
+    from bot.features.bugs.linkvideo import fetch_all, video_links
+    from bot.features.bugs.transcript import upload_limit
+    urls = video_links(msg.content)
+    if not urls:
+        return
+    try:
+        await msg.add_reaction('⏳')
+    except Exception:
+        pass
+    got, failed = await fetch_all(urls, upload_limit())
+    for g in got:
+        try:
+            await msg.reply(content=f"🎬 {g['title'][:150]}", file=discord.File(io.BytesIO(g['data']), filename=re.sub(r'[^\w.\-]', '_', g['name'])[:80]),
+                            mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+        except Exception as e:
+            print('clip post', repr(e)[:120])
+    try:
+        await msg.remove_reaction('⏳', msg.guild.me)
+        if failed and not got:
+            await msg.add_reaction('⚠️')  # the link could not be downloaded: it stays a link
+    except Exception:
+        pass
+
+
 def handle_bug_message(msg):
     """Debounced handling of messages inside bug posts (a reporter answering, or "still broken" on a fixed bug)."""
     bug = bug_by_thread(msg.channel.id)
     if not bug:
         return
     run('UPDATE bugs SET last_msg_id=? WHERE id=?', str(msg.id), bug['id'])
+    if not msg.author.bot and str(msg.author.id) == bug['reporter_id'] and msg.content:
+        asyncio.ensure_future(attach_clips(msg))
     if (not msg.author.bot and bug['status'] in ('new', 'investigating', 'fixing') and not bug['deleted'] and bug['routed']
             and (msg.content or msg.attachments) and (not isinstance(msg.author, discord.Member) or level(msg.author) not in ('admin', 'dev', 'jr'))):
         asyncio.ensure_future(add_info(bug, msg))  # something new for a report that is already with the developer

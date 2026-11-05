@@ -237,7 +237,9 @@ def plain_md(p):
 
 
 def _size_of(p):
-    return len(p['md']) + sum(len(a['data']) for a in p['assets'])
+    """What a bug must take in a zip: its text, frames and screenshots. The whole videos only fill the room that is left (pack()), so they do not count here:
+    counting them made one zip per couple of videos."""
+    return len(p['md']) * 2 + sum(len(a['data']) for a in p['assets'] if a['kind'] != 'video')
 
 
 def _file(data, name):

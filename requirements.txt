@@ -3,3 +3,4 @@ anthropic>=0.40
 python-dotenv>=1.0
 aiohttp>=3.9
 Pillow>=10
+yt-dlp>=2025.1.1

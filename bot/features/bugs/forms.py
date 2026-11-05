@@ -100,6 +100,17 @@ def _card(kind, user_id, game, form, too_big=None, media=None, origin=None, foot
     return card(f"{meta['icon']} {form['title']}", blocks, [footer or f"Sent with {meta['command']} · reply here to add screenshots, videos or links"], media=media)
 
 
+async def with_clips(chosen, *texts):
+    """The files the player attached plus the videos behind the clip links written in `texts` (Medal, Streamable, ...), downloaded by the bot.
+    A link that cannot be downloaded just stays a link in the report."""
+    from bot.features.bugs.linkvideo import fetch_all, video_links
+    urls = video_links(*texts)
+    if not urls:
+        return list(chosen)
+    got, _ = await fetch_all(urls, upload_limit())
+    return [*chosen, *got]
+
+
 async def _files(chosen):
     """Re-uploads the chosen files so they never expire: batches of 10 within the upload limit. Too big or failed ones become links."""
     limit = upload_limit()
@@ -115,7 +126,7 @@ async def _files(chosen):
             used = 0
         try:
             name = f"{n + 1}-{safe(f['name'])}"
-            cur.append(discord.File(io.BytesIO(await download(f['url'])), filename=name))
+            cur.append(discord.File(io.BytesIO(f['data'] if f.get('data') else await download(f['url'])), filename=name))
             placed.append({'f': f, 'name': name, 'first': len(batches) == 1})
             used += f['size']
         except Exception:
@@ -150,6 +161,7 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
     dev = _device_tag(form['device']) if kind == 'bug' else None
     if dev and forum.get_tag(int(dev['id'])):
         tags.append(forum.get_tag(int(dev['id'])))
+    chosen = await with_clips(chosen, *(form[k] for k in ('what', 'steps', 'expected', 'why')))
     batches, too_big, media = await _files(chosen)
     created = await forum.create_thread(
         name=cut(form['title'], 100), view=(made := _card(kind, i.user.id, game, form, too_big, media))[0], files=batches[0] + made[1],
@@ -211,7 +223,7 @@ async def post_from_message(src, saver, kind, tag_id=None):
         tag = forum.get_tag(int(tag_id if kind == 'bug' else to_suggest_tag_id(tag_id) or 0))
         if tag:
             tags.append(tag)
-    batches, too_big, media = await _files(message_files(src))
+    batches, too_big, media = await _files(await with_clips(message_files(src), text))
     reporter = saver.id if src.author.bot else src.author.id
     view, card_files = _card(kind, reporter, game or 'New report', form, too_big, media, origin=src.jump_url,
                              footer=f'Saved from a message by {saver.display_name} · replies go in this post')
