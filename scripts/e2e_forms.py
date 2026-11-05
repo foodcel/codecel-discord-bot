@@ -5,11 +5,14 @@ from types import SimpleNamespace
 
 from _boot import boot, finish
 
-from bot import devboard, forms, intake, suggest
-from bot.ctx import fetch_channel
-from bot.db import all_, bug_by_id, cancel_timers, run
-from bot.env import cfg
-from bot.tags import ensure_suggest_tags, find_game_tag, load_tags
+from bot.features.bugs import devboard
+from bot.features.bugs import forms
+from bot.features.bugs import intake
+from bot.features.bugs import suggest
+from bot.core.ctx import fetch_channel
+from bot.core.db import all_, bug_by_id, cancel_timers, run
+from bot.core.env import cfg
+from bot.features.bugs.tags import ensure_suggest_tags, find_game_tag, load_tags
 
 made = []
 

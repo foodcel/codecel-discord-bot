@@ -4,7 +4,7 @@ import sys
 
 from _boot import boot, finish
 
-from bot.ctx import ctx
+from bot.core.ctx import ctx
 
 
 async def main():

@@ -5,11 +5,11 @@ import sys
 
 from _boot import boot, finish
 
-from bot import board
-from bot.cards import _cards_conf, library_config, refresh_library
-from bot.ctx import fetch_channel
-from bot.db import cancel_timers, kv_set, one, run
-from bot.games import key, refresh_game_board
+from bot.features.games import board
+from bot.features.games.cards import _cards_conf, library_config, refresh_library
+from bot.core.ctx import fetch_channel
+from bot.core.db import cancel_timers, kv_set, one, run
+from bot.features.games.games import key, refresh_game_board
 
 
 async def main():

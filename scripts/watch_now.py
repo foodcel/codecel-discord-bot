@@ -5,8 +5,8 @@ import sys
 
 from _boot import boot, finish
 
-from bot.db import kv_get, kv_set
-from bot.watch import sweep
+from bot.core.db import kv_get, kv_set
+from bot.features.games.watch import sweep
 
 
 async def main():

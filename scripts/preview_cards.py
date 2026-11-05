@@ -7,9 +7,9 @@ import discord
 
 from _boot import boot, finish
 
-from bot.cards import library_pages, new_game_card, update_card
-from bot.ctx import fetch_channel
-from bot.env import cfg
+from bot.features.games.cards import library_pages, new_game_card, update_card
+from bot.core.ctx import fetch_channel
+from bot.core.env import cfg
 
 HERO = 'https://tr.rbxcdn.com/180DAY-269f8f0a9d59069aa1f233be982fb4d3/768/432/Image/Png/noFilter'
 OWNER = str(cfg.owner_id) if getattr(cfg, 'owner_id', None) else '945836832548089886'

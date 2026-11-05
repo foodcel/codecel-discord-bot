@@ -3,7 +3,7 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot.games import refresh_testing_board
+from bot.features.games.games import refresh_testing_board
 
 
 async def main():

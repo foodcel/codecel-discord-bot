@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 from _boot import boot, finish
 
-from bot.db import one, run
-from bot.games import game_lists, set_source_link
-from bot.release import command_release_edit, command_release_new, roblox_info, steam_studio
+from bot.core.db import one, run
+from bot.features.games.games import game_lists, set_source_link
+from bot.features.games.release import command_release_edit, command_release_new, roblox_info, steam_studio
 
 ADMIN = SimpleNamespace(id=1, roles=[], guild_permissions=SimpleNamespace(administrator=True))
 STRANGER = SimpleNamespace(id=2, roles=[], guild_permissions=SimpleNamespace(administrator=False))

@@ -6,10 +6,10 @@ import sys
 
 from _boot import boot, finish
 
-from bot.ctx import fetch_channel
-from bot.db import bug_by_id, update_bug
-from bot.devboard import refresh_all_boards
-from bot.tags import game_tags, set_tags
+from bot.core.ctx import fetch_channel
+from bot.core.db import bug_by_id, update_bug
+from bot.features.bugs.devboard import refresh_all_boards
+from bot.features.bugs.tags import game_tags, set_tags
 
 
 def arg(name):

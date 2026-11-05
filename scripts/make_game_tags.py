@@ -5,7 +5,7 @@ import sys
 
 from _boot import boot, finish
 
-from bot.tags import ensure_game_tags
+from bot.features.bugs.tags import ensure_game_tags
 
 
 async def main():

@@ -3,7 +3,7 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot import testers
+from bot.features.testers import testers
 
 
 async def main():

@@ -3,8 +3,8 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot.ctx import ctx
-from bot.testers import everyone
+from bot.core.ctx import ctx
+from bot.features.testers.testers import everyone
 
 
 async def main():

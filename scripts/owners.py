@@ -3,9 +3,9 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot.bounty import board_name_for, get_claims, owners_for
-from bot.ctx import ctx
-from bot.tags import game_tags
+from bot.features.games.bounty import board_name_for, get_claims, owners_for
+from bot.core.ctx import ctx
+from bot.features.bugs.tags import game_tags
 
 
 async def main():

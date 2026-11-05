@@ -7,10 +7,10 @@ import sys
 
 from _boot import boot, finish
 
-from bot.cards import library_pages, refresh_library
-from bot.ctx import fetch_channel
-from bot.db import kv_set
-from bot.games import game_lists
+from bot.features.games.cards import library_pages, refresh_library
+from bot.core.ctx import fetch_channel
+from bot.core.db import kv_set
+from bot.features.games.games import game_lists
 
 
 def arg(name):

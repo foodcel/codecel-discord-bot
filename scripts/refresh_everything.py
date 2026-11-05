@@ -3,7 +3,9 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot import board, devboard, testers
+from bot.features.games import board
+from bot.features.bugs import devboard
+from bot.features.testers import testers
 
 
 async def main():

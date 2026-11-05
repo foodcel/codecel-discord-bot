@@ -4,8 +4,8 @@ import json
 
 from _boot import boot, finish
 
-from bot.ctx import fetch_channel
-from bot.db import kv_get
+from bot.core.ctx import fetch_channel
+from bot.core.db import kv_get
 
 
 async def main():

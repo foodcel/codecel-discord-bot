@@ -5,7 +5,7 @@ The bot has **two looks**. Pick by who reads the post, then follow that look exa
 | | **Developer look** | **Community look** |
 |---|---|---|
 | For | devs, testers, staff: boards, dev boards, roster, bug pages, help, dev announcements, update / new-game cards | everyone, on phones first: giveaways, `/invites`, and any new feature for the whole server |
-| Top | `### Title` with the date as a grey button on the right | a **banner** drawn for the post (`bot/banner.py`), the prize or the subject in big letters |
+| Top | `### Title` with the date as a grey button on the right | a **banner** drawn for the post (`bot/discord_ui/banner.py`), the prize or the subject in big letters |
 | Body | trees (`├─` / `└─`), counts in the title, columns where an embed allows | short flat lines, one fact per line, an emoji in front; headings (`##`/`###`) for what must catch the eye |
 | People and roles | names, or mentions sent silently | **real mentions**: `@Verified`, `@Booster`, `Hosted by: @host` (roles never ping; edits carry user mentions so names show) |
 | Never | relative times (except the update card) | trees, code blocks, grey code chips for anything that is not a command |
@@ -18,7 +18,7 @@ real dates, no dead space, the ping right above the card, preview in the test ch
 
 # Developer look
 
-Code: `bot/look.py` (any embed -> card), `bot/botnews.py` (`tree`, `make`, `as_card`, `code_chip`, `date_button`), `bot/pngs.py` (`with_strip`), `bot/cards.py`, `bot/testerboard.py`.
+Code: `bot/discord_ui/look.py` (any embed -> card), `bot/features/updates/botnews.py` (`tree`, `make`, `as_card`, `code_chip`, `date_button`), `bot/discord_ui/pngs.py` (`with_strip`), `bot/features/games/cards.py`, `bot/features/testers/testerboard.py`.
 
 ## Philosophy
 - **One look everywhere.** A new post must look like it belongs next to the old ones. If a post looks different, that is a bug, not a style.
@@ -45,7 +45,7 @@ Counts go in the title: `🛠️ UNRELEASED GAMES · 22 in development`, `💡 T
 Lists are trees: `├─ **Name** · text`, last row `└─`. Built with `botnews.tree()`. Inside a board, a dev is a heading and their games are the branches, with a blank line between devs and between testers.
 
 ## Pings and roles
-- Dev announcements ping Developers, tester ones ping Tester, updates ping Updates, helpers ping Helpers (IDs in `bot/env.py`).
+- Dev announcements ping Developers, tester ones ping Tester, updates ping Updates, helpers ping Helpers (IDs in `bot/core/env.py`).
 - New game card: ping in the label line `-# 🎉 NEW GAME · @everyone`. Update card: title, then `-# ping`, then `-# <t:stamp:R>`.
 - The bot never pings `@everyone` or a role on its own. Restores and re-posts go out silent (`AllowedMentions.none()`).
 
@@ -58,7 +58,7 @@ Lists are trees: `├─ **Name** · text`, last row `└─`. Built with `botne
 ## Where each post stands
 - Cards: announcements, bounty board (3 messages), dev boards, tester board, `/help`, roster, guides, update / new-game / needs-testers cards, `/release` and `/update` previews, `!bug` replies.
 - Intentionally still embeds: bug page and fix log (they need columns), strike / mod-log, dev-log entries, exploit high-priority card, the `/games` board.
-- Forums: bug numbers are per game (`#3`, `Game #3`, via `bot/nums.py`). Tags use ✅ fixed / added and ❌ declined with the emoji next to the game.
+- Forums: bug numbers are per game (`#3`, `Game #3`, via `bot/features/bugs/nums.py`). Tags use ✅ fixed / added and ❌ declined with the emoji next to the game.
 
 ## Rules when you build one
 1. Start from `look.card_from_embed(...)` or `botnews.as_card(...)`; do not hand-roll a layout.
@@ -69,7 +69,7 @@ Lists are trees: `├─ **Name** · text`, last row `└─`. Built with `botne
 
 # Community look
 
-Code: `bot/banner.py` (the banner), `bot/giveaway.py` (`card_items`), `bot/invites.py` (`_card`).
+Code: `bot/discord_ui/banner.py` (the banner), `bot/features/giveaways/giveaway.py` (`card_items`), `bot/features/invites/invites.py` (`_card`).
 
 ## Philosophy
 - **Phone first.** Every line must read well on a narrow screen: one fact per line, no tree glyphs, nothing that wraps into a mess.

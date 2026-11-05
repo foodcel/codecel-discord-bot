@@ -6,12 +6,12 @@ import sys
 
 from _boot import boot, finish
 
-from bot import board
-from bot.cards import refresh_library
-from bot.db import now, run
-from bot.games import _find, clean_name, owner_ids, refresh_game_board
-from bot.guard import check_release
-from bot.release import roblox_info, steam_art
+from bot.features.games import board
+from bot.features.games.cards import refresh_library
+from bot.core.db import now, run
+from bot.features.games.games import _find, clean_name, owner_ids, refresh_game_board
+from bot.features.bugs.guard import check_release
+from bot.features.games.release import roblox_info, steam_art
 
 
 def arg(name):

@@ -4,10 +4,10 @@ import sys
 
 from _boot import boot, finish
 
-from bot.ctx import fetch_channel
-from bot.env import cfg
-from bot.tags import ensure_tester_tag
-from bot.tester import known_games, resolve_game
+from bot.core.ctx import fetch_channel
+from bot.core.env import cfg
+from bot.features.bugs.tags import ensure_tester_tag
+from bot.features.bugs.tester import known_games, resolve_game
 
 
 async def main():

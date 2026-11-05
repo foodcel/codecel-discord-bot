@@ -8,10 +8,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import discord  # noqa: E402
 
-from bot.bounty import refresh_claims  # noqa: E402
-from bot.ctx import ctx  # noqa: E402
-from bot.env import cfg  # noqa: E402
-from bot.tags import load_tags  # noqa: E402
+from bot.features.games.bounty import refresh_claims  # noqa: E402
+from bot.core.ctx import ctx  # noqa: E402
+from bot.core.env import cfg  # noqa: E402
+from bot.features.bugs.tags import load_tags  # noqa: E402
 
 
 async def boot(members=False, claims=True):

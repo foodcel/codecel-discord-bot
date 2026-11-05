@@ -19,7 +19,7 @@ API = 'https://discord.com/api/v10'
 UA = 'DiscordBot (https://github.com/foodcel/codecel-discord-bot, 1.0)'
 REDIRECT = 'http://localhost:8080/callback'
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from bot import access  # noqa: E402  the one table of who may use what
+from bot.core import access  # noqa: E402  the one table of who may use what
 
 ADMIN = access.names(access.ADMIN)
 DEV = access.names(access.DEV)

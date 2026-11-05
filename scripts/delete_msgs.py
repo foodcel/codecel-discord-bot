@@ -4,7 +4,7 @@ import sys
 
 from _boot import boot, finish
 
-from bot.ctx import fetch_channel
+from bot.core.ctx import fetch_channel
 
 
 async def main():

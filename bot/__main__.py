@@ -4,20 +4,27 @@ import traceback
 
 import discord
 
-from . import board, cards, invites, mog, watch
-from .bounty import refresh_claims
-from .catchup import catchup
-from .commands_sync import register_commands
-from .ctx import ctx, sleep
-from .devboard import schedule_boards
-from .env import cfg
-from .fixlog import backfill_snapshots
-from .intake import intake_thread
-from .interactions import handle_interaction
-from .router import handle_message
-from . import devlog, msgreport, suggest, testers
-from .tags import ensure_fixed_tag, ensure_suggest_tags, load_tags
-from .timers import run_timers
+from bot.features.games import board
+from bot.features.games import cards
+from bot.features.invites import invites
+from bot.features.fun import mog
+from bot.features.games import watch
+from bot.features.games.bounty import refresh_claims
+from bot.core.catchup import catchup
+from bot.discord_ui.commands_sync import register_commands
+from bot.core.ctx import ctx, sleep
+from bot.features.bugs.devboard import schedule_boards
+from bot.core.env import cfg
+from bot.features.bugs.fixlog import backfill_snapshots
+from bot.features.bugs.intake import intake_thread
+from bot.discord_ui.interactions import handle_interaction
+from bot.discord_ui.router import handle_message
+from bot.discord_ui import devlog
+from bot.features.bugs import msgreport
+from bot.features.bugs import suggest
+from bot.features.testers import testers
+from bot.features.bugs.tags import ensure_fixed_tag, ensure_suggest_tags, load_tags
+from bot.core.timers import run_timers
 
 devlog.install()
 intents = discord.Intents.none()
@@ -65,7 +72,7 @@ async def timer_loop():
             traceback.print_exc()
         if n % 10 == 1:  # every 10 minutes: reporters of fixes in a posted update who were never told (Discord failed, or a restart)
             try:
-                from .fixes import retry_untold
+                from bot.features.bugs.fixes import retry_untold
                 await retry_untold()
             except Exception:
                 traceback.print_exc()

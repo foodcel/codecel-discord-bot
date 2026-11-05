@@ -3,9 +3,9 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot.ctx import fetch_channel
-from bot.env import cfg
-from bot.previews import clear_channel
+from bot.core.ctx import fetch_channel
+from bot.core.env import cfg
+from bot.features.updates.previews import clear_channel
 
 
 async def main():

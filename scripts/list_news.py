@@ -3,7 +3,7 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot.ctx import fetch_channel
+from bot.core.ctx import fetch_channel
 
 CHANNELS = {'devs': 1565961892264939531, 'testers': 1565825094801170492}
 

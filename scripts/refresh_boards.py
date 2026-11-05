@@ -3,7 +3,7 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot.devboard import refresh_all_boards
+from bot.features.bugs.devboard import refresh_all_boards
 
 
 async def main():

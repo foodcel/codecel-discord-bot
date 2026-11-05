@@ -6,16 +6,16 @@ from types import SimpleNamespace
 
 from _boot import boot, finish
 
-from bot.bounty import owners_for
-from bot.bugview import bug_embeds
-from bot.ctx import fetch_channel, remove_thread_notice
-from bot.db import DATA_DIR, bug_by_id, cancel_timers, one, run
-from bot.devboard import open_bugs_for, refresh_all_boards
-from bot.env import cfg
-from bot.fixes import mark_fixed
-from bot.tags import game_tags
-from bot.tester import modal_bug
-from bot.transcript import single_transcript
+from bot.features.games.bounty import owners_for
+from bot.features.bugs.bugview import bug_embeds
+from bot.core.ctx import fetch_channel, remove_thread_notice
+from bot.core.db import DATA_DIR, bug_by_id, cancel_timers, one, run
+from bot.features.bugs.devboard import open_bugs_for, refresh_all_boards
+from bot.core.env import cfg
+from bot.features.bugs.fixes import mark_fixed
+from bot.features.bugs.tags import game_tags
+from bot.features.bugs.tester import modal_bug
+from bot.features.bugs.transcript import single_transcript
 
 
 async def main():

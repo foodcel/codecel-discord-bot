@@ -9,8 +9,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from bot import access, giveaway as gw, invites, links  # noqa: E402
-from bot.ctx import ctx  # noqa: E402
+from bot.core import access  # noqa: E402
+from bot.features.giveaways import giveaway as gw
+from bot.features.invites import invites
+from bot.core import links
+from bot.core.ctx import ctx  # noqa: E402
 
 
 class Links(unittest.TestCase):
@@ -118,7 +121,7 @@ class InviteBurst(unittest.TestCase):
 class CardLimits(unittest.TestCase):
     def test_long_cards_fit(self):
         from discord import ui
-        from bot.pngs import PART_LIMIT, TEXT_LIMIT, fit
+        from bot.discord_ui.pngs import PART_LIMIT, TEXT_LIMIT, fit
         items = [ui.TextDisplay('### head'), ui.Separator()] + [ui.TextDisplay('x' * 300) for _ in range(60)] + [ui.Separator(), ui.TextDisplay('-# foot')]
         out = fit(items, keep_tail=2)
         self.assertLessEqual(sum(len(getattr(x, 'content', '') or '') for x in out), TEXT_LIMIT)
@@ -129,7 +132,7 @@ class CardLimits(unittest.TestCase):
 
 class AccessMatchesHelp(unittest.TestCase):
     def test_help_pages_agree_with_the_table(self):
-        from bot.help import PAGES
+        from bot.discord_ui.help import PAGES
         for page, (_, _, _, groups) in PAGES.items():
             for _, _, entries in groups:
                 for e in entries:

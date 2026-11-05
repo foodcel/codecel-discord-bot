@@ -7,9 +7,10 @@ from types import SimpleNamespace
 
 from _boot import boot, finish
 
-from bot import board, bounty
-from bot.db import all_, kv_del, run
-from bot.env import cfg
+from bot.features.games import board
+from bot.features.games import bounty
+from bot.core.db import all_, kv_del, run
+from bot.core.env import cfg
 
 
 class Out:
@@ -109,7 +110,7 @@ async def main():
     o = await call(board.command_unclaim, stranger, post=f"claim:{c['id']}")
     if 'Only' not in o.sent[0]:
         problems.append('a stranger could unclaim')
-    from bot.games import game_lists
+    from bot.features.games.games import game_lists
     unreleased = game_lists()['unreleased']
     if free['title'] not in [g['name'] for g in unreleased]:
         problems.append('the new claim is not on the games board')

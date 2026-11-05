@@ -3,9 +3,10 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot import devboard, help as helpmod
-from bot.ctx import ctx
-from bot.look import card_from_embed, clone_rows
+from bot.features.bugs import devboard
+from bot.discord_ui import help as helpmod
+from bot.core.ctx import ctx
+from bot.discord_ui.look import card_from_embed, clone_rows
 
 
 async def main():

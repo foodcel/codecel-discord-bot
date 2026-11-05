@@ -4,10 +4,10 @@ import sys
 
 from _boot import boot, finish
 
-from bot.cards import post_new_game_card
-from bot.db import one, run
-from bot.db import now
-from bot.games import key
+from bot.features.games.cards import post_new_game_card
+from bot.core.db import one, run
+from bot.core.db import now
+from bot.features.games.games import key
 
 
 async def main():

@@ -3,7 +3,7 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot.env import cfg
+from bot.core.env import cfg
 
 
 async def main():

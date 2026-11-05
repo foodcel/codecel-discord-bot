@@ -6,12 +6,14 @@ from types import SimpleNamespace
 
 from _boot import boot, finish
 
-from bot import devboard, fixes, suggest
-from bot.ctx import fetch_channel
-from bot.db import all_, bug_by_id, cancel_timers, kv_del, kv_get, run
-from bot.env import cfg
-from bot.fixes import apply_status
-from bot.tags import ensure_suggest_tags, load_tags, suggest_game_tags, tag_name
+from bot.features.bugs import devboard
+from bot.features.bugs import fixes
+from bot.features.bugs import suggest
+from bot.core.ctx import fetch_channel
+from bot.core.db import all_, bug_by_id, cancel_timers, kv_del, kv_get, run
+from bot.core.env import cfg
+from bot.features.bugs.fixes import apply_status
+from bot.features.bugs.tags import ensure_suggest_tags, load_tags, suggest_game_tags, tag_name
 
 ADMIN = SimpleNamespace(id=1, roles=[], guild_permissions=SimpleNamespace(administrator=True))
 made = []

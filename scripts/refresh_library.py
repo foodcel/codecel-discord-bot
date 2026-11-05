@@ -3,7 +3,7 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot.cards import refresh_library
+from bot.features.games.cards import refresh_library
 
 
 async def main():

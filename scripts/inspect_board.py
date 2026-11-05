@@ -3,8 +3,8 @@ import asyncio
 
 from _boot import boot, finish
 
-from bot import board
-from bot.ctx import fetch_channel
+from bot.features.games import board
+from bot.core.ctx import fetch_channel
 
 
 async def main():

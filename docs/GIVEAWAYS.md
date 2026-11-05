@@ -1,6 +1,6 @@
 # Giveaways and the invite tracker
 
-Code: `bot/giveaway.py`, `bot/invites.py`. Look: see `docs/DESIGN.md` (cards, trees, date button, code chips).
+Code: `bot/features/giveaways/giveaway.py`, `bot/features/invites/invites.py`. Look: see `docs/DESIGN.md` (cards, trees, date button, code chips).
 
 ## /giveaway (admins and the Giveaway Manager role)
 - `/giveaway new title duration [winners] [channel]` opens a **preview card with buttons**; nothing posts until **Start**.
@@ -23,4 +23,4 @@ Giveaways only read its numbers for their invite rules.
 - `/invites stats [user]` shows counting / not verified yet / left / joined / uses and the rank. `/invites top` is the leaderboard.
 - `/invites link` gives a member their own permanent link (the bot makes it once and remembers the owner, since Discord lists the bot as the creator).
   Joins through it count for that member. The server's vanity link (discord.gg/redwing) is shared, so joins through it cannot be credited to anyone.
-- **Per boost:** a line `each boost: 3` in the bonus box gives +3 per server boost. The number of boosts per member is read from the boosters channel (`bot/boosts.py`); a member who boosts now counts at least 1.
+- **Per boost:** a line `each boost: 3` in the bonus box gives +3 per server boost. The number of boosts per member is read from the boosters channel (`bot/features/giveaways/boosts.py`); a member who boosts now counts at least 1.
