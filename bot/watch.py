@@ -5,6 +5,7 @@ import asyncio
 import json
 
 
+from .env import cfg
 from .components import allowed
 from .ctx import fetch_channel
 from .db import all_, kv_get, kv_set, run
@@ -13,7 +14,7 @@ from .links import roblox_place
 from .release import _json
 from .ui import EM
 
-DEV_CHAT = 1565918318664093766
+DEV_CHAT = cfg.dev_chat_id
 EVERY = 300      # seconds between two checks of all games
 FAILS = 2        # checks in a row that must fail before a game is called down
 

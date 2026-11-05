@@ -373,11 +373,6 @@ async def refresh_draft(pid, p, game, fixes):
             pass
 
 
-def all_updates(p):
-    """What the update lists under "new": the lines a dev typed, then the suggestions that were added."""
-    return list(p['updates']) + list(p.get('newLines', []))
-
-
 _busy = set()  # drafts being posted right now: a double click must not post twice
 
 

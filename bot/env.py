@@ -44,6 +44,12 @@ class Cfg:
     devlog_id = _e.get('DEV_LOG_CHANNEL_ID') or None                   # optional: every dev action is logged here
     suggestions_id = _e.get('SUGGESTIONS_CHANNEL_ID') or None          # optional: forum where players suggest improvements
     dev_suggestions_id = _e.get('DEV_SUGGESTIONS_FORUM_ID') or None    # optional: dev-only forum, a board post per dev
+    dev_chat_id = _e.get('DEV_CHAT_CHANNEL_ID') or '1565918318664093766'          # #developer-chat: game-down alerts, testing notes
+    games_channel_id = _e.get('GAMES_CHANNEL_ID') or '1562940878685872149'         # #games: the game library
+    boosters_id = _e.get('BOOSTERS_CHANNEL_ID') or '1565135279025557604'           # where Discord posts each server boost (giveaway boost entries)
+    commands_channel_id = _e.get('COMMANDS_CHANNEL_ID') or '1563090099774816286'   # where players can use commands
+    game_ideas_id = _e.get('GAME_IDEAS_CHANNEL_ID') or '1562961976387174452'       # whole new game ideas
+    mog_ping = [u for u in (_e.get('MOG_PING_USER_IDS') or '941724517481463888,1565900080894967809').split(',') if u]  # /mog pings these (Robin, Redwing Helper)
     tester_roles = [r for r in (_e.get('TESTER_ROLE_IDS') or '').split(',') if r]
     model = _e.get('MODEL') or 'claude-haiku-4-5-20251001'
     ai_daily_cap = int(_e.get('AI_DAILY_CAP') or 500)

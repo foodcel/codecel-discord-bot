@@ -66,11 +66,6 @@ def columns(e, cols, rule=RULE):
     return e
 
 
-def spacer(e):
-    """An empty line of space between two parts of an embed."""
-    return e.add_field(name=ZW, value=ZW, inline=False)
-
-
 def plain(e, name, text):
     """A full-width field with no rule line."""
     return e.add_field(name=name, value=str(text)[:1024], inline=False)

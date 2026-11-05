@@ -9,7 +9,6 @@ from .nums import label
 from .ai import interpret_note
 from .env import cfg
 from .components import NO_MENTIONS
-from .ctx import fetch_channel
 from .perms import level
 from .tags import find_game_tag, game_tags
 from .ui import E, EM
@@ -61,7 +60,7 @@ async def handle(m):
     kind = 'bug' if word.lower() == 'bug' else 'suggestion'
     from .tester import is_tester
     member = m.author
-    lv = level(member)
+
     if not is_tester(member):
         return False  # players use /bug and /improvement
     in_testing = bool(cfg.testing_id) and str(m.channel.id) == str(cfg.testing_id)

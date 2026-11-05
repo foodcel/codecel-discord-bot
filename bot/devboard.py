@@ -8,7 +8,7 @@ from .nums import label
 from .bounty import all_owner_ids, owners_for
 from .components import allowed, button, make_view, select
 from .ctx import ctx, fetch_channel
-from .db import all_, get_prefs, kv_get, kv_keys, kv_set, run, update_bug
+from .db import all_, get_prefs, kv_get, kv_keys, kv_set, update_bug
 from .env import cfg
 from .ui import (E, EM, EN, GAP, SEVERITY, STATUS, ZW, columns, cut, describe, flat, head, labeled, lkey, sentence)
 
@@ -374,32 +374,6 @@ async def post_exploit(bug, text, silent, dm_ok=True):
                     roles=[cfg.dev_role] if ping and key == 'unclaimed' else []))
         except Exception as e:
             print('exploit post', e)
-
-
-async def clear_bug_messages():
-    """One-time cleanup: removes the per-bug messages the bot used to post (keeps the board message and dev chat)."""
-    for r in kv_keys('devthread:'):
-        t = await dev_thread(r['k'][len('devthread:'):], False)
-        if not t:
-            continue
-        mine = []
-        try:
-            async for m in t.history(limit=None):
-                if m.author.id == ctx.client.user.id and m.id != t.id:
-                    mine.append(m)
-        except Exception:
-            pass
-        for i in range(0, len(mine), 90):
-            try:
-                await t.delete_messages(mine[i:i + 90])
-            except Exception:
-                pass
-        for m in mine:
-            try:
-                await m.delete()
-            except Exception:
-                pass
-    run('DELETE FROM bug_msgs')
 
 
 async def notify_info(bug, msg):

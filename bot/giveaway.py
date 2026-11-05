@@ -415,10 +415,6 @@ def _g(gid):
     return r
 
 
-def _count(gid):
-    return one('SELECT COUNT(*) AS n FROM giveaway_entries WHERE gid=?', gid)['n']
-
-
 async def _message(g):
     ch = await fetch_channel(g['channel_id'])
     try:
@@ -550,10 +546,6 @@ def valid_pool(g):
     return out
 
 
-async def _pool(g):
-    return valid_pool(g)
-
-
 def draw(pool, n, rng):
     pool, out = list(pool), []
     while pool and len(out) < n:
@@ -572,7 +564,7 @@ async def _fill(g, places, rnd):
     """Draws a winner for each of these places (1-based), never someone who already won or was dropped."""
     res, c = g['result'], g['config']
     taken = {w['user'] for w in res['winners']} | set(res['history'])
-    pool = [(u, w) for u, w in await _pool(g) if u not in taken]
+    pool = [(u, w) for u, w in valid_pool(g) if u not in taken]
     seed = secrets.token_hex(8)
     res['seeds'].append(seed)
     for place, uid in zip(places, draw(pool, len(places), random.Random(seed))):
@@ -629,7 +621,7 @@ async def end(gid, by=None):
         except Exception as e:
             print('giveaway boosts', repr(e)[:120])  # the numbers from before are used
         g['status'] = 'ended'
-        pool = await _pool(g)
+        pool = valid_pool(g)
         g['result'] = {'winners': [], 'history': [], 'seeds': [], 'eligible': len(pool), 'entries': sum(w for _, w in pool)}
         await _fill(g, list(range(1, len(g['config']['prizes']) + 1)), 0)
         _save(g)

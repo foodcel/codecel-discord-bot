@@ -231,7 +231,6 @@ def schedule_refresh():
 async def post_board(ch):
     """Posts the guide and the roster in a channel and keeps them up to date from now on. The earlier copy is removed. In the
     tester-information channel the two old messages are replaced too. Returns how many old messages were removed."""
-    await import_old()  # the old roster message is read before it is replaced
     await sync_members()
     old = _board()
     from .look import card_from_embed
@@ -261,36 +260,6 @@ async def post_board(ch):
 
 
 # ---- taking over the old message ----
-def parse_old_roster(text):
-    out = []
-    for m in re.finditer(r'(🟢|🟡)\s*(\d+)\.\s*<@!?(\d+)>\s*\n((?:\s*-\s*\*\*.+\n?)+)', text + '\n'):
-        f = {k.strip().lower().replace(' ', '_'): v.strip() for k, v in re.findall(r'-\s*\*\*(.+?):\*\*\s*(.+)', m.group(4))}
-        known = lambda k: None if f.get(k, 'Unknown').lower() == 'unknown' else f[k]  # noqa: E731
-        avail = ' · '.join(x for x in (known('availability'), known('schedule'), f"short notice: {f['short_notice']}" if f.get('short_notice') else None) if x)
-        done = m.group(1) == '🟢'
-        out.append({'user_id': m.group(3), 'status': 'active' if done else 'pending', 'devices': known('devices'), 'recording': known('recording'),
-                    'availability': avail or None, 'best_for': None if (f.get('best_for') or '').startswith('⏳') else known('best_for')})
-    return out
-
-
-async def import_old():
-    """The first time only: the roster message in the tester-information channel becomes the list."""
-    chan = cfg.tester_info_id
-    if not chan or all_('SELECT 1 FROM testers LIMIT 1'):
-        return 0
-    ch = await fetch_channel(chan)
-    if ch is None:
-        return 0
-    n = 0
-    async for m in ch.history(limit=20):
-        if 'Total Testers' in m.content:
-            for r in parse_old_roster(m.content):
-                save(r['user_id'], **{k: v for k, v in r.items() if k != 'user_id'})
-                n += 1
-            break
-    return n
-
-
 # ---- the Tester role ----
 def _tester_role_ids():
     return [int(r) for r in cfg.tester_roles]

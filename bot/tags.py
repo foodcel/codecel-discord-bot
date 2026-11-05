@@ -154,10 +154,6 @@ def suggest_game_tags():
     return [t for t in _stags if not t['moderated'] and t['name'] not in SUGGEST_STATUS_TAG.values()]
 
 
-def status_tag_ids():
-    return [t['id'] for t in (_by_name(n) for n in STATUS_TAG.values()) if t]
-
-
 def find_game_tag(name):
     """The game tag for a name: exact, then written a little differently, then a longer or shorter form of one tag
     ("Peggle Deluxe" for the tag "Peggle") as long as only one tag fits."""

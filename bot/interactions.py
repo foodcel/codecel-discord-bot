@@ -3,6 +3,7 @@ custom_id, so buttons on old messages keep working after a restart."""
 import discord
 from discord import app_commands
 
+from . import access
 from .links import web_url
 from .nums import label
 from .ai import interpret_note
@@ -68,13 +69,12 @@ def owner_of(tag_id):
 
 
 # ---- autocomplete ----
-DEV_ONLY = {'config', 'update', 'strikes', 'pardon', 'pings', 'preview', 'release', 'unrelease', 'progress', 'gamelink', 'games', 'botrules', 'mog'}  # the commands behind the dev-only gate in handle_command
 async def autocomplete(i):
     name = i.data['name']
     sub, _, focused = get_options(i)
     fname, fvalue = focused or ('', '')
-    if name in DEV_ONLY and level(i.user) in ('jr', 'none'):  # the pick list would show every game to someone who may not run the command
-        return await i.response.autocomplete([app_commands.Choice(name='Only developers can use this command', value='none')])
+    if not access.allowed(i.user, name):  # the pick list would show every game to someone who may not run the command
+        return await i.response.autocomplete([app_commands.Choice(name='You cannot use this command', value='none')])
     if name == 'giveaway' and fname == 'giveaway':
         from .giveaway import autocomplete as giveaway_autocomplete, can_run
         if not can_run(i.user):
@@ -457,6 +457,8 @@ async def handle_interaction(i):
 async def handle_command(i):
     name = i.data['name']
     sub, opts, _ = get_options(i)
+    if not access.allowed(i.user, name):  # one table decides (bot/access.py); the checks further down stay as a second line
+        return await deny(i)
     if name == 'tester':  # testers have no dev role: it checks who may do what itself
         return await testers.command_tester(i, sub, opts)
     if name == 'Mog':  # the right-click app on a message

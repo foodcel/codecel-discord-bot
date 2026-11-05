@@ -25,11 +25,6 @@ _REFUSED = re.compile(r"^(Only |You do not|You cannot|You can't|Pick |Give |The 
                       r"Unknown|Nothing|There's no|No games|Someone|Skipped|This (draft|command)|The \w+ must)", re.I)
 
 
-def note(text):
-    """Adds a line to the result of the entry being written (what really happened)."""
-    _note(text)
-
-
 def _note(text):
     c = _capture.get()
     if c is not None and isinstance(text, str) and text:

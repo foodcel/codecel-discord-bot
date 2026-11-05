@@ -14,9 +14,9 @@ from .components import NO_MENTIONS
 from .ctx import fetch_channel
 from .db import add_timer, all_, kv_get, kv_set, now, one, run
 from .env import cfg
-from .games import clean_name, game_lists, key, owner_ids
+from .games import clean_name, game_lists, owner_ids
 from .perms import level
-from .ui import E, flat, head, section, gap
+from .ui import E
 
 CARD_HOURS = 24
 NL = chr(10)

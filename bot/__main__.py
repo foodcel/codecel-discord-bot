@@ -196,7 +196,7 @@ async def on_raw_message_delete(p):
     conf = cards.library_config()
     if conf and str(p.channel_id) == str(conf['channel']) and str(p.message_id) in {str(i) for i in cards.expected_ids()}:  # the library or a live card
         try:
-            await cards.keep_library()
+            await cards.refresh_library()
         except Exception:
             traceback.print_exc()
 
@@ -205,7 +205,7 @@ async def on_raw_message_delete(p):
 async def on_raw_bulk_message_delete(p):
     if cards.in_library_channel(p.channel_id):
         try:
-            await cards.keep_library()
+            await cards.refresh_library()
         except Exception:
             traceback.print_exc()
 

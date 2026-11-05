@@ -27,10 +27,6 @@ def _cells(value):
     return ['' if _blank(ln) else ln for ln in lines]
 
 
-def _plain(s):
-    return re.sub(r'\s+', ' ', re.sub(r'[*`_]', '', str(s))).strip()
-
-
 def _row_lines(cols):
     """Rows for columns of a list: the cells side by side, an all-empty row stays as a blank line (the gap between two devs)."""
     out = []
@@ -101,16 +97,6 @@ async def edit_card(msg, embed, fallback_view=None, **opts):
     except discord.HTTPException as e:
         print('card edit failed, keeping the embed', repr(e)[:150])
         await msg.edit(embeds=[embed], view=fallback_view)
-
-
-def _spaced(value):
-    """A long list of people: one blank line before each next person (a line that starts with a mention)."""
-    out = []
-    for ln in str(value).split(NL):
-        if ln.startswith('<@') and out and out[-1].strip(' ' + ZWS):
-            out.append('')
-        out.append(ln)
-    return NL.join(out)
 
 
 def card_from_embed(e, when=None, ping=None, inline_desc=False, plain_count=False, below=None, first_sub=None):

@@ -24,8 +24,8 @@ PAGE = 6  # games per library message (a message holds 40 pieces; a game card ta
 CARD_DAYS = 3
 LONG = discord.SeparatorSpacing.large
 FOOTER = '-# Fan-made Roblox experiences. The original games, brands and music belong to their owners; no affiliation is implied.'
-COMMUNITY = ('**A community built on a love of games** 💙' + chr(10) + 'Got an idea for the next one? Drop it in <#1562961976387174452>. '
-             'Found a bug? Report it in <#1563046117984444557> or use `/bug`.')
+COMMUNITY = ('**A community built on a love of games** 💙' + chr(10) + 'Got an idea for the next one? Drop it in <#' + cfg.game_ideas_id + '>. '
+             'Found a bug? Report it in <#' + cfg.bugs_id + '> or use `/bug`.')
 _lock = asyncio.Lock()
 NL = chr(10)
 
@@ -495,11 +495,6 @@ async def purge_rivals(message):
             print('rival delete', repr(e))
         return True
     return False
-
-
-async def keep_library():
-    """Puts the library back when a message of it was deleted, and clears any rival message that got in. Safe to call often."""
-    await refresh_library()
 
 
 # ---- the new-game cards are kept too: a card that was deleted comes back (silent) until its 3 days are over ----

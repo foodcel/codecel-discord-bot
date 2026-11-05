@@ -229,27 +229,6 @@ def tree_rows(rows, second, counts=False):
     return out
 
 
-def with_gaps(rows, cells):
-    """Table rows, with a blank line between the games of one dev and the next."""
-    out = []
-    for r in rows:
-        if r['gap']:
-            out.append(GAP_ROW)
-        row = cells(r)
-        if not r['first']:  # one mention per dev: a mention is taller than plain text, so one on every row pushes the columns out of line
-            row[0] = ZW
-        out.append(row)
-    return out
-
-
-def _valid_date(s):
-    try:
-        datetime.fromisoformat(s)
-        return True
-    except Exception:
-        return False
-
-
 async def game_embeds(lists=None):
     lists = lists or game_lists()
     rel = await rows_by_dev([{'name': r.get('title') or clean_name(r['name']), 'owners': owner_ids(r), 'at': r['released_at'], 'link': r['link'], 'testing': bool(r.get('testing_at'))}

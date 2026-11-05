@@ -1,8 +1,6 @@
 """The announcements for devs and testers, all in one look: a short title, sections whose lines branch like the /help tree, and the commands
 in the footer, one per line. Every branch is kept short enough to stay on one line, so nothing wraps back under the tree.
 Built here so the preview and the real post are identical."""
-import re
-import time
 
 import discord
 from discord import ui
@@ -11,8 +9,8 @@ from .env import cfg
 from .pngs import width_strip, with_strip
 from .ui import E, ZW, flat, head, section, gap
 
-GAMES_CHANNEL = 1562940878685872149  # #games
-DEV_CHAT = 1565918318664093766       # #developer-chat
+GAMES_CHANNEL = cfg.games_channel_id  # #games
+DEV_CHAT = cfg.dev_chat_id            # #developer-chat
 MAX_LINE = 56                        # characters a branch may take before it wraps (a channel link counts as 16)
 
 
@@ -20,17 +18,6 @@ def tree(*rows):
     """(name, text) pairs as branches: ├─ **name** · text, the last one └─."""
     last = len(rows) - 1
     return '\n'.join(f"{'└─' if n == last else '├─'} **{name}** · {text}" for n, (name, text) in enumerate(rows))
-
-
-def too_long(embed):
-    """The branches of an embed that would wrap (for the tests of this file)."""
-    out = []
-    for f in embed.fields:
-        for line in f.value.split('\n'):
-            plain = re.sub(r'<#\d+>', 'x' * 16, line).replace('**', '').replace('`', '')
-            if len(plain) > MAX_LINE and line[:1] in '├└':
-                out.append((len(plain), plain))
-    return out
 
 
 def make(title, groups, footer, emoji=None):
@@ -142,43 +129,6 @@ def roster_news_devs_embeds():
             ('💤', 'on a break: do not ask'),
             ('🟡', 'new, waiting for their profile')])],
         ['/tester find device: · find a tester', '/tester add · add a tester (admins)', '/tester status · change a mark (admins)'])]
-
-
-def release_news_devs_embeds():
-    """For devs: the game library and releasing a game."""
-    games = f'<#{GAMES_CHANNEL}>'
-    return [make('New · game library and releases', [
-        ('🎮', 'Library', [
-            ('Cards', f'each game in {games}'),
-            ('Credits', 'the original studio and who ported it'),
-            ('Hubs', 'the console hubs sit on top')]),
-        ('🚀', 'Releasing', [
-            ('New', 'paste the Roblox link, the rest is filled in'),
-            ('Card', 'a new-game card for 3 days'),
-            ('Ping', '@everyone, @Updates, @Releases or nobody'),
-            ('Quiet', 'no card, no ping'),
-            ('Edit', "fix a released game's details")]),
-        ('🔧', 'More', [
-            ('Updates', 'fixes, changes and new, with the cover'),
-            ('Logged', 'what players add after LOGGED gets a 📎'),
-            ('Bug hunting', 'reply `!bug` or `!improve`')])],
-        ['/release new · the game is out', '/release quiet · add it without announcing', '/release edit · fix a released game', '/help · the commands you can use'])]
-
-
-def release_news_testers_embeds():
-    """For testers: bug hunting, added info and the games."""
-    games = f'<#{GAMES_CHANNEL}>'
-    return [make('New · for testers', [
-        ('🔍', 'Bug hunting', [
-            ('!bug', 'reply to a message with `!bug <game>`'),
-            ('Anywhere', f'a post in <#{cfg.bugs_id}>'),
-            ('Testing channel', 'a post in the testers forum'),
-            ('Limit', '5 false posts and you lose it')]),
-        ('📎', 'Your reports', [
-            ('Add more', 'after LOGGED, extras get a 📎'),
-            ('Numbers', 'every report has one, like **#38**')]),
-        ('🎮', 'Games', [('Library', f'every released game is in {games}')])],
-        ['!bug <game> · reply to a message to report it', '/help · the commands you can use'])]
 
 
 def testing_news_devs_embeds():

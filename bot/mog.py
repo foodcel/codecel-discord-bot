@@ -5,8 +5,10 @@ from pathlib import Path
 
 import discord
 
+from .env import cfg
+
 FOLDER = Path(__file__).resolve().parent.parent / 'assets' / 'mog'
-PING = (941724517481463888, 1565900080894967809)  # Robin, Redwing Helper
+PING = tuple(int(u) for u in cfg.mog_ping)  # Robin, Redwing Helper (MOG_PING_USER_IDS in .env)
 
 
 def pick():

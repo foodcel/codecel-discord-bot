@@ -3,9 +3,9 @@ the other: the command first (it is the easiest way), what to write, what the bo
 from .env import cfg
 from .ui import describe, flat, gap, head, section
 
-COMMANDS_CHANNEL = '1563090099774816286'  # where players can use commands
-UPDATES = '1562726333828702249'
-NEW_GAMES = '1562961976387174452'  # whole new game ideas go here
+COMMANDS_CHANNEL = cfg.commands_channel_id  # where players can use commands
+UPDATES = cfg.updates_id or ''
+NEW_GAMES = cfg.game_ideas_id  # whole new game ideas go here
 
 
 def _steps(command, forum_id):

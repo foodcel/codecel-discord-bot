@@ -8,8 +8,8 @@ import time
 import discord
 
 from .ctx import ctx, fetch_channel
+from .env import cfg
 
-CHANNEL = '1565135279025557604'  # the boosters channel
 KINDS = {discord.MessageType.premium_guild_subscription, discord.MessageType.premium_guild_tier_1,
          discord.MessageType.premium_guild_tier_2, discord.MessageType.premium_guild_tier_3}
 _counts, _at = {}, 0.0
@@ -41,7 +41,7 @@ async def _refresh(force=False):
     global _counts, _at
     if not force and time.time() - _at < 300:
         return
-    ch = await fetch_channel(CHANNEL) or ctx.guild.system_channel
+    ch = await fetch_channel(cfg.boosters_id) or ctx.guild.system_channel
     if not ch:
         return
     counts = {}
