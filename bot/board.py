@@ -578,7 +578,7 @@ async def command_assign(i, opts):
     c = current_claim(post, custom)
     taken = f", taking it from <@{holder['user_id']}>" if holder else ''
     await _say(i, f'{i.user.mention} assigned {game_name(post, c)} to <@{dev_id}>{taken}.',
-               allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=int(dev_id))]))  # the dev should hear about it
+               allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=int(dev_id))], everyone=False, roles=False))  # the dev should hear about it
     member = ctx.guild.get_member(int(dev_id))
     if member and not is_dev(member):
         await i.followup.send(f"⚠️ <@{dev_id}> doesn't have <@&{board_cfg()['role_id']}>.", ephemeral=True, allowed_mentions=NO_MENTIONS)

@@ -130,7 +130,7 @@ async def post_card(g, ping=True):
     if not ch:
         return None
     view, files, role = card_view(g, ping)
-    sent = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(role))]) if role else NO_MENTIONS)
+    sent = await ch.send(view=view, files=files, allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(role))], everyone=False, users=False) if role else NO_MENTIONS)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_HOURS * 3600000)
     kv_set(f"testcard:{g['key']}", json.dumps({'channel': str(ch.id), 'message': str(sent.id), 'ping': bool(role), 'owners': g['owners'], 'name': g['name']}))  # to edit it in place later (a new Play link)
     return sent

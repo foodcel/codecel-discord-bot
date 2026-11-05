@@ -13,7 +13,7 @@ from .db import add_timer, all_, bug_by_id, bug_by_thread, cancel_timers, now, r
 from .devboard import route_bug, schedule_boards
 from .env import cfg
 from .intake import CONFIDENT, DAY, MAX_ASKS, fetch_starter, gather
-from .perms import is_staff
+from .perms import is_staff, level
 from .strikes import strike_user
 from .tags import canonical_game, find_game_tag, game_tags, set_tags, tag_name, thread_game_tag, applied_ids
 from .ui import E, EM
@@ -84,11 +84,14 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
                     allowed_mentions=ping)
             except Exception:
                 pass
-        await route_bug(bug_by_id(bug['id']), silent=silent)
+        from .intake import analyze_and_act as bug_check
+        await bug_check(bug_by_id(bug['id']), thread, silent=silent)  # exploit hiding, duplicates and missing info, like any bug
         return
 
     # 2. Troll.
-    if a['troll']['is_troll'] and a['troll']['confidence'] >= CONFIDENT and not silent:
+    reporter = await get_member(bug['reporter_id'])
+    dev_post = reporter is not None and level(reporter) in ('admin', 'dev', 'jr')
+    if a['troll']['is_troll'] and a['troll']['confidence'] >= CONFIDENT and not silent and not dev_post and not bug.get('saved_by'):
         update_bug(bug['id'], {'status': 'declined'})
         await set_tags(thread, game=gid, status='declined', kind='suggestion')
         try:
@@ -104,7 +107,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         return
 
     # 3. Duplicate.
-    dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') and a['duplicate_of'] != bug['id'] else None
+    dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') in {k['id'] for k in known} else None  # only a post the AI was shown
     if dup and dup['kind'] == 'suggestion' and not silent:
         update_bug(bug['id'], {'status': 'duplicate', 'dup_of': dup['id']})
         ref = (f"{label(dup)} \"{dup['title']}\"" if dup['deleted']

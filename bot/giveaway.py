@@ -431,10 +431,12 @@ async def redraw(gid):
     g = _g(gid)
     if not g:
         return
+    if g['status'] not in ('running', 'ended'):
+        return  # cancelled: the card says so and stays that way
     msg = await _message(g)
     if not msg:
         return
-    await boosts.refresh()
+    boosts.refresh_soon()
     status = 'ended' if g['status'] == 'ended' else 'running'
     # the banner is uploaded again with every edit: a card that points at attachment://giveaway.png needs the file in the same request
     count = g['result']['eligible'] if status == 'ended' and g['result'] else len(valid_pool(g))  # "entered" counts the people who have at least one entry, not everyone who pressed Enter
@@ -489,9 +491,9 @@ def _entry_word(total):
 
 
 async def enter(i, gid):
-    await boosts.refresh()
+    boosts.refresh_soon()
     g = _g(gid)
-    if not g or g['status'] != 'running':
+    if not g or g['status'] != 'running' or now() >= g['ends_at']:
         return await i.response.send_message('This giveaway is over.', ephemeral=True)
     ok, why = eligible(i.user, g['config'])
     if not ok:
@@ -506,7 +508,7 @@ async def enter(i, gid):
 
 async def mine(i, gid):
     """The My entries button: whether you are in, and how many entries you have."""
-    await boosts.refresh()
+    boosts.refresh_soon()
     g = _g(gid)
     if not g or g['status'] == 'cancelled':
         return await i.response.send_message('This giveaway is over.', ephemeral=True)
@@ -527,6 +529,9 @@ async def mine(i, gid):
 
 
 async def leave(i, gid):
+    g = _g(gid)
+    if not g or g['status'] != 'running':
+        return await i.response.edit_message(view=text_view('This giveaway is over, so nothing changed.'))
     run('DELETE FROM giveaway_entries WHERE gid=? AND user_id=?', gid, str(i.user.id))
     schedule_redraw(gid)
     await i.response.edit_message(view=text_view('You left the giveaway. Press Enter giveaway to join again.'))
@@ -598,8 +603,11 @@ async def _announce(g, new_winners, header):
         except Exception:
             pass  # DMs closed: the ping in the channel is enough
     if c['claim_hours'] and ids:
+        until = now() + c['claim_hours'] * 3600000
+        g['result']['claim_until'] = until
+        _save(g)
         cancel_timers('gw_claim', g['id'])
-        add_timer('gw_claim', g['id'], now() + c['claim_hours'] * 3600000)
+        add_timer('gw_claim', g['id'], until)
 
 
 async def _log(text):
@@ -612,16 +620,23 @@ async def _log(text):
 
 async def end(gid, by=None):
     """Draws the winners. Returns text for the person who ended it early, None when there was nothing to end."""
+    if run("UPDATE giveaways SET status='drawing' WHERE id=? AND status='running'", gid).rowcount != 1:
+        return None  # not running, or another end is drawing it right now
     g = _g(gid)
-    if not g or g['status'] != 'running':
-        return None
+    try:
+        try:
+            await boosts.refresh(force=True)  # the draw uses today's boost numbers
+        except Exception as e:
+            print('giveaway boosts', repr(e)[:120])  # the numbers from before are used
+        g['status'] = 'ended'
+        pool = await _pool(g)
+        g['result'] = {'winners': [], 'history': [], 'seeds': [], 'eligible': len(pool), 'entries': sum(w for _, w in pool)}
+        await _fill(g, list(range(1, len(g['config']['prizes']) + 1)), 0)
+        _save(g)
+    except Exception:
+        run("UPDATE giveaways SET status='running' WHERE id=? AND status='drawing'", gid)
+        raise
     cancel_timers('gw_end', gid)
-    await boosts.refresh(force=True)  # the draw uses today's boost numbers
-    g['status'] = 'ended'
-    pool = await _pool(g)
-    g['result'] = {'winners': [], 'history': [], 'seeds': [], 'eligible': len(pool), 'entries': sum(w for _, w in pool)}
-    await _fill(g, list(range(1, len(g['config']['prizes']) + 1)), 0)
-    _save(g)
     await redraw(gid)
     await _announce(g, g['result']['winners'], '🎉 Congratulations')
     await _log(f"🎁 Giveaway **{g['title']}** (#{gid}) ended{f' by <@{by}>' if by else ''}: {len(g['result']['winners'])} winner(s) from {g['result']['eligible']} who qualified ({g['result']['entries']} entries). Seed `{g['result']['seeds'][0]}`.")
@@ -634,6 +649,8 @@ async def claim_expired(gid):
     if not g or g['status'] != 'ended' or not g['result']:
         return
     res = g['result']
+    if now() < res.get('claim_until', 0) - 60000:
+        return  # a newer claim window is still open (this timer is an old one)
     late = [w for w in res['winners'] if w['state'] == 'pending']
     if not late:
         return
@@ -706,7 +723,7 @@ async def cancel(gid):
 
 # ---- the preview draft ----
 FIELDS = ('prizes', 'req_roles', 'req_mode', 'blacklist', 'bonus', 'min_invites', 'invite_entries', 'invite_cap', 'min_days', 'claim_hours', 'ping', 'bonus_best',
-          'hosts', 'banner')
+          'hosts', 'banner', 'bypass_roles', 'per_boost')
 
 
 def new_draft(user_id, channel_id, prize, seconds, winners):
@@ -876,17 +893,34 @@ async def on_modal(i, kind, pid, f):
     await i.response.edit_message(**payload(pid))
 
 
+_starting = set()  # drafts being posted: a double click must not post (and ping) twice
+
+
 async def start(i, pid, d):
     ch = await fetch_channel(d['channel'])
     if not ch:
         return await i.response.send_message('I cannot find that channel any more.', ephemeral=True)
+    if pid in _starting:
+        return await i.response.send_message('It is being posted already.', ephemeral=True)
+    _starting.add(pid)
+    try:
+        await _start(i, pid, d, ch)
+    finally:
+        _starting.discard(pid)
+
+
+async def _start(i, pid, d, ch):
     await i.response.defer()
     ends = now() + d['seconds'] * 1000
     gid = run('INSERT INTO giveaways(channel_id,message_id,host_id,title,config,status,ends_at,created_at) VALUES(?,?,?,?,?,?,?,?)',
               str(ch.id), '0', d['user'], d['title'], json.dumps({**_config(d), 'v': 2}), 'running', ends, now()).lastrowid
     g = _g(gid)
     # one send with the ping and the hosts allowed: the ping (if any) goes out now, the hosts are told they host. Later edits keep the same mentions (names_only), so nobody is pinged again.
-    sent = await ch.send(view=container(g, gid, 'running', 0), files=[banner_for(g)], allowed_mentions=names_only(g))
+    try:
+        sent = await ch.send(view=container(g, gid, 'running', 0), files=[banner_for(g)], allowed_mentions=names_only(g))
+    except Exception:
+        run('DELETE FROM giveaways WHERE id=?', gid)  # nothing half-made is left behind; the draft stays so it can be tried again
+        raise
     run('UPDATE giveaways SET message_id=? WHERE id=?', str(sent.id), gid)
     add_timer('gw_end', gid, ends)
     del_pending(pid)

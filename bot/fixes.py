@@ -1,12 +1,14 @@
 """Marking bugs fixed, changing statuses, reopening."""
 import asyncio
 
+import discord
+
 from .nums import label
 from .announce import maybe_offer
 from .bounty import owners_for
 from .components import allowed
-from .ctx import fetch_channel
-from .db import add_timer, bug_by_id, cancel_timers, now, update_bug
+from .ctx import ctx, fetch_channel
+from .db import add_timer, all_, bug_by_id, cancel_timers, now, update_bug
 from . import devlog
 from .devboard import route_bug, schedule_boards
 from .fixlog import snapshot_bug
@@ -38,10 +40,25 @@ def fire(coro, label):
     return asyncio.ensure_future(guard())
 
 
+async def _thread(bug):
+    """(thread or None, gone). gone: the post no longer exists, so there is nobody to tell. None and not gone: Discord did not answer, try again later."""
+    if bug['deleted']:
+        return None, True
+    try:
+        return await ctx.client.fetch_channel(int(bug['thread_id'])), False
+    except (discord.NotFound, discord.Forbidden, ValueError):
+        return None, True
+    except Exception as e:
+        print('fixed: thread not reachable now', bug['id'], repr(e)[:100])
+        return None, False
+
+
 async def tell_fixed(bug, update_url=None):
-    """Tells the reporter (and the people who 👀'd it) in the post that it is fixed, tags and closes it, and deletes it in 24 hours."""
-    update_bug(bug['id'], {'notified': 1})
-    thread = None if bug['deleted'] else await fetch_channel(bug['thread_id'])
+    """Tells the reporter (and the people who 👀'd it) in the post that it is fixed, tags and closes it, and deletes it in 24 hours.
+    It is only marked as told once the message is out (or the post is gone); otherwise retry_untold tries again."""
+    thread, gone = await _thread(bug)
+    if gone:
+        update_bug(bug['id'], {'notified': 1})
     if thread:
         await set_tags(thread, status='fixed', kind=bug['kind'])
         extra = []
@@ -68,6 +85,8 @@ async def tell_fixed(bug, update_url=None):
             await thread.send(content=text, allowed_mentions=allowed(users=pings))
         except Exception as e:
             print('fixed msg', e)
+            return  # not told: retry_untold tries again
+        update_bug(bug['id'], {'notified': 1})
         try:
             await thread.edit(archived=True)
         except Exception:
@@ -87,14 +106,23 @@ async def tell_released(ids, update_url):
                 print('tell released', repr(e)[:120])
 
 
+async def retry_untold():
+    """Bugs that are in a posted update but whose reporter was never told (Discord failed, or the bot restarted mid-way): told now."""
+    for bug in all_("SELECT * FROM bugs WHERE kind='bug' AND status='fixed' AND announced=1 AND notified=0 AND deleted=0 ORDER BY id LIMIT 25"):
+        try:
+            await tell_fixed(bug)
+        except Exception as e:
+            print('retry untold', bug['id'], repr(e)[:120])
+
+
 async def mark_fixed(bug, actor_id):
     """A bug marked fixed is only recorded: its reporter hears about it when the update that contains it is released (tell_released).
     An added suggestion is told at once, as before."""
-    update_bug(bug['id'], {'status': 'fixed', 'fixed_at': now(), 'fixed_by': actor_id, 'notified': 0})
+    update_bug(bug['id'], {'status': 'fixed', 'fixed_at': now(), 'fixed_by': actor_id, 'notified': 0, 'announced': 0})
     # Keep the conversation and screenshots: the post is deleted 24h after the reporter is told, but the fix log still offers a transcript.
     fire(snapshot_bug(bug_by_id(bug['id'])), 'snapshot')
-    if bug['kind'] == 'suggestion':
-        await tell_fixed(bug)
+    if bug['kind'] == 'suggestion' or not bug['game_tag_id']:
+        await tell_fixed(bug)  # a suggestion, or a bug with no game tag (it can never be in an update): told at once
     schedule_boards()
     fire(maybe_offer(bug['game_tag_id']), 'offer')
 
@@ -102,7 +130,9 @@ async def mark_fixed(bug, actor_id):
 async def set_bug_status(bug, status, actor_id):
     if status == 'fixed':
         return await mark_fixed(bug, actor_id)
-    update_bug(bug['id'], {'status': status})
+    update_bug(bug['id'], {'status': status, **({'announced': 0, 'notified': 0} if bug['status'] == 'fixed' else {})})
+    if bug['status'] == 'fixed':
+        fire(maybe_offer(bug['game_tag_id']), 'offer')  # no longer fixed: it leaves the update draft
     thread = None if bug['deleted'] else await fetch_channel(bug['thread_id'])
     if thread:
         await set_tags(thread, status=None if status == 'new' else status, kind=bug['kind'])

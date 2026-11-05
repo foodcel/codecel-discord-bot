@@ -1,12 +1,10 @@
 """/bug for testers in the testing channel: a form, a thread in the tester channel, and the bug goes to the owning dev's board.
 Everyone else uses the same command through forms.py."""
-import io
 import random
 import re
 import string
 import time
-
-import discord
+import uuid
 
 from .nums import label
 from .ai import summarize_tester_report
@@ -17,7 +15,6 @@ from .devboard import route_bug
 from .env import cfg
 from .perms import level
 from .tags import ensure_tester_tag, find_game_tag, game_tags, tag_name
-from .transcript import download, upload_limit
 from .ui import E, EM, SEVERITY, columns, cut, describe, flat, head, labeled, sentence
 
 # /bug takes up to 10 screenshots and 5 videos: screenshot, screenshot_2 ... screenshot_10, video, video_2 ... video_5
@@ -145,7 +142,7 @@ async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, i
     body = f"What happened: {form['what']}" + (f"\nSteps: {form['steps']}" if form['steps'] else '') + (f"\nShould happen: {form['expected']}" if form['expected'] else '')
     id_ = run("""INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,summary,severity,status,created_at,
         device,body,source,saved_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-              '0', str(reporter_id), tag_id, game, ai.get('title') or form['title'], ai['summary'], ai['severity'],
+              f'pending-{uuid.uuid4().hex}', str(reporter_id), tag_id, game, ai.get('title') or form['title'], ai['summary'], ai['severity'],
               'new', now(), form.get('device') or None, body, 'tester', str(saved_by) if saved_by else None).lastrowid
     bug = bug_by_id(id_)
     try:

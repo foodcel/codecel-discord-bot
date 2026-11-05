@@ -78,7 +78,8 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
     picked = [n for n in (tag_name(i) for i in applied_ids(thread)) if n]
     known = all_("""SELECT id,title,summary,status,game_name FROM bugs
         WHERE kind='bug' AND id<>? AND status IN ('new','needs_info','investigating','fixing','fixed') AND deleted IN (0,1)
-        ORDER BY id DESC LIMIT 40""", bug['id'])
+          AND COALESCE(source,'') <> 'tester'
+        ORDER BY id DESC LIMIT 40""", bug['id'])  # never the private tester reports: a duplicate reply would show their title and link in public
     try:
         a = await analyze_report(re.sub(r'^#\d+\s+', '', thread.name), report['text'], picked, games,
                                  report['images'], report['videos'], known, bug['asks'])
@@ -117,7 +118,8 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         return
 
     # 2. Troll.
-    if a['troll']['is_troll'] and a['troll']['confidence'] >= CONFIDENT and not silent and not dev_report:
+    # a message saved with !bug was written by someone who did not report it: never close it as trolling or strike its author
+    if a['troll']['is_troll'] and a['troll']['confidence'] >= CONFIDENT and not silent and not dev_report and not bug.get('saved_by'):
         update_bug(bug['id'], {'status': 'not_a_bug'})
         await set_tags(thread, game=gid, status='not_a_bug')
         try:
@@ -133,7 +135,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         return
 
     # 3. Duplicate.
-    dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') and a['duplicate_of'] != bug['id'] else None
+    dup = bug_by_id(a['duplicate_of']) if a.get('duplicate_of') in {k['id'] for k in known} else None  # only a report the AI was shown
     if dup and dup['kind'] == 'bug' and not silent and not dev_report:
         update_bug(bug['id'], {'status': 'duplicate', 'dup_of': dup['id']})
         ref = (f"{label(dup)} \"{dup['title']}\"" if dup['deleted']

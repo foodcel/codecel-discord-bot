@@ -2,6 +2,7 @@
 boosts when someone boosts several times at once). Discord does not give a bot this number any other way.
 A member who boosts now (member.premium_since) counts at least 1 even when the channel has no message for them (a boost from before the channel,
 or a deleted message). The numbers are kept for a few minutes: a giveaway asks for every entrant."""
+import asyncio
 import time
 
 import discord
@@ -12,10 +13,31 @@ CHANNEL = '1565135279025557604'  # the boosters channel
 KINDS = {discord.MessageType.premium_guild_subscription, discord.MessageType.premium_guild_tier_1,
          discord.MessageType.premium_guild_tier_2, discord.MessageType.premium_guild_tier_3}
 _counts, _at = {}, 0.0
+_lock = asyncio.Lock()
+_task = None
+
+
+def refresh_soon():
+    """For buttons: the numbers are read again in the background when they are older than 5 minutes; the button uses what is known now."""
+    global _task
+    if time.time() - _at >= 300 and (_task is None or _task.done()):
+        _task = asyncio.ensure_future(_safe_refresh())
+
+
+async def _safe_refresh():
+    try:
+        await refresh()
+    except Exception as e:
+        print('boosts refresh', repr(e)[:120])
 
 
 async def refresh(force=False):
-    """Reads the whole channel again (it only holds boost messages and a few chats, so it is small)."""
+    """Reads the whole channel again (it only holds boost messages and a few chats, so it is small). One read at a time."""
+    async with _lock:
+        await _refresh(force)
+
+
+async def _refresh(force=False):
     global _counts, _at
     if not force and time.time() - _at < 300:
         return

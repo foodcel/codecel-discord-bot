@@ -264,7 +264,10 @@ async def modal_ann_edit(i, pid, fields):
     fresh = [l for l in typed_new if l not in kept]
     polished = iter(await polish_dev_updates(get_game(p['tagId'])['name'], fresh)) if fresh else iter(())
     news = [l if l in kept else next(polished) for l in typed_new]  # what the dev typed fresh is polished, the rest stays
-    set_pending(pid, {**p, 'bugfixes': lines_of(fields.get('bugfixes')), 'updates': changes, 'bugIds': bug_ids,
+    typed_bugs = lines_of(fields.get('bugfixes'))
+    if len(bug_lines) == len(bug_ids):
+        bug_ids = [b for line, b in zip(bug_lines, bug_ids) if line in typed_bugs]  # a removed or reworded line: that fix waits for the next update
+    set_pending(pid, {**p, 'bugfixes': typed_bugs, 'updates': changes, 'bugIds': bug_ids,
                       'newIds': [kept[l] for l in typed_new if l in kept], 'newLines': news, 'off': [], 'version': (fields.get('version') or '').strip()})
     updates = changes + news
     await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'],

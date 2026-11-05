@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS strike_log(
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, step TEXT, reason TEXT,
   bug_id INTEGER, at INTEGER, state TEXT
 );
-CREATE TABLE IF NOT EXISTS timers(id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, target TEXT, run_at INTEGER);
+CREATE TABLE IF NOT EXISTS timers(id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, target TEXT, run_at INTEGER, tries INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS games(
   tag_id TEXT PRIMARY KEY, name TEXT, board_name TEXT, owner_override TEXT,
   link TEXT, icon_url TEXT, announce_channel_id TEXT, ping_role_id TEXT,
@@ -85,6 +85,11 @@ try:  # a fixed bug's reporter is told when the update with the fix is released 
     db.execute('ALTER TABLE bugs ADD COLUMN notified INTEGER NOT NULL DEFAULT 0')
     db.execute("UPDATE bugs SET notified=1 WHERE status='fixed'")  # fixed before this existed: they were told at once
 except Exception:
+    pass
+
+try:  # timers that failed are tried again
+    db.execute('ALTER TABLE timers ADD COLUMN tries INTEGER NOT NULL DEFAULT 0')
+except sqlite3.OperationalError:
     pass
 
 for _col in ('saved_by TEXT',):  # bug hunting: who replied !bug / !improve

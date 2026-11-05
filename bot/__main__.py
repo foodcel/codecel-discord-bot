@@ -9,8 +9,7 @@ from .bounty import refresh_claims
 from .catchup import catchup
 from .commands_sync import register_commands
 from .ctx import ctx, sleep
-from .db import kv_get, kv_set, run
-from .devboard import clear_bug_messages, refresh_all_boards, schedule_boards
+from .devboard import refresh_all_boards, schedule_boards
 from .env import cfg
 from .fixlog import backfill_snapshots
 from .intake import intake_thread
@@ -29,7 +28,9 @@ intents.members = True
 intents.invites = True  # the invite tracker
 intents.guild_reactions = True
 intents.webhooks = True  # a webhook made in the library channel is deleted at once
-client = discord.Client(intents=intents, activity=discord.CustomActivity(name='*tokenmogs the loser below me*'), status=discord.Status.online)
+# nothing pings @everyone or a role unless that one message allows it by name (a game named @everyone, a line in an update...)
+SAFE = discord.AllowedMentions(everyone=False, roles=False, users=True, replied_user=True)
+client = discord.Client(intents=intents, allowed_mentions=SAFE, activity=discord.CustomActivity(name='*tokenmogs the loser below me*'), status=discord.Status.online)
 ctx.client = client
 
 _claim_task = None
@@ -54,12 +55,20 @@ def schedule_claims():
 
 
 async def timer_loop():
+    n = 0
     while True:
         await asyncio.sleep(60)
+        n += 1
         try:
             await run_timers()
         except Exception:
             traceback.print_exc()
+        if n % 10 == 1:  # every 10 minutes: reporters of fixes in a posted update who were never told (Discord failed, or a restart)
+            try:
+                from .fixes import retry_untold
+                await retry_untold()
+            except Exception:
+                traceback.print_exc()
 
 
 @client.event
@@ -70,53 +79,36 @@ async def on_ready():
     _started = True
     ctx.guild = client.get_guild(int(cfg.guild_id)) or await client.fetch_guild(int(cfg.guild_id))
     print(f'Logged in as {client.user}')
+    # the loops start first: a failing step below must never stop timers (giveaways, unbans, deletions) or the watches
+    asyncio.ensure_future(timer_loop())
+    asyncio.ensure_future(board.sync_loop())
     asyncio.ensure_future(watch.watch_loop())  # every 5 minutes: is each released game still on Roblox?
-    asyncio.ensure_future(cards.guard_loop())  # first thing: the library and its cards are always there, a rival bot's posts never
-    await load_tags()
-    await ensure_suggest_tags()
-    await ensure_fixed_tag()
-    await register_commands()
-    await invites.load()
+    asyncio.ensure_future(cards.guard_loop())  # the library and its cards are always there, a rival bot's posts never
+
+    async def step(name, work):
+        try:
+            return await work()
+        except Exception:
+            print(f'start-up step failed: {name}')
+            traceback.print_exc()
+
+    await step('tags', load_tags)
+    await step('suggestion tags', ensure_suggest_tags)
+    await step('fixed tag', ensure_fixed_tag)
+    await step('commands', register_commands)
+    await step('invites', invites.load)
     if board.is_live():  # this bot runs the bounty board: read the forum again before anything uses the claims
-        try:
-            await board.sync_forum()
-        except Exception:
-            print('bounty board sync failed')
-            traceback.print_exc()
-    await refresh_claims()
-    try:
-        await catchup()
-    except Exception:
-        print('catchup failed')
-        traceback.print_exc()
-    if not kv_get('board_v3'):  # one-time: remove the per-bug messages the old layout posted
-        try:
-            await clear_bug_messages()
-        except Exception:
-            print('clear failed')
-            traceback.print_exc()
-        kv_set('board_v3', '1')
-    if not kv_get('threshold_3'):  # announcement offers now start at 3 fixes
-        run('UPDATE games SET threshold=3 WHERE threshold=5')
-        kv_set('threshold_3', '1')
-    try:
-        await backfill_snapshots()  # transcripts for bugs fixed before the log existed
-    except Exception:
-        traceback.print_exc()
-    try:
-        await refresh_all_boards()  # claims may have changed while offline (also creates/refreshes the fix log post)
-    except Exception:
-        traceback.print_exc()
-    try:
-        if await testers.import_old():
-            print('tester roster imported')
+        await step('bounty board sync', board.sync_forum)
+    await step('claims', refresh_claims)
+    await step('catch-up', catchup)
+    await step('snapshots', backfill_snapshots)  # transcripts for bugs fixed before the log existed
+    await step('boards', refresh_all_boards)  # claims may have changed while offline (also the fix log post)
+
+    async def roster():
         if n := await testers.sync_members():
             print(f'{n} tester(s) with a tester role added to the roster')
         await testers.refresh_roster()
-    except Exception:
-        traceback.print_exc()
-    asyncio.ensure_future(timer_loop())
-    asyncio.ensure_future(board.sync_loop())
+    await step('roster', roster)
     print('Ready. Catch-up finished.')
 
 
@@ -297,9 +289,12 @@ async def on_interaction(i):
         error = e
         print('interaction')
         traceback.print_exc()
-        try:
+        try:  # the person always hears back, also when the handler had already started ("thinking...")
+            text = 'Something went wrong. Try again in a minute, or tell a developer.'
             if not i.response.is_done():
-                await i.response.send_message('Something went wrong.', ephemeral=True)
+                await i.response.send_message(text, ephemeral=True)
+            else:
+                await i.followup.send(text, ephemeral=True)
         except Exception:
             pass
     finally:

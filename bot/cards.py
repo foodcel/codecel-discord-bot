@@ -357,7 +357,7 @@ def mentions(ch, role):
     """The test channel never notifies anyone: the Updates mention shows but does not ping."""
     if not role or test_channel(ch):
         return discord.AllowedMentions.none()
-    return discord.AllowedMentions(roles=[discord.Object(id=int(role))])
+    return discord.AllowedMentions(roles=[discord.Object(id=int(role))], everyone=False, users=False)
 
 
 # ---- the permanent library ----
@@ -440,7 +440,7 @@ async def post_new_game_card(row, ping='everyone'):
     text, role, everyone = ping_target(ping)
     view, files = new_game_card(row, text)
     allowed = (discord.AllowedMentions.none() if test_channel(ch)
-               else discord.AllowedMentions(everyone=everyone, roles=[discord.Object(id=int(role))] if role else False))
+               else discord.AllowedMentions(everyone=everyone, roles=[discord.Object(id=int(role))] if role else False, users=False))
     sent = await ch.send(view=view, files=files, allowed_mentions=allowed)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + CARD_DAYS * 86400000)
     register_card(sent.id, row['key'], now() + CARD_DAYS * 86400000, hold=True)

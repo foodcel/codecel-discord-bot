@@ -11,7 +11,7 @@ from discord import ui
 from .nums import label
 from .ai import draft_bug_fixes, draft_new_features, polish_updates
 from .bounty import owners_for
-from .components import NO_MENTIONS, allowed, button, make_view, select
+from .components import NO_MENTIONS, allowed, button, select
 from .ctx import ctx, fetch_channel
 from .db import (bug_by_id, create_pending, one, del_pending, get_game, get_pending, kv_del, kv_get, kv_set, now, run, set_pending,
                  update_bug, upsert_game, all_)
@@ -280,7 +280,19 @@ async def polish_fixes(tag_id, game):
     return bugs, await _lines(game['name'], bugs, False), sugs, await _lines(game['name'], sugs, True)
 
 
+_offer_locks = {}
+
+
 async def maybe_offer(tag_id):
+    """One at a time per game: '1-5 fixed' fires five of these at once, and each would otherwise post its own draft."""
+    if not tag_id:
+        return
+    lock = _offer_locks.setdefault(tag_id, asyncio.Lock())
+    async with lock:
+        return await _maybe_offer(tag_id)
+
+
+async def _maybe_offer(tag_id):
     """Starts an offer once the game has enough changes (default 3: fixed bugs and added suggestions). While the draft is open it
     keeps growing as more are done (3 -> 4 -> 5 ...), and edits itself in place."""
     if not tag_id:
@@ -366,7 +378,25 @@ def all_updates(p):
     return list(p['updates']) + list(p.get('newLines', []))
 
 
+_busy = set()  # drafts being posted right now: a double click must not post twice
+
+
+def _fresh(ids):
+    """The ids that were not announced yet (an older draft of the same fixes may have been posted meanwhile)."""
+    return [i for i in ids if (b := bug_by_id(i)) and not b['announced']]
+
+
 async def post_announcement(pending_id, ping=False):
+    if pending_id in _busy:
+        return {'ok': False, 'msg': 'This update is being posted already.'}
+    _busy.add(pending_id)
+    try:
+        return await _post_announcement(pending_id, ping)
+    finally:
+        _busy.discard(pending_id)
+
+
+async def _post_announcement(pending_id, ping=False):
     """Posts the draft in the game's announcement channel, pinging the updates role only when `ping` is true.
     Returns {'ok', 'url'} or {'ok': False, 'msg'}."""
     p = get_pending(pending_id)
@@ -375,6 +405,8 @@ async def post_announcement(pending_id, ping=False):
     bug_lines, new_lines = chosen(p)
     if not bug_lines and not p['updates'] and not new_lines:
         return {'ok': False, 'msg': 'Nothing to post. Tick a fix, or press Edit and write an update.'}
+    if (chosen_ids(p)[0] or chosen_ids(p)[1]) and not _fresh(chosen_ids(p)[0] + chosen_ids(p)[1]) and not p['updates']:
+        return {'ok': False, 'msg': 'These fixes were already posted in an update.'}
     game = get_game(p['tagId'])
     ch = await fetch_channel(game.get('announce_channel_id') or cfg.updates_id)
     if not ch:
@@ -396,12 +428,25 @@ async def post_announcement(pending_id, ping=False):
                     'version': p.get('version') or '', 'ping_role': role, 'poster': poster}))
     schedule_boards()
     del_pending(pending_id)
+    other = kv_get(f"offer:{p['tagId']}")
+    if other and int(other) != pending_id:
+        del_pending(int(other))  # its buttons now say the draft is gone
     kv_del(f"offer:{p['tagId']}")
     upsert_game(p['tagId'], game['name'], {'next_offer_at': 0})
     return {'ok': True, 'url': sent.jump_url}
 
 
 async def merge_announcement(pending_id):
+    if pending_id in _busy:
+        return {'ok': False, 'msg': 'This update is being posted already.'}
+    _busy.add(pending_id)
+    try:
+        return await _merge_announcement(pending_id)
+    finally:
+        _busy.discard(pending_id)
+
+
+async def _merge_announcement(pending_id):
     """Adds the ticked items to the game's last announcement (one embed instead of several posts in a row). No new ping."""
     p = get_pending(pending_id)
     if not p:
@@ -409,6 +454,8 @@ async def merge_announcement(pending_id):
     bug_lines, new_lines = chosen(p)
     if not bug_lines and not p['updates'] and not new_lines:
         return {'ok': False, 'msg': 'Nothing to add. Tick a fix, or press Edit and write an update.'}
+    if (chosen_ids(p)[0] or chosen_ids(p)[1]) and not _fresh(chosen_ids(p)[0] + chosen_ids(p)[1]) and not p['updates']:
+        return {'ok': False, 'msg': 'These fixes were already posted in an update.'}
     game = get_game(p['tagId'])
     row = recent_announcement(p['tagId'])
     ch = await fetch_channel(row['channel_id']) if row else None
@@ -441,6 +488,9 @@ async def merge_announcement(pending_id):
         json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'changes': changes, 'new': new, 'version': version, 'ping_role': old.get('ping_role'), 'poster': old.get('poster')}), row['id'])
     schedule_boards()
     del_pending(pending_id)
+    other = kv_get(f"offer:{p['tagId']}")
+    if other and int(other) != pending_id:
+        del_pending(int(other))  # its buttons now say the draft is gone
     kv_del(f"offer:{p['tagId']}")
     upsert_game(p['tagId'], game['name'], {'next_offer_at': 0})
     return {'ok': True, 'url': msg.jump_url, 'merged': True}
