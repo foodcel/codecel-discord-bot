@@ -1,5 +1,20 @@
 # Code audit · 2026-11-05
 
+## Status (2026-11-05 evening): done
+- **Fixed:** all 8 critical items (C1–C8) and every high item.
+- **Medium items fixed:** stored bug numbers, update-draft locks, the per-person AI limit, card limits, dev boards after claims, permission re-checks, admin-only strikes, the rival GIF cooldown, ffmpeg limits, loop blocking.
+- **Clean-up done:** dead code and 53 scripts removed, ids moved to config, one access table (`bot/core/access.py`), one status list (`bot/features/bugs/statuses.py`).
+- **Structure done:**
+  - The folders `core/`, `discord_ui/` and `features/<area>/` now exist.
+  - Routing uses one table per component type.
+  - `giveaway.py` is split into six modules.
+- **Guard rails added:** `tests/` (17 tests) plus pyflakes, both run by `deploy.sh`.
+
+Left on purpose (risk to approved looks or flows, with no fix gained):
+- **Native V2 card builders.** The boards, roster and help are still built as embeds and converted. They now stay within Discord's limits through `pngs.fit`.
+- **One shared intake for bugs and suggestions.** The two keep their own wording, but they now have the same guards: dev reports, saved messages, exploit check, duplicate check.
+- **One `ensure_message` helper.** The tester board's repost loop, the one real bug, is fixed.
+
 The whole bot was read: 12,000 lines in `bot/` (52 modules) and 90 scripts in `scripts/` (4,300 lines). Nothing was changed by the audit.
 The items marked **checked** were re-read in the code after the audit. The others were reported once, by reading the code.
 
