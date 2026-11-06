@@ -109,7 +109,7 @@ COMMANDS = [
     command('preview', 'Admin: post the finished embeds in the test channel (everything wipes it first)',
             [option(STRING, 'what', 'Which preview', choices=PREVIEW_CHOICES)]),
     command('botrules', 'Post the bug report rules and strike ladder here'),
-    command('release', 'Release one of your games, or fix a released one', [
+    command('release', 'Release one of your games, fix a released one, or move it back', [
         sub('new', 'Your game is out: paste its Roblox link', [
             option(STRING, 'game', 'Game', required=True, autocomplete=True),
             option(STRING, 'link', 'Roblox game link (a game that was released before keeps its old one if you leave this out)'),
@@ -137,11 +137,7 @@ COMMANDS = [
             option(STRING, 'online', 'Is the game up? Offline shows a grey Offline button instead of Play', choices=ONLINE),
             option(STRING, 'description', 'The short line under the game: change it, or a single - removes it', max_length=140),
         ]),
-    ]),
-    command('unrelease', 'Move a released game back to unreleased', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
-    command('gamelink', "Set a game's link: its Steam page while unreleased, its Roblox link once released", [
-        option(STRING, 'game', 'Game', required=True, autocomplete=True),
-        option(STRING, 'link', 'Link to the original game', required=True),
+        sub('undo', 'Move a released game back to unreleased', [option(STRING, 'game', 'Released game', required=True, autocomplete=True)]),
     ]),
     command('progress', 'Say how far an unreleased game is, whether you are working on it, or that it is in testing', [
         option(STRING, 'game', 'Game', required=True, autocomplete=True),
@@ -149,6 +145,7 @@ COMMANDS = [
         option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
         option(STRING, 'testing', 'Testing phase on or off. Testers can report a game in testing (released games too)', choices=[('On', 'on'), ('Off', 'off')]),
         option(STRING, 'link', 'The Roblox link testers play the test build with (shown as a Play button). A single - removes it'),
+        option(STRING, 'source', 'Link to the original game you are porting, e.g. its Steam page'),
     ]),
     command('giveaway', 'Run a giveaway: prizes per place, role and invite rules, bonus entries (admins and managers)', [
         sub('new', 'Make a giveaway: the prize, how long, how many winners. Everything else is in the preview', [

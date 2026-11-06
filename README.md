@@ -34,7 +34,7 @@ Built with Python (discord.py), SQLite and the Anthropic API (Claude Haiku by de
 | `/pings` | devs | choose whether you are pinged for new bugs and for exploit reports |
 | `/update` | game owner, admins | post an update with the pending bug fixes |
 | `/config set` / `show` | game owner, admins | per game: link, icon, announcement channel, ping role, owner |
-| `/release`, `/unrelease` | game owner, admins | move a game between the Released and Unreleased lists (`/release` takes an optional play link) |
+| `/release` (new, quiet, edit, undo) | game owner, admins | move a game between the Released and Unreleased lists (`/release` takes an optional play link) |
 | `/games` | admins | post the Released / Unreleased games board in this channel. It updates itself |
 | `/strikes`, `/pardon` | devs | see or remove troll strikes |
 | `/botrules` | admins | post the rules and the strike ladder |

@@ -465,7 +465,7 @@ async def unavailable(i, post, custom, claim):
     elif post is not None and post['excluded']:
         msg = 'That game was removed from the board with `/exclude`.'
     elif claim and claim['completed_at']:
-        msg = f"<@{claim['user_id']}> already completed that game. Use `/unrelease` to reopen it."
+        msg = f"<@{claim['user_id']}> already completed that game. Use `/release undo` to reopen it."
     else:
         return False
     await _say(i, msg, ephemeral=True)
@@ -525,7 +525,7 @@ async def held_claim(i, post, completed):
         elif c is None:
             msg = "That game isn't claimed. Pick one from the list as you type."
         else:
-            msg = 'That game is completed. Use `/unrelease` to reopen it.'
+            msg = 'That game is completed. Use `/release undo` to reopen it.'
         await _say(i, msg, ephemeral=True)
         return None
     if c['user_id'] != str(i.user.id) and not is_admin(i.user):

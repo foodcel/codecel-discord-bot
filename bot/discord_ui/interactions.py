@@ -21,7 +21,7 @@ from bot.features.bugs.devboard import board_components, exploit_card, open_bugs
 from bot.discord_ui import devlog
 from bot.core.env import cfg
 from bot.features.bugs.fixlog import log_page, open_log, send_fix_transcript
-from bot.features.games.games import autocomplete_games, command_gamelink, command_progress, command_games, command_release
+from bot.features.games.games import autocomplete_games, command_progress, command_games, command_release
 from bot.features.games.release import command_release_edit, command_release_new
 from bot.features.games.reldraft import text_view
 from bot.core.perms import can_confirm, can_manage, level
@@ -91,8 +91,8 @@ async def autocomplete(i):
             return await i.response.autocomplete([app_commands.Choice(name=n[:100], value=n[:100]) for n in known_games() if q in n.lower()][:25])
     if name in bounty_board_commands.BOARD_NAMES:
         return await bounty_board.autocomplete(i, name, fvalue)
-    if name in ('release', 'unrelease', 'games', 'gamelink', 'progress'):
-        return await autocomplete_games(i, 'release-edit' if (name == 'release' and sub == 'edit') else name, fvalue)
+    if name in ('release', 'games', 'progress'):
+        return await autocomplete_games(i, {'edit': 'release-edit', 'undo': 'unrelease'}.get(sub, name) if name == 'release' else name, fvalue)
     q = str(fvalue).lower()
     if fname == 'board':
         lst = [{'name': c['name'][:100], 'value': c['name'][:100]} for c in get_claims()]
@@ -525,13 +525,11 @@ async def handle_command(i):
     if name == 'release':
         if sub == 'edit':
             return await command_release_edit(i, opts)
+        if sub == 'undo':
+            return await command_release(i, opts, True)
         return await command_release_new(i, opts, quiet=(sub == 'quiet'))
-    if name == 'unrelease':
-        return await command_release(i, opts, True)
     if name == 'progress':
         return await command_progress(i, opts)
-    if name == 'gamelink':
-        return await command_gamelink(i, opts)
     if name == 'games':
         return await command_games(i, sub, opts)
     if name == 'botrules':

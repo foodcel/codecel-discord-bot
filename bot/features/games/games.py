@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from discord import app_commands
 
 from bot.discord_ui.card import notice, card
-from bot.core.links import roblox_any, roblox_game, web_url
+from bot.core.links import roblox_any, web_url
 from bot.core.ai import clean_game_names
 from bot.features.games.bounty import get_claims
 from bot.core.ctx import ctx, fetch_channel
@@ -19,16 +19,14 @@ from bot.discord_ui.ui import E, EM, ZW, cut, lkey
 
 FOOT_UNRELEASED = '\n'.join([
     '/claim · take a game (add its Steam page with link:)',
-    '/progress · set how far it is, if you are working on it, or testing:on',
-    '/gamelink · change a game\'s link',
+    '/progress · how far it is, working on it, testing:on, or source: its original link',
     '/release new · the game is out (paste its Roblox link)',
     '/release quiet · add it without announcing it',
     '/unclaim · drop a game you claimed',
 ])
 FOOT_RELEASED = '\n'.join([
     '/release edit · fix a released game\'s title, link, image or credits',
-    '/gamelink · change a released game\'s Roblox link',
-    '/unrelease · move a game back to unreleased',
+    '/release undo · move a game back to unreleased',
 ])
 NONE = '__none__'  # value of the "nothing here" autocomplete entry
 
@@ -347,34 +345,6 @@ def set_source_link(name, owners, since, link):
         ON CONFLICT(key) DO UPDATE SET source_link=excluded.source_link""", key(name), name, ','.join(owners), since, link)
 
 
-async def command_gamelink(i, opts):
-    """Sets the link shown on a game: the site it is ported from (Steam etc.) while unreleased, its Roblox link once released."""
-    reply = i.response.send_message
-    name = opts.get('game')
-    if name == NONE:
-        return await reply('There are no games yet.', ephemeral=True)
-    k, rel, dev = _find(name)
-    g = dev or rel
-    if not g:
-        return await reply('I do not know that game. Claim it on the bounty-board first.', ephemeral=True)
-    if not owns(i.user, owner_ids(g)):
-        return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
-    link = (opts.get('link') or '').strip()
-    if not http(link):
-        return await reply('The link must start with http:// or https://', ephemeral=True)
-    if rel and not dev:  # a released game links to its Roblox page
-        link = roblox_game(link)
-        if not link:
-            return await reply('A released game links to its Roblox page, like https://www.roblox.com/games/123456/Name', ephemeral=True)
-    await i.response.defer(ephemeral=True, thinking=True)
-    if dev:
-        set_source_link(g['name'], owner_ids(g), g.get('since'), link)
-    else:
-        run('UPDATE game_status SET link=? WHERE key=?', link, k)
-    await refresh_game_board()
-    return await i.edit_original_response(view=notice(f"{E['fixed']} **LINKED**{EM}·{EM}{clean_name(g['name'])} now links to {link}")[0])
-
-
 async def command_progress(i, opts):
     """Says how far an unreleased game is and whether its dev is working on it right now."""
     reply = i.response.send_message
@@ -388,6 +358,11 @@ async def command_progress(i, opts):
     if not owns(i.user, owner_ids(g)):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
     percent, working, testing = opts.get('percent'), opts.get('working'), opts.get('testing')
+    source = (opts.get('source') or '').strip()
+    if source and not http(source):
+        return await reply('The original game link must start with http:// or https://', ephemeral=True)
+    if source and not dev:
+        return await reply('A released game has no original link to set here. Use `/release edit link:` for its Roblox page.', ephemeral=True)
     link = (opts.get('link') or '').strip()
     if link and link != '-':
         link = roblox_any(link)
@@ -397,7 +372,7 @@ async def command_progress(i, opts):
             return await reply('The link is for the testers: add `testing:on` too, so the game goes into testing.', ephemeral=True)
     if rel and not dev and (percent is not None or working is not None):
         return await reply('A released game has no progress bar. Use `testing:on` or `testing:off`.', ephemeral=True)
-    if percent is None and working is None and testing is None and not link:
+    if percent is None and working is None and testing is None and not link and not source:
         return await reply('Give a percent, say whether you are working on it, put it in testing, or add the testers\' link.', ephemeral=True)
     if percent is not None and not 0 <= percent <= 100:
         return await reply('The percent must be between 0 and 100.', ephemeral=True)
@@ -405,6 +380,8 @@ async def command_progress(i, opts):
         working = True  # giving a percent means it is being worked on
     await i.response.defer(ephemeral=True, thinking=True)  # the tag and the boards below take longer than the 3 seconds Discord waits
     reply = i.edit_original_response
+    if source:
+        set_source_link(g['name'], owner_ids(g), g.get('since'), source)
     if percent is not None or working is not None:
         set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
     tag_note = ''

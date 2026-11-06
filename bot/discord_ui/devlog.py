@@ -139,7 +139,7 @@ def describe_interaction(i):
             return None
         sub, opts, _ = get_options(i)
         from bot.features.games.games import clean_name
-        proper = lambda k, v: clean_name(v) if k == 'game' and isinstance(v, str) and name in ('release', 'progress', 'unrelease', 'gamelink') else v  # the proper name, not the bounty-board post title
+        proper = lambda k, v: clean_name(v) if k == 'game' and isinstance(v, str) and name in ('release', 'progress') else v  # the proper name, not the bounty-board post title
         details = '\n'.join(f'**{k}** · {_option(k, proper(k, v))}' for k, v in opts.items() if not isinstance(v, dict))
         title = f'/{name}' + (f' {sub}' if sub else '')
         return title, details, READ_ONLY.get(title)
