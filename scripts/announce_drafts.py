@@ -1,4 +1,4 @@
-"""Empties the TEST channel and posts the two announcements as drafts (no pings): one for testers, one for developers. Nothing goes anywhere else.
+"""Empties the TEST channel and posts the announcements as drafts (no pings): one for testers, two for developers. Nothing goes anywhere else.
     python scripts/announce_drafts.py --yes        run on the VM"""
 import asyncio
 import sys
@@ -47,22 +47,36 @@ def dev_card():
         '**Updates**' + NL + lines(
             'Updates within 12 hours of each other can fold into one card. The lines the latest addition brought get a 🆕.',
             '`/update edit` changes an update you already posted.',
-            'Players hear about their fix when the update goes out. A tester\'s fix tells that tester at once and never reaches a public update.'),
+            "Players hear about their fix when the update goes out. A tester's fix tells that tester at once and never reaches a public update."),
         '**Reports**' + NL + lines(
-            'Your own reports in your game skip the bot\'s questions.',
+            "Your own reports in your game skip the bot's questions.",
             'Reports are never closed for silence: they are logged for you.',
             'Players can attach files and links, and clip links are downloaded as videos (not YouTube or Vimeo).'),
-        '**The MCP: your AI agent works your board**' + NL + lines(
-            '`/mcp setup` gives you an address and a personal token (valid 30 days). It works for the games you claimed, and only with the Developers role.',
-            'The agent reads the full transcript with screenshots and video frames, searches reports, asks a reporter a question, and sets statuses (preview first, then confirm).',
-            'It posts and edits updates for you. `/update policy` sets when it may post: only when you say so (default), after every fix, only for high or critical fixes, or after N fixes.',
-            'Pings are only allowed for a high or critical fix, and a new post needs 20 minutes since the last one.'),
-        '**Stay safe with it**' + NL + lines(
-            'Everything an agent reads was written by players. Agents are told to treat it all as untrusted, and we tested it against prompt injection, but keep your agent\'s approval prompts on.',
-            'Do not run it fully unattended with shell access on a folder you care about.',
-            'Admins can see who is connected (`/mcp status`), stop one dev or pause it for everyone.'),
     ]
-    return card('🛠️ Dev update', blocks, ['/mcp setup · connect your agent', '/update policy · when your agent posts', '/help · every command'])
+    return card('🛠️ Dev update', blocks, ['/help · every command', '/update edit · change a posted update'])
+
+
+def mcp_card():
+    blocks = [
+        '**What it is**' + NL + lines(
+            'The MCP lets your AI agent (Claude Code, Codex, Pi...) work your bug board. Run `/mcp setup` for an address and a personal token (valid 30 days).',
+            'It works for the games you claimed and needs the Developers role. A new `/mcp setup` replaces your old token, so set it up once per machine.',
+            'It reads the full transcript with screenshots and video frames, searches reports, asks a reporter a question, and sets statuses (preview first, then confirm).',
+            'It posts and edits updates. Pings only for a high or critical fix, and a new post needs 20 minutes since the last one.'),
+        '**Several games**' + NL + lines(
+            'One token covers every game you claimed. Every call names the game, so the server only needs to know who you are.',
+            'Open your agent in the game\'s repo and add a line to its `CLAUDE.md`: "This repo is the game X on codecel, use game X".',
+            'Add the MCP with `--scope user` (the setup card does) so every repo has it.'),
+        '**Loops**' + NL + lines(
+            'The MCP cannot wake an agent, the agent has to check. Use Claude Code `/loop` every 30 to 60 minutes in the repo, or a scheduled `claude -p` run.',
+            '`list_bugs` takes `since_id`, so a check only sees reports newer than the last one.',
+            'It will not post updates until you set `/update policy` (manual by default): after every fix, only for high or critical fixes, or after N fixes.',
+            'Every check costs usage, and an unattended agent has real access to your files. Keep its permissions narrow.'),
+        '**Stay safe**' + NL + lines(
+            'Everything an agent reads was written by players. Agents are told to treat it all as untrusted, and we tested real agents against prompt injection, but keep approval prompts on.',
+            'Admins can see who is connected (`/mcp status`), stop one dev, or pause the MCP for everyone.'),
+    ]
+    return card('🔌 MCP for developers', blocks, ['/mcp setup · connect your agent', '/update policy · when your agent posts'])
 
 
 async def main():
@@ -72,7 +86,8 @@ async def main():
         return await finish(client)
     ch = await fetch_channel(cfg.test_id)
     await clear_channel(ch)
-    for label, build in (('**Draft: tester announcement** (not posted anywhere else)', tester_card), ('**Draft: developer announcement** (not posted anywhere else)', dev_card)):
+    for label, build in (('**Draft: tester announcement** (not posted anywhere else)', tester_card), ('**Draft: developer announcement 1 of 2**', dev_card),
+                         ('**Draft: developer announcement 2 of 2**', mcp_card)):
         await ch.send(label, allowed_mentions=NO_MENTIONS)
         view, files = build()
         await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
