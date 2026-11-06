@@ -1,6 +1,9 @@
-"""Empties the TEST channel and posts the announcements as drafts (no pings): one for testers, two for developers. Nothing goes anywhere else.
-    python scripts/announce_drafts.py --yes        run on the VM"""
+"""Empties the TEST channel and posts the announcements as drafts (no pings): one for testers, two for developers, in the developer look (docs/DESIGN.md:
+trees, branch lines under 56 characters). Nothing goes anywhere else.
+    python scripts/announce_drafts.py --yes        run on the VM
+    python scripts/announce_drafts.py --check      only prints branch lines that are too long"""
 import asyncio
+import re
 import sys
 
 from _boot import boot, finish
@@ -9,87 +12,81 @@ from bot.core.ctx import fetch_channel
 from bot.core.env import cfg
 from bot.discord_ui.card import card
 from bot.discord_ui.components import NO_MENTIONS
+from bot.features.updates.botnews import tree
 from bot.features.updates.previews import clear_channel
 
 NL = chr(10)
-B = '•' + chr(0x2003)
+MAX = 56
+
+TESTER = [
+    ('Reporting', [('/bug', 'up to 10 files and a links box'), ('Replies', 'add as many files and links as you like'),
+                   ('Clips', 'Streamable, Medal, X, Imgur become videos'), ('YouTube, Vimeo', 'do not download: upload the file'),
+                   ('Too big?', 'post a link')]),
+    ('Fixes', [('Fixed', 'you are told in your post at once'), ('Silence', 'a report is never closed for it'),
+               ('Updates', 'tester reports stay out of public ones')]),
+    ('Around you', [('Board', 'pick games to test, Play test button'), ('/tester profile', 'your devices and free times'),
+                    ('Roster', 'no longer pings anyone'), ('/tester find', 'gone, the board replaces it')]),
+]
+
+DEV = [
+    ('Commands', [('/claim', 'new, edit, drop'), ('/release', 'new, quiet, edit, undo'), ('/update', 'new, edit, policy'),
+                  ('/suggest', 'replaces /improvement and !improve'), ('Removed', '/config, /gamelink, /unrelease, /unclaim'),
+                  ('Removed', '/tester find, typing 12 fixed in a board'), ('Status', 'use the buttons on the bug page')]),
+    ('Updates', [('Merging', 'updates within 12h fold into one card'), ('🆕', 'marks what the latest addition brought'),
+                 ('/update edit', 'change a posted update'), ('Players', 'hear of their fix when it posts'),
+                 ('Testers', 'told at once, never in public updates')]),
+    ('Reports', [('Your own', "skip the bot's questions"), ('Silence', 'logged for you, never closed'),
+                 ('Clips', 'links become videos, not YouTube/Vimeo')]),
+]
+
+MCP = [
+    ('Connect', [('/mcp setup', 'address and token, valid 30 days'), ('Who', 'devs, for the games they claimed'),
+                 ('New setup', 'replaces your old token'), ('Scope', 'add with --scope user: every repo')]),
+    ('It can', [('Read', 'transcript, screenshots, video frames'), ('Search', 'related and duplicate reports'),
+                ('Ask', 'a question to the reporter'), ('Status', 'preview first, then confirm'),
+                ('Updates', 'post and edit, per /update policy')]),
+    ('Several games', [('Token', 'one covers every game you claimed'), ('Repo', "open the agent in the game's repo"),
+                       ('CLAUDE.md', '"This repo is game X on codecel"')]),
+    ('Loops', [('Wake-up', "the MCP can't, the agent must check"), ('How', 'Claude Code /loop, or a scheduled claude -p'),
+               ('since_id', 'a check sees only newer reports'), ('Updates', 'none until /update policy is set'),
+               ('Cost', 'every check uses usage: narrow access')]),
+    ('Safety', [('Untrusted', 'player text is data, agents know it'), ('Approvals', 'keep them on, no unattended shell'),
+                ('Pings', 'only for high or critical fixes'), ('Admins', '/mcp status, kick, pause')]),
+]
 
 
-def lines(*items):
-    return NL.join(B + x for x in items)
+def visible(line):
+    return len(re.sub(r'[*`]', '', line))
 
 
-def tester_card():
-    blocks = [
-        '**Reporting is easier**' + NL + lines(
-            '`/bug` takes up to 10 files and a links box. After that, reply in your post with as many files and links as you like.',
-            'Clip links from Streamable, Medal, X and Imgur are downloaded and attached as real videos, so the developer always has the file.',
-            'YouTube and Vimeo links do **not** download (YouTube blocks the bot, Vimeo wants a login). Upload the video instead.',
-            'A file too big for the server limit: post a link.'),
-        '**When your bug is fixed**' + NL + lines(
-            'You are told in your post the moment the developer marks it fixed. Tester reports never go into a public update.',
-            'A report that is missing details is never closed for silence: the developer still gets it.'),
-        '**What changed around you**' + NL + lines(
-            'The tester board lists the games in testing. Pick the ones you test, and use the Play test button to join.',
-            '`/tester profile` is where you fill in your devices and when you are free. The roster no longer pings anyone.',
-            '`/tester find` is gone: the board replaces it.'),
-    ]
-    return card('🧪 Tester update', blocks, ['/bug · report a bug', '/tester profile · your details'])
+def too_long(groups):
+    return [f'{name} · {text}' for _, rows in groups for name, text in rows if visible(f'├─ {name} · {text}') > MAX]
 
 
-def dev_card():
-    blocks = [
-        '**Simpler commands**' + NL + lines(
-            '`/claim` has `new`, `edit` and `drop`. `/release` has `undo`. `/update` has `new`, `edit` and `policy`.',
-            '`/suggest` replaces `/improvement`, and `!suggest` replaces `!improve`.',
-            'Gone: `/config`, `/gamelink`, `/unrelease`, `/unclaim`, `/tester find`, and typing `12 fixed` in a board. Use the status buttons on the bug page.',
-            '`/help` shows every command with its subcommands.'),
-        '**Updates**' + NL + lines(
-            'Updates within 12 hours of each other can fold into one card. The lines the latest addition brought get a 🆕.',
-            '`/update edit` changes an update you already posted.',
-            "Players hear about their fix when the update goes out. A tester's fix tells that tester at once and never reaches a public update."),
-        '**Reports**' + NL + lines(
-            "Your own reports in your game skip the bot's questions.",
-            'Reports are never closed for silence: they are logged for you.',
-            'Players can attach files and links, and clip links are downloaded as videos (not YouTube or Vimeo).'),
-    ]
-    return card('🛠️ Dev update', blocks, ['/help · every command', '/update edit · change a posted update'])
+def build(title, groups, footer):
+    blocks = [f'**{head}**{NL}{tree(*rows)}' for head, rows in groups]
+    return card(title, [NL.join(blocks[:1])] + blocks[1:], footer)
 
 
-def mcp_card():
-    blocks = [
-        '**What it is**' + NL + lines(
-            'The MCP lets your AI agent (Claude Code, Codex, Pi...) work your bug board. Run `/mcp setup` for an address and a personal token (valid 30 days).',
-            'It works for the games you claimed and needs the Developers role. A new `/mcp setup` replaces your old token, so set it up once per machine.',
-            'It reads the full transcript with screenshots and video frames, searches reports, asks a reporter a question, and sets statuses (preview first, then confirm).',
-            'It posts and edits updates. Pings only for a high or critical fix, and a new post needs 20 minutes since the last one.'),
-        '**Several games**' + NL + lines(
-            'One token covers every game you claimed. Every call names the game, so the server only needs to know who you are.',
-            'Open your agent in the game\'s repo and add a line to its `CLAUDE.md`: "This repo is the game X on codecel, use game X".',
-            'Add the MCP with `--scope user` (the setup card does) so every repo has it.'),
-        '**Loops**' + NL + lines(
-            'The MCP cannot wake an agent, the agent has to check. Use Claude Code `/loop` every 30 to 60 minutes in the repo, or a scheduled `claude -p` run.',
-            '`list_bugs` takes `since_id`, so a check only sees reports newer than the last one.',
-            'It will not post updates until you set `/update policy` (manual by default): after every fix, only for high or critical fixes, or after N fixes.',
-            'Every check costs usage, and an unattended agent has real access to your files. Keep its permissions narrow.'),
-        '**Stay safe**' + NL + lines(
-            'Everything an agent reads was written by players. Agents are told to treat it all as untrusted, and we tested real agents against prompt injection, but keep approval prompts on.',
-            'Admins can see who is connected (`/mcp status`), stop one dev, or pause the MCP for everyone.'),
-    ]
-    return card('🔌 MCP for developers', blocks, ['/mcp setup · connect your agent', '/update policy · when your agent posts'])
+def cards():
+    return (('tester announcement', build('🧪 Tester update', TESTER, ['/bug · report a bug', '/tester profile · your details']), TESTER),
+            ('developer announcement 1 of 2', build('🛠️ Dev update', DEV, ['/help · every command', '/update edit · change a posted update']), DEV),
+            ('developer announcement 2 of 2', build('🔌 MCP for developers', MCP, ['/mcp setup · connect your agent', '/update policy · when your agent posts']), MCP))
 
 
 async def main():
+    if '--check' in sys.argv:
+        for label, _, groups in cards():
+            print(label, too_long(groups) or 'ok')
+        return
     client = await boot(claims=False)
     if '--yes' not in sys.argv:
         print('Not posting. Pass --yes.')
         return await finish(client)
     ch = await fetch_channel(cfg.test_id)
     await clear_channel(ch)
-    for label, build in (('**Draft: tester announcement** (not posted anywhere else)', tester_card), ('**Draft: developer announcement 1 of 2**', dev_card),
-                         ('**Draft: developer announcement 2 of 2**', mcp_card)):
-        await ch.send(label, allowed_mentions=NO_MENTIONS)
-        view, files = build()
+    for label, (view, files), _ in cards():
+        await ch.send(f'**Draft: {label}** (not posted anywhere else)', allowed_mentions=NO_MENTIONS)
         await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
     print('posted')
     await finish(client)
