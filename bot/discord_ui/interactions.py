@@ -431,9 +431,9 @@ async def handle_command(i):
         if sub == 'edit':
             from bot.features.updates.editcmd import command_edit
             return await command_edit(i, opts)
-        if sub == 'policy':
-            from bot.features.updates.editcmd import command_policy
-            return await command_policy(i, opts)
+        if sub == 'settings':
+            from bot.features.updates.editcmd import command_settings
+            return await command_settings(i, opts)
         return await command_update(i, opts)
     if name in ('strikes', 'pardon') and level(i.user) != 'admin':
         return await deny(i, 'Only admins can see or remove strikes.')

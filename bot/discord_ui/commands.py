@@ -87,14 +87,16 @@ PREVIEW_CHOICES = [
 ]
 
 COMMANDS = [
-    command('update', 'Post a game update, change a posted one, or set when your AI agent posts', [
+    command('update', 'Post a game update, change a posted one, or change how updates work', [
         sub('new', 'Draft and post an update with the bug fixes that are waiting', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
         sub('edit', 'Change an update that was already posted', [option(STRING, 'update', 'Which update', required=True, autocomplete=True)]),
-        sub('policy', 'When your AI agent may post updates for a game', [
+        sub('settings', 'How updates work for a game: when your agent posts, merging, pings', [
             option(STRING, 'game', 'Game', required=True, autocomplete=True),
-            option(STRING, 'mode', 'When', required=True, choices=[('Only when I say so (manual)', 'manual'), ('After every fixed report', 'every'),
-                                                                    ('When a high or critical fix is waiting', 'critical'), ('After a number of fixes', 'count')]),
+            option(STRING, 'mode', 'When your AI agent may post updates', choices=[('Only when I say so (manual)', 'manual'), ('After every fixed report', 'every'),
+                                                                                   ('When a high or critical fix is waiting', 'critical'), ('After a number of fixes', 'count')]),
             option(INTEGER, 'count', 'For "after a number of fixes": how many', min_value=1, max_value=50),
+            option(INTEGER, 'merge', 'Fold updates posted this many hours apart into one card (0 = off, the default)', min_value=0, max_value=72),
+            option(STRING, 'ping', 'May your AI agent ping when it posts? (off by default)', choices=[('On', 'on'), ('Off', 'off')]),
         ]),
     ]),
     _bug_command(),

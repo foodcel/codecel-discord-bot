@@ -104,7 +104,6 @@ def draft_view(id_, p=None):
     return [ui.ActionRow(*r) for r in rows]
 
 
-MERGE_HOURS = 12  # updates of a game this close together become one embed
 FRESH = '🆕 '  # in front of the lines the latest addition brought, so a reader sees what changed in a card that grew
 
 
@@ -112,10 +111,18 @@ def mark(lines, fresh):
     return [FRESH + line if line in fresh else line for line in lines]
 
 
+def merge_hours(tag_id):
+    """The game's merge window in hours; 0 = off (the default): every update is a new card."""
+    return int((get_game(tag_id) or {}).get('merge_hours') or 0)
+
+
 def recent_announcement(tag_id):
     """The last announcement of the game, if it is young enough to add to (and its message is known)."""
+    hours = merge_hours(tag_id)
+    if not hours:
+        return None
     row = one('SELECT * FROM announcements WHERE tag_id=? ORDER BY id DESC LIMIT 1', tag_id)
-    if row and row.get('message_id') and row.get('payload') and now() - row['posted_at'] < MERGE_HOURS * 3600000:
+    if row and row.get('message_id') and row.get('payload') and now() - max(row['posted_at'], row.get('merged_at') or 0) < hours * 3600000:
         return row
     return None
 
@@ -397,6 +404,7 @@ async def _merge_announcement(pending_id):
         update_bug(i, {'announced': 1})
     from bot.features.bugs.fixes import tell_released
     asyncio.ensure_future(tell_released(b_ids, msg.jump_url))
+    run('UPDATE announcements SET merged_at=? WHERE id=?', now(), row['id'])  # the merged card is the latest one again: the window starts over
     run('UPDATE announcements SET bug_ids=?, payload=? WHERE id=?',
         json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'changes': changes, 'new': new, 'version': version, 'ping_role': old.get('ping_role'), 'poster': old.get('poster'), 'fresh': fresh}), row['id'])
     schedule_boards()

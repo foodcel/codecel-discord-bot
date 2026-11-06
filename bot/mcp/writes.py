@@ -11,7 +11,7 @@ from bot.mcp import reports
 
 MODES = ('manual', 'every', 'critical', 'count')
 SET_STATUS = (st.NEW, st.INVESTIGATING, st.FIXING, st.FIXED, st.NOT_A_BUG, st.DUPLICATE, st.DECLINED)
-BIG = ('high', 'critical')  # only a fix of this severity may ping
+BIG = ('high', 'critical')  # what the critical mode waits for
 STATUS_PER_HOUR, POSTS_GAP_MIN = 40, 20
 _confirms = {}  # user id -> {'code', 'ids', 'status', 'until'}
 _changes = defaultdict(deque)
@@ -105,20 +105,45 @@ def policy(tag_id):
     return (g.get('mcp_mode') if g.get('mcp_mode') in MODES else 'manual'), int(g.get('mcp_count') or 5)
 
 
-def set_policy(allowed, game, mode, count=None):
+def merge_hours(tag_id):
+    return announce.merge_hours(tag_id)
+
+
+def agent_may_ping(tag_id):
+    return bool((get_game(tag_id) or {}).get('agent_ping'))
+
+
+def settings_text(tag_id, name):
+    mode, n = policy(tag_id)
+    hours = merge_hours(tag_id)
+    return (f"{name}: your agent posts {'only when you say so' if mode == 'manual' else 'after every fix' if mode == 'every' else 'when a high or critical fix is waiting' if mode == 'critical' else f'after {n} fixes'}"
+            f" ({mode}). Merging: {f'updates within {hours} hours fold into one card' if hours else 'off, every update is a new card'}. "
+            f"Pings: {'the agent may ping' if agent_may_ping(tag_id) else 'the agent may not ping'}.")
+
+
+def set_settings(allowed, game, mode=None, count=None, merge=None, ping=None):
+    """The update settings of a game. Anything left out stays as it is; with nothing given it only shows the current settings."""
     hit = reports.find_game(allowed, game)
     if not hit:
         return f'No game of yours matches "{game}".'
-    mode = (mode or '').lower()
-    if mode not in MODES:
-        return (f"Mode must be one of: {', '.join(MODES)}. manual = only post when your dev tells you; every = after each fixed report; "
-                'critical = when a high or critical fix is waiting; count = after `count` fixes.')
-    patch = {'mcp_mode': mode}
+    patch = {}
+    if mode:
+        mode = mode.lower()
+        if mode not in MODES:
+            return (f"Mode must be one of: {', '.join(MODES)}. manual = only post when your dev tells you; every = after each fixed report; "
+                    'critical = when a high or critical fix is waiting; count = after `count` fixes.')
+        patch['mcp_mode'] = mode
     if count:
         patch['mcp_count'] = max(1, min(int(count), 50))
-    upsert_game(hit[0], hit[1], patch)
-    m, n = policy(hit[0])
-    return f'{hit[1]}: update policy is now {m}' + (f' ({n} fixes)' if m == 'count' else '') + '.'
+    if merge is not None and int(merge) >= 0:
+        patch['merge_hours'] = min(int(merge), 72)
+    if ping:
+        if ping.lower() not in ('on', 'off'):
+            return 'ping must be on or off.'
+        patch['agent_ping'] = 1 if ping.lower() == 'on' else 0
+    if patch:
+        upsert_game(hit[0], hit[1], patch)
+    return settings_text(hit[0], hit[1])
 
 
 def due_text(allowed, game):
@@ -137,7 +162,7 @@ def due_text(allowed, game):
     for b in w:
         out.append(f"- id {b['id']} [{b['kind']}, severity {b.get('severity') or '?'}] {b['title'] or '(no title)'}")
     if last:
-        out.append(f"Last update: id {last['id']}, {announce._ago(last['posted_at'])}." + (' It can still be merged into (under 12 hours old).' if announce.recent_announcement(str(tag_id)) else ''))
+        out.append(f"Last update: id {last['id']}, {announce._ago(last['posted_at'])}." + (' It can still be merged into.' if announce.recent_announcement(str(tag_id)) else ''))
     return '\n'.join(out)
 
 
@@ -165,8 +190,8 @@ async def post_update(member, allowed, game, fixes=None, changes=None, whats_new
     ping = (ping or 'none').lower()
     if ping not in ('none', 'role'):
         return 'ping must be none or role.'
-    if ping == 'role' and not any(b.get('severity') in BIG for b in bugs):
-        return 'Pings are only for big fixes: include at least one high or critical report in bug_ids, or use ping="none".'
+    if ping == 'role' and not agent_may_ping(tag_id):
+        return 'Your dev has not allowed pings for this game (update settings, ping on). Post without a ping, or ask them.'
     recent = announce.recent_announcement(str(tag_id))
     last = one('SELECT posted_at FROM announcements WHERE tag_id=? ORDER BY id DESC LIMIT 1', str(tag_id))
     use_merge = bool(merge and recent and ping == 'none')
