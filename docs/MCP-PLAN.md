@@ -4,6 +4,13 @@ Status: M1 built and live (read-only tools, tokens, /mcp setup). Hosted with Tai
 Decided (2026-11-05): hosting through a **Cloudflare Tunnel** (`cloudflared` on the bot's VM, outbound only, no open port); the audit **only suggests**;
 updates through the MCP: **game owners and admins**, same as `/update`, pings limited to none / the game's role / @Updates.
 
+## Decisions from the owner (2026-11-06)
+- **Developers only. Admins can never connect** (an admin's agent must not "fix" other people's games). Only games the dev has claimed; unclaimed games are nobody's.
+- **Full transcript, not a summary:** agents get the real Discord conversation, screenshots and video frames (videos as 30-minute links). The Haiku summary is only an extra. **No Sonnet audit.**
+- **Logging:** only that /mcp was used and whether it is connected. Never tool calls, never tokens.
+- **Updates from the session:** post and edit updates (pings allowed), plus a new `/update edit`.
+- Built: M1 + media + transcript + search. Not built: status changes, update tools, /update edit, admin status command, token expiry.
+
 ## What it is
 A small server that runs inside the bot. A dev adds it to their AI agent (Claude Code, Codex, Pi, anything that speaks MCP) with one URL and a personal token.
 From then on the agent can:
