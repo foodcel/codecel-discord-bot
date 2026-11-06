@@ -160,7 +160,8 @@ def testers_text(member, allowed, game):
     if not hit:
         return f'No game of yours matches "{game}".'
     roster = {r['user_id']: r for r in testers.everyone()}
-    volunteers = testers.testers_of(game_key(hit[1]))
+    from bot.features.testers.testerboard import testers_of
+    volunteers = testers_of(game_key(hit[1]))
 
     def line(uid):
         r = roster.get(uid) or {}
