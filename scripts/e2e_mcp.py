@@ -31,6 +31,7 @@ async def main():
     owner = ctx.guild.get_member(int(ctx.guild.owner_id))
     ch = await fetch_channel(cfg.test_id)
     made = []
+    threads = []
     ok = True
 
     def check(name, cond, detail=''):
@@ -43,6 +44,7 @@ async def main():
         starter = await ch.send('MCP end-to-end test (this is removed again)')
         made.append(starter)
         thread = await starter.create_thread(name='E2E MCP test report')
+        threads.append(thread)
         row = run("INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,summary,severity,status,routed,created_at,kind,body) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                   str(thread.id), str(owner.id), TAG, NAME, 'E2E test report', 'A made-up report for the MCP test.', 'low', 'new', 1, now(), 'bug', 'The car falls through the road when I drive fast.')
         bug_id = row.lastrowid
@@ -89,9 +91,14 @@ async def main():
                 await m.delete()
             except Exception:
                 pass
+        for t in threads:
+            try:
+                await t.delete()  # a thread outlives its starter message, so it is deleted itself
+            except Exception:
+                pass
         for m in made:
             try:
-                await m.delete()  # the starter message; deleting it removes its thread too
+                await m.delete()
             except Exception:
                 pass
         ids = [b['id'] for b in all_('SELECT id FROM bugs WHERE game_tag_id=?', TAG)]
