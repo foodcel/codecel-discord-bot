@@ -19,10 +19,10 @@ PAGES = {
         ('🎮', 'Games board', ['assign', 'exclude', 'include', 'bounty-board', 'games']),
         ('🧪', 'Testers', ['tester add', 'tester remove', 'tester status', 'tester edit', 'tester post']),
         ('🔎', 'Invites', ['invites check']),
-        ('🎁', 'Giveaways', ['giveaway new', 'giveaway end', 'giveaway reroll', 'giveaway stats', 'giveaway cancel', 'giveaway list']),
+        ('🎁', 'Giveaways', ['giveaway+']),
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
-        ('🎮', 'Your games', ['claim new', 'claim drop', 'release new', 'release quiet', 'release edit', 'release undo', 'progress']),
+        ('🎮', 'Your games', ['claim+', 'release+', 'progress']),
         ('📣', 'Updates and settings', ['update', 'config', 'pings']),
         ('⌨️', 'Typed in your board', [
             ('12 fixed', 'mark a bug fixed, investigating, duplicate…'),
@@ -42,6 +42,7 @@ HUNTING = ('🔍', 'Bug hunting', [('!bug', 'reply to a message to post it in th
                                   ('!suggest', 'the same for an idea in the improvements forum')])
 
 SHORT = {
+    'claim': 'take a game, or drop one', 'release': 'your game is out, or fix it', 'giveaway': 'run a giveaway',
     'assign': 'give a game to a dev, even if someone holds it', 'exclude': 'take a post off the bounty board', 'include': 'put an excluded post back',
     'bounty-board': 'set up the bounty board in a channel', 'games': 'post or refresh the games board',
     'tester add': 'add a tester to the roster', 'tester remove': 'take a tester off the roster', 'tester status': 'active, waiting, private or on a break',
@@ -84,12 +85,29 @@ def roles_of(member):
     return [r for r in ORDER if have[r]]
 
 
+def _subs(name):
+    """The sub-commands of a command, from its definition."""
+    for c in COMMANDS + BOARD_COMMANDS:
+        if c['name'] == name:
+            return [o['name'] for o in c.get('options') or [] if o.get('type') == 1]
+    return []
+
+
 def _tree(entries, desc):
+    """One branch per command. An entry like 'claim+' is a command with its sub-commands as a smaller branch under it."""
     lines = []
     for n, item in enumerate(entries):
+        branch, stem = ('└─', EM * 2) if n == len(entries) - 1 else ('├─', '│' + EM)
+        many = isinstance(item, str) and item.endswith('+')
+        item = item[:-1] if many else item
         text, what = item if isinstance(item, tuple) else (f'/{item}', SHORT.get(item) or _clean(desc.get(item, '')))
-        lines.append(f"{'└─' if n == len(entries) - 1 else '├─'} **{text}**{EM}·{EM}{what}" if what else f'{"└─" if n == len(entries) - 1 else "├─"} **{text}**')
-    return '\n'.join(lines)
+        lines.append(f"{branch} **{text}**{EM}·{EM}{what}" if what else f'{branch} **{text}**')
+        if many:
+            subs = _subs(item)
+            for k, sname in enumerate(subs):
+                what = SHORT.get(f'{item} {sname}') or _clean(desc.get(f'{item} {sname}', ''))
+                lines.append(f"{stem}{'└─' if k == len(subs) - 1 else '├─'} **{sname}**{EM}·{EM}{what}")
+    return chr(10).join(lines)
 
 
 def page_card(role, n, total, member):

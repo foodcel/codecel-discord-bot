@@ -171,7 +171,7 @@ class AccessMatchesHelp(unittest.TestCase):
                 for e in entries:
                     if not isinstance(e, str):
                         continue
-                    base = e.split()[0]
+                    base = e.rstrip('+').split()[0]
                     need = access.who(base)
                     if page == 'admin':
                         self.assertIn(need, (access.ADMIN, access.GIVEAWAY, access.EVERYONE), e)
