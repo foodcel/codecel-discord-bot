@@ -67,6 +67,7 @@ async def main():
         check('set_status previews without changing', 'Nothing changed yet' in s1 and all_('SELECT status FROM bugs WHERE id=?', bug_id)[0]['status'] == 'new', s1)
         check('set_status refuses a wrong code', 'does not match' in await writes.set_status(owner, allowed, [bug_id], 'fixed', 'nope'))
 
+        check('add_note adds a developer note', writes.add_note(allowed, bug_id, 'Looks like a collision problem') == 'Note added.' and 'collision' in (all_('SELECT note FROM bugs WHERE id=?', bug_id)[0]['note'] or ''))
         check('settings default: manual, no merging, no pings', all(w in writes.set_settings(allowed, 'MCP') for w in ('only when you say so', 'Merging: off', 'may not ping')))
         check('settings can change', 'every' in writes.set_settings(allowed, 'MCP', mode='every'))
 

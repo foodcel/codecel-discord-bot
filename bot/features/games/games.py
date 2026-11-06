@@ -346,36 +346,31 @@ def set_source_link(name, owners, since, link):
         ON CONFLICT(key) DO UPDATE SET source_link=excluded.source_link""", key(name), name, ','.join(owners), since, link)
 
 
-async def command_progress(i, opts):
-    """Says how far an unreleased game is and whether its dev is working on it right now."""
-    reply = i.response.send_message
-    name = opts.get('game')
+async def apply_progress(member, name, percent=None, working=None, testing=None, link='', ping=True, channel_is_test=False):
+    """Progress, working and testing of a game, for /progress and for the MCP. Returns (ok, text). `ping`: whether a game that goes into testing pings the Tester role."""
     if name == NONE:
-        return await reply('No games are waiting to be released.', ephemeral=True)
+        return False, 'No games are waiting to be released.'
     k, rel, dev = _find(name)
     g = dev or rel
     if not g:
-        return await reply('That game is not in the list. Claim it on the bounty-board first.', ephemeral=True)
-    if not owns(i.user, owner_ids(g)):
-        return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
-    percent, working, testing = opts.get('percent'), opts.get('working'), opts.get('testing')
-    link = (opts.get('link') or '').strip()
+        return False, 'That game is not in the list. Claim it on the bounty-board first.'
+    if not owns(member, owner_ids(g)):
+        return False, 'Only the dev who owns this game, or an admin, can change it.'
+    link = (link or '').strip()
     if link and link != '-':
         link = roblox_any(link)
         if not link:
-            return await reply('That does not look like a Roblox link. Paste the game page, like `https://www.roblox.com/games/123456/Name`.', ephemeral=True)
+            return False, 'That does not look like a Roblox link. Paste the game page, like `https://www.roblox.com/games/123456/Name`.'
         if testing != 'on' and not g.get('testing_at'):
-            return await reply('The link is for the testers: add `testing:on` too, so the game goes into testing.', ephemeral=True)
+            return False, 'The link is for the testers: add `testing:on` too, so the game goes into testing.'
     if rel and not dev and (percent is not None or working is not None):
-        return await reply('A released game has no progress bar. Use `testing:on` or `testing:off`.', ephemeral=True)
+        return False, 'A released game has no progress bar. Use `testing:on` or `testing:off`.'
     if percent is None and working is None and testing is None and not link:
-        return await reply('Give a percent, say whether you are working on it, put it in testing, or add the testers\' link.', ephemeral=True)
+        return False, "Give a percent, say whether you are working on it, put it in testing, or add the testers' link."
     if percent is not None and not 0 <= percent <= 100:
-        return await reply('The percent must be between 0 and 100.', ephemeral=True)
+        return False, 'The percent must be between 0 and 100.'
     if working is None and percent is not None and g.get('working') is None:
         working = True  # giving a percent means it is being worked on
-    await i.response.defer(ephemeral=True, thinking=True)  # the tag and the boards below take longer than the 3 seconds Discord waits
-    reply = i.edit_original_response
     if percent is not None or working is not None:
         set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
     tag_note = ''
@@ -387,12 +382,11 @@ async def command_progress(i, opts):
         run('UPDATE game_status SET testing_at=? WHERE key=?', now() if on else None, key(g['name']))
         if on:
             tag_note = await _tester_tag_note(clean_name(g['name']))
-            if not was_testing:  # newly in testing: a card that pings the Tester role, for a day
+            if not was_testing:  # newly in testing: a card for the testers, for a day (it pings the Tester role only when `ping`)
                 try:
-                    from bot.core.env import cfg
                     from bot.features.testers.testerboard import post_card
-                    await post_card({'key': key(g['name']), 'name': g.get('title') or clean_name(g['name']), 'owners': owner_ids(g)}, ping=str(i.channel_id) != str(cfg.test_id))
-                    tag_note += '\n🙋 Testers were pinged in the future-games channel.'
+                    await post_card({'key': key(g['name']), 'name': g.get('title') or clean_name(g['name']), 'owners': owner_ids(g)}, ping=ping and not channel_is_test)
+                    tag_note += '\n🙋 Testers were pinged in the future-games channel.' if ping and not channel_is_test else '\n🙋 The testers card is up in the future-games channel (no ping).'
                 except Exception as e:
                     print('tester card', repr(e))
         else:
@@ -409,9 +403,20 @@ async def command_progress(i, opts):
     await refresh_game_board()
     shown = clean_name(g['name'])
     if rel and not dev:
-        return await reply(view=notice(f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {'🧪 testing' if testing == 'on' else 'not in testing'}{tag_note}")[0])
+        return True, f"{shown} {'🧪 testing' if testing == 'on' else 'not in testing'}{tag_note}"
     now_ = [x for x in game_lists()['unreleased'] if x['key'] == k][0]
-    return await reply(view=notice(f"{E['fixed']} **PROGRESS**{EM}·{EM}{shown} {progress_cell(now_)}{tag_note}")[0])
+    return True, f"{shown} {progress_cell(now_)}{tag_note}"
+
+
+async def command_progress(i, opts):
+    """Says how far an unreleased game is and whether its dev is working on it right now."""
+    from bot.core.env import cfg
+    await i.response.defer(ephemeral=True, thinking=True)  # the tag and the boards take longer than the 3 seconds Discord waits
+    ok, text = await apply_progress(i.user, opts.get('game'), opts.get('percent'), opts.get('working'), opts.get('testing'), opts.get('link'),
+                                    ping=True, channel_is_test=str(i.channel_id) == str(cfg.test_id))
+    if not ok:
+        return await i.edit_original_response(content=text)
+    return await i.edit_original_response(view=notice(f"{E['fixed']} **PROGRESS**{EM}·{EM}{text}")[0])
 
 
 async def _tester_tag_note(name):
