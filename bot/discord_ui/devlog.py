@@ -25,6 +25,9 @@ _REFUSED = re.compile(r"^(Only |You do not|You cannot|You can't|Pick |Give |The 
                       r"Unknown|Nothing|There's no|No games|Someone|Skipped|This (draft|command)|The \w+ must)", re.I)
 
 
+SECRET = re.compile(r'cdl_[A-Za-z0-9_-]{8,}|Bearer\s+\S+', re.I)  # MCP tokens and auth headers never go into a log entry
+
+
 def _note(text, view=None):
     """Keeps a reply for the log entry: its text, or the text of the card it sent."""
     c = _capture.get()
@@ -33,7 +36,7 @@ def _note(text, view=None):
     if not (isinstance(text, str) and text) and view is not None and hasattr(view, 'walk_children'):
         text = ' · '.join(x.content for x in view.walk_children() if isinstance(x, discord.ui.TextDisplay))[:500]
     if isinstance(text, str) and text:
-        c.append(text)
+        c.append(SECRET.sub('[hidden]', text))
 
 
 def install():
@@ -77,6 +80,8 @@ READ_ONLY = {
     '/strikes': 'Looked up only: nothing changed',
     '/preview': 'Posted previews in the test channel: nothing live changed',
     '/botrules': 'Posted the rules message',
+    '/mcp setup': 'Made a token (it is never shown here)',
+    '/mcp status': 'Looked up only: nothing changed',
 }
 
 
