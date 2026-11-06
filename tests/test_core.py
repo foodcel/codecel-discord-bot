@@ -171,7 +171,7 @@ class AccessMatchesHelp(unittest.TestCase):
                 for e in entries:
                     if not isinstance(e, str):
                         continue
-                    base = e.rstrip('+').split()[0]
+                    base = e.split('+')[0].split()[0]
                     if base == 'mcp' and page == 'admin':
                         continue  # /mcp is a dev command; its status, kick, pause and resume parts check for an admin themselves
                     need = access.who(base)
