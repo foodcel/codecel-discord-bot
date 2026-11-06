@@ -17,20 +17,20 @@ from bot.discord_ui.ui import EM
 PAGES = {
     'admin': ('🔑', 'Admin', 'Only admins can use these. You can use every other page too.', [
         ('🎮', 'Games board', ['assign', 'exclude', 'include', 'bounty-board', 'games']),
-        ('🧪', 'Testers', ['tester add', 'tester remove', 'tester status', 'tester edit', 'tester post']),
-        ('🔎', 'Invites', ['invites check']),
+        ('🧪', 'Testers', ['tester+add,remove,status,edit,post']),
+        ('🔎', 'Invites', ['invites+check']),
         ('🎁', 'Giveaways', ['giveaway+']),
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
-        ('🔌', 'MCP', ['mcp status', 'mcp kick', 'mcp allow', 'mcp pause', 'mcp resume'])]),
+        ('🔌', 'MCP', ['mcp+status,kick,allow,pause,resume'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
         ('🎮', 'Your games', ['claim+', 'release+', 'progress', 'update+']),
-        ('⚙️', 'Settings', ['pings', 'mcp+'])]),
+        ('⚙️', 'Settings', ['pings', 'mcp+setup,revoke'])]),
     'tester': ('🧪', 'Tester', 'For testers.', [
-        ('🧪', 'Testing', ['tester profile',
+        ('🧪', 'Testing', ['tester+profile',
                           ('/bug', 'in the testing channel: report a bug as a thread')])]),
     'everyone': ('🌍', 'Everyone', 'For everyone, in the bug and improvement forums.', [
         ('🐛', 'Reporting', ['bug', 'suggest']),
-        ('📨', 'Invites', ['invites link', 'invites stats', 'invites top']),
+        ('📨', 'Invites', ['invites+link,stats,top']),
         ('❓', 'Help', ['help'])]),
 }
 ORDER = ['admin', 'dev', 'tester', 'everyone']
@@ -39,6 +39,7 @@ HUNTING = ('🔍', 'Bug hunting', [('!bug', 'reply to a message to post it in th
                                   ('!suggest', 'the same for an idea in the improvements forum')])
 
 SHORT = {
+    'tester': 'the tester roster', 'invites': 'invite stats and the leaderboard',
     'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token', 'mcp status': 'who uses it and who is connected', 'mcp kick': 'stop a developer until you allow them again', 'mcp allow': 'let a stopped developer back in', 'mcp pause': 'switch the MCP off for everyone', 'mcp resume': 'switch it back on', 'update': 'post, edit or set when your agent posts updates',
     'update new': 'draft and post an update', 'update edit': 'change an update you posted', 'update policy': 'when your agent may post updates',
     'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it', 'giveaway': 'run a giveaway',
@@ -84,28 +85,31 @@ def roles_of(member):
     return [r for r in ORDER if have[r]]
 
 
-def _subs(name):
-    """The sub-commands of a command, from its definition."""
+def _subs(name, only=''):
+    """The sub-commands of a command, from its definition (only the listed ones when `only` is a comma list)."""
+    want = [x for x in only.split(',') if x]
     for c in COMMANDS + BOARD_COMMANDS:
         if c['name'] == name:
-            return [o['name'] for o in c.get('options') or [] if o.get('type') == 1]
+            return [o['name'] for o in c.get('options') or [] if o.get('type') == 1 and (not want or o['name'] in want)]
     return []
 
 
 def _tree(entries, desc):
-    """One line per command; an entry like 'claim+' lists its sub-commands as bullets under it (a blank line keeps the groups apart)."""
-    lines = []
-    for n, item in enumerate(entries):
-        many = isinstance(item, str) and item.endswith('+')
-        item = item[:-1] if many else item
-        text, what = item if isinstance(item, tuple) else (f'/{item}', SHORT.get(item) or _clean(desc.get(item, '')))
-        lines.append(f"**{text}**{EM}·{EM}{what}" if what else f'**{text}**')
+    """Commands with sub-commands first: the command, then its sub-commands as bullets ('claim+' = all, 'mcp+setup,revoke' = those).
+    Commands without sub-commands come last, together. A blank line sits between every block."""
+    blocks, plain = [], []
+    for item in entries:
+        many = isinstance(item, str) and '+' in item
+        name, _, only = item.partition('+') if many else (item, '', '')
+        text, what = item if isinstance(item, tuple) else (f'/{name}', SHORT.get(name) or _clean(desc.get(name, '')))
+        line = f"**{text}**{EM}·{EM}{what}" if what else f'**{text}**'
         if many:
-            for sname in _subs(item):
-                lines.append(f"•{EM}`{sname}`{EM}{SHORT.get(f'{item} {sname}') or _clean(desc.get(f'{item} {sname}', ''))}")
-            if n < len(entries) - 1:
-                lines.append('')
-    return chr(10).join(lines)
+            blocks.append([line] + [f"•{EM}`{sname}`{EM}{SHORT.get(f'{name} {sname}') or _clean(desc.get(f'{name} {sname}', ''))}" for sname in _subs(name, only)])
+        else:
+            plain.append(line)
+    if plain:
+        blocks.append(plain)
+    return chr(10).join(chr(10).join(b) + (chr(10) if k < len(blocks) - 1 else '') for k, b in enumerate(blocks))
 
 
 def page_card(role, n, total, member):
