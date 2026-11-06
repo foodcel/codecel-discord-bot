@@ -56,7 +56,7 @@ language: more minimal, less wording, clear what to read and where to press, and
 **Plan to link it with /release, the bounty board and the games board.**
 1. `/release game link` stays the one action: it completes the bounty claim, moves the game to Released on our games board, and now also adds or refreshes the game's row in the #games library.
    `/unrelease` removes the row. Extra optional fields on /release: `original` (studio credit), `roblox_name` (when the Roblox name differs), `platforms`. Remembered, so later updates reuse them.
-2. **Art comes for free from data we already have.** The Steam link given on `/claim new link:` / `/progress source:` contains the Steam app id, so the cover is
+2. **Art comes for free from data we already have.** The Steam link given on `/claim new link:` / `/claim edit` contains the Steam app id, so the cover is
    `.../steam/apps/<id>/library_600x900.jpg` (and `header.jpg` for a wide hero). Non-Steam games: a Roblox game icon from the Roblox link, or one `art:` image the dev attaches.
 3. **Our library layout (minimal).** One container per page: hero banner, a short title, a divider, then one row per game: name linked, one grey line `Original: studio`, platform icons only
    (no words), and a **Play** button on the right as the only thing to press (clear target; the cover art moves to the hero or a small thumbnail instead of the button). The long disclaimer shrinks to one footer line.

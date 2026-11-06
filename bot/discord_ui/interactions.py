@@ -90,7 +90,7 @@ async def autocomplete(i):
             q = str(fvalue).lower()
             return await i.response.autocomplete([app_commands.Choice(name=n[:100], value=n[:100]) for n in known_games() if q in n.lower()][:25])
     if name in bounty_board_commands.BOARD_NAMES:
-        return await bounty_board.autocomplete(i, 'unclaim' if (name == 'claim' and sub == 'drop') else name, fvalue)
+        return await bounty_board.autocomplete(i, 'unclaim' if (name == 'claim' and sub in ('drop', 'edit')) else name, fvalue)
     if name in ('release', 'games', 'progress'):
         return await autocomplete_games(i, {'edit': 'release-edit', 'undo': 'unrelease'}.get(sub, name) if name == 'release' else name, fvalue)
     q = str(fvalue).lower()
@@ -483,7 +483,7 @@ async def handle_command(i):
         return await command_form(i, opts, 'suggestion')
     if name == 'bug':
         return await command_bug(i, opts)  # testers have no dev role, so it skips the dev-only gate below
-    board_handlers = {'claim': lambda i, o: (bounty_board.command_unclaim if sub == 'drop' else bounty_board.command_claim)(i, o),
+    board_handlers = {'claim': lambda i, o: {'drop': bounty_board.command_unclaim, 'edit': bounty_board.command_claim_edit}.get(sub, bounty_board.command_claim)(i, o),
                       'assign': bounty_board.command_assign, 'exclude': bounty_board.command_exclude,
                       'include': bounty_board.command_include, 'bounty-board': bounty_board.command_setup}
     if name in board_handlers:  # they check the board's own role, so they skip the dev-only gate below

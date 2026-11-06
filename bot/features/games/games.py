@@ -19,9 +19,10 @@ from bot.discord_ui.ui import E, EM, ZW, cut, lkey
 
 FOOT_UNRELEASED = '\n'.join([
     '/claim new · take a game (add its Steam page with link:)',
-    '/progress · how far it is, working on it, testing:on, or source: its original link',
+    '/progress · set how far it is, if you are working on it, or testing:on',
     '/release new · the game is out (paste its Roblox link)',
     '/release quiet · add it without announcing it',
+    '/claim edit · change the link to the original game',
     '/claim drop · drop a game you claimed',
 ])
 FOOT_RELEASED = '\n'.join([
@@ -358,11 +359,6 @@ async def command_progress(i, opts):
     if not owns(i.user, owner_ids(g)):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
     percent, working, testing = opts.get('percent'), opts.get('working'), opts.get('testing')
-    source = (opts.get('source') or '').strip()
-    if source and not http(source):
-        return await reply('The original game link must start with http:// or https://', ephemeral=True)
-    if source and not dev:
-        return await reply('A released game has no original link to set here. Use `/release edit link:` for its Roblox page.', ephemeral=True)
     link = (opts.get('link') or '').strip()
     if link and link != '-':
         link = roblox_any(link)
@@ -372,7 +368,7 @@ async def command_progress(i, opts):
             return await reply('The link is for the testers: add `testing:on` too, so the game goes into testing.', ephemeral=True)
     if rel and not dev and (percent is not None or working is not None):
         return await reply('A released game has no progress bar. Use `testing:on` or `testing:off`.', ephemeral=True)
-    if percent is None and working is None and testing is None and not link and not source:
+    if percent is None and working is None and testing is None and not link:
         return await reply('Give a percent, say whether you are working on it, put it in testing, or add the testers\' link.', ephemeral=True)
     if percent is not None and not 0 <= percent <= 100:
         return await reply('The percent must be between 0 and 100.', ephemeral=True)
@@ -380,8 +376,6 @@ async def command_progress(i, opts):
         working = True  # giving a percent means it is being worked on
     await i.response.defer(ephemeral=True, thinking=True)  # the tag and the boards below take longer than the 3 seconds Discord waits
     reply = i.edit_original_response
-    if source:
-        set_source_link(g['name'], owner_ids(g), g.get('since'), source)
     if percent is not None or working is not None:
         set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
     tag_note = ''

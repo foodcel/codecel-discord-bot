@@ -51,11 +51,15 @@ SETUP_COMMAND = command('bounty-board', 'Rank a suggestions forum by votes in a 
 
 # Registered only once the board is set up with /bounty-board, so they never sit next to another bot's /claim before that.
 BOARD_COMMANDS = [
-    command('claim', 'Claim a game you are working on, or drop one you claimed', [
+    command('claim', 'Claim a game you are working on, change its link, or drop it', [
         sub('new', "Claim a game you're working on: a suggestion, or a custom game", [
             option(STRING, 'post', "Type to search the forum's posts, or pick \"Custom game\" for one that has no post", required=True,
                    autocomplete=True),
             option(STRING, 'link', 'Link to the original game (Steam page etc.), shown on the games board'),
+        ]),
+        sub('edit', 'Change the link to the original game of a game you claimed', [
+            option(STRING, 'post', 'The game', required=True, autocomplete=True),
+            option(STRING, 'link', 'Link to the original game (Steam page etc.)', required=True),
         ]),
         sub('drop', 'Drop a game you claimed: it goes back to Top suggestions', [option(STRING, 'post', 'The game', required=True, autocomplete=True)]),
     ]),
@@ -147,7 +151,6 @@ COMMANDS = [
         option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
         option(STRING, 'testing', 'Testing phase on or off. Testers can report a game in testing (released games too)', choices=[('On', 'on'), ('Off', 'off')]),
         option(STRING, 'link', 'The Roblox link testers play the test build with (shown as a Play button). A single - removes it'),
-        option(STRING, 'source', 'Link to the original game you are porting, e.g. its Steam page'),
     ]),
     command('giveaway', 'Run a giveaway: prizes per place, role and invite rules, bonus entries (admins and managers)', [
         sub('new', 'Make a giveaway: the prize, how long, how many winners. Everything else is in the preview', [

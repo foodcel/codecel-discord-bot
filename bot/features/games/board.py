@@ -28,6 +28,7 @@ CLAIM = 'claim:'  # autocomplete value of an existing claim, followed by its id
 MAX_CUSTOM_GAME = 60
 FOOT_TOP = '\n'.join([
     '/claim new · take a game from the list, or your own (add its Steam page with link:)',
+    '/claim edit · change the link to the original game',
     '/claim drop · drop a game you claimed, it comes back here',
     'Admins: /assign gives a game to a dev · /exclude hides a post · /include brings it back',
 ])
@@ -542,6 +543,23 @@ async def release(i, p, c, verb):
         await i.followup.send(f'⚠️ Couldn\'t remove the **{IN_DEVELOPMENT_TAG}** tag from the post.', ephemeral=True)
     await refresh_board()
     await reload_claims()
+
+
+async def command_claim_edit(i, opts):
+    """/claim edit post link: change the link to the original game (Steam page etc.) of a game you claimed."""
+    from bot.features.games.games import http, refresh_game_board, set_source_link
+    if not await ensure_board(i):
+        return
+    link = (opts.get('link') or '').strip()
+    if not http(link):
+        return await _say(i, 'The link must start with http:// or https://', ephemeral=True)
+    held = await held_claim(i, opts.get('post'), False)
+    if not held:
+        return
+    p, c = held
+    set_source_link(claim_title(c), [c['user_id']], (c['created_at'] or '')[:10], link)
+    await _say(i, f'{game_name(p, c)} now links to {link}', ephemeral=True)
+    await refresh_game_board()
 
 
 async def command_unclaim(i, opts):

@@ -42,16 +42,16 @@ HUNTING = ('🔍', 'Bug hunting', [('!bug', 'reply to a message to post it in th
                                   ('!suggest', 'the same for an idea in the improvements forum')])
 
 SHORT = {
-    'claim': 'take a game, or drop one', 'release': 'your game is out, or fix it', 'giveaway': 'run a giveaway',
+    'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it', 'giveaway': 'run a giveaway',
     'assign': 'give a game to a dev, even if someone holds it', 'exclude': 'take a post off the bounty board', 'include': 'put an excluded post back',
     'bounty-board': 'set up the bounty board in a channel', 'games': 'post or refresh the games board',
     'tester add': 'add a tester to the roster', 'tester remove': 'take a tester off the roster', 'tester status': 'active, waiting, private or on a break',
     'tester edit': "change a tester's details", 'tester post': 'post the tester guide and roster', 'strikes': "show a user's troll strikes",
     'mog': 'Codecel posts a mog GIF and pings Robin and Redwing Helper',
     'pardon': 'remove a strike (and give back bug hunting)', 'botrules': 'post the bug report rules here', 'preview': 'post the finished embeds in the test channel',
-    'claim new': 'take a game (add its Steam page with link:)', 'claim drop': 'drop a game you claimed', 'release new': 'your game is out: paste its Roblox link',
+    'claim new': 'take a game (add its Steam page with link:)', 'claim edit': 'change the link to the original game', 'claim drop': 'drop a game you claimed', 'release new': 'your game is out: paste its Roblox link',
     'release quiet': 'add a finished game without announcing it', 'release edit': 'fix a released game', 'release undo': 'move a game back to unreleased',
-    'progress': 'how far a game is, put it in testing, or set its original link', 'update': 'draft and post an update', 'config': "a game's channel, link and pings",
+    'progress': 'how far a game is, or put it in testing', 'update': 'draft and post an update', 'config': "a game's channel, link and pings",
     'pings': 'choose when the bot pings you', 'tester profile': 'fill in or change your tester profile',
     'giveaway new': 'start a giveaway (opens a preview first)', 'giveaway end': 'end one now and draw', 'giveaway reroll': 'draw a new winner',
     'giveaway cancel': 'cancel a running giveaway', 'giveaway stats': 'how many new members it brought', 'giveaway list': 'the latest giveaways',
