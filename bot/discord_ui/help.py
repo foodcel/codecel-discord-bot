@@ -20,9 +20,10 @@ PAGES = {
         ('🧪', 'Testers', ['tester add', 'tester remove', 'tester status', 'tester edit', 'tester post']),
         ('🔎', 'Invites', ['invites check']),
         ('🎁', 'Giveaways', ['giveaway+']),
-        ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview'])]),
+        ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
+        ('🔌', 'MCP', ['mcp status', 'mcp kick', 'mcp pause', 'mcp resume'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
-        ('🎮', 'Your games', ['claim+', 'release+', 'progress', 'update']),
+        ('🎮', 'Your games', ['claim+', 'release+', 'progress', 'update+']),
         ('⚙️', 'Settings', ['pings', 'mcp+'])]),
     'tester': ('🧪', 'Tester', 'For testers.', [
         ('🧪', 'Testing', ['tester profile',
@@ -38,7 +39,8 @@ HUNTING = ('🔍', 'Bug hunting', [('!bug', 'reply to a message to post it in th
                                   ('!suggest', 'the same for an idea in the improvements forum')])
 
 SHORT = {
-    'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token',
+    'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token', 'update': 'post, edit or set when your agent posts updates',
+    'update new': 'draft and post an update', 'update edit': 'change an update you posted', 'update policy': 'when your agent may post updates',
     'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it', 'giveaway': 'run a giveaway',
     'assign': 'give a game to a dev, even if someone holds it', 'exclude': 'take a post off the bounty board', 'include': 'put an excluded post back',
     'bounty-board': 'set up the bounty board in a channel', 'games': 'post or refresh the games board',
@@ -48,7 +50,7 @@ SHORT = {
     'pardon': 'remove a strike (and give back bug hunting)', 'botrules': 'post the bug report rules here', 'preview': 'post the finished embeds in the test channel',
     'claim new': 'take a game (add its Steam page with link:)', 'claim edit': 'change the link to the original game', 'claim drop': 'drop a game you claimed', 'release new': 'paste its Roblox link',
     'release quiet': 'add it without announcing it', 'release edit': 'fix a released game', 'release undo': 'move it back to unreleased',
-    'progress': 'how far a game is, or put it in testing', 'update': 'draft and post an update',
+    'progress': 'how far a game is, or put it in testing',
     'pings': 'choose when the bot pings you', 'tester profile': 'fill in or change your tester profile',
     'giveaway new': 'start a giveaway (opens a preview first)', 'giveaway end': 'end one now and draw', 'giveaway reroll': 'draw a new winner',
     'giveaway cancel': 'cancel a running giveaway', 'giveaway stats': 'how many new members it brought', 'giveaway list': 'the latest giveaways',

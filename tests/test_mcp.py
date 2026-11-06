@@ -40,7 +40,8 @@ class Who(unittest.TestCase):
             return N(guild_permissions=N(administrator=admin), roles=[N(id=r) for r in role_ids])
 
         self.assertTrue(server.eligible(member([cfg.dev_role])))
-        self.assertFalse(server.eligible(member([cfg.dev_role], admin=True)))  # an admin never connects an agent
+        self.assertTrue(server.eligible(member([cfg.dev_role], admin=True)))  # an admin who is also a developer: only for the games they claimed
+        self.assertFalse(server.eligible(member([], admin=True)))  # an admin without the Developers role never connects an agent
         self.assertFalse(server.eligible(member([])))
         self.assertFalse(server.eligible(None))
         if cfg.jr_role:

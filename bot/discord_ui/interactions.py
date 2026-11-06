@@ -94,6 +94,9 @@ async def autocomplete(i):
     if name in ('release', 'games', 'progress'):
         return await autocomplete_games(i, {'edit': 'release-edit', 'undo': 'unrelease'}.get(sub, name) if name == 'release' else name, fvalue)
     q = str(fvalue).lower()
+    if name == 'update' and fname == 'update':
+        from bot.features.updates.editcmd import choices_for
+        return await i.response.autocomplete([app_commands.Choice(name=n_, value=v_) for n_, v_ in choices_for(i.user, q)])
     lst = [{'name': t['name'], 'value': t['id']} for t in game_tags() if name != 'update' or can_manage(i.user, owner_of(t['id']))]
     await i.response.autocomplete([app_commands.Choice(name=c['name'], value=c['value']) for c in lst if q in c['name'].lower()][:25])
 
@@ -425,6 +428,12 @@ async def handle_command(i):
     if level(i.user) in ('jr', 'none'):
         return await deny(i)
     if name == 'update':
+        if sub == 'edit':
+            from bot.features.updates.editcmd import command_edit
+            return await command_edit(i, opts)
+        if sub == 'policy':
+            from bot.features.updates.editcmd import command_policy
+            return await command_policy(i, opts)
         return await command_update(i, opts)
     if name in ('strikes', 'pardon') and level(i.user) != 'admin':
         return await deny(i, 'Only admins can see or remove strikes.')
@@ -456,7 +465,7 @@ async def handle_command(i):
         return await i.edit_original_response(content=f'Posted {n} preview message(s) in <#{cfg.test_id}>.')
     if name == 'mcp':
         from bot.mcp.command import command_mcp
-        return await command_mcp(i, sub)
+        return await command_mcp(i, sub, opts)
     if name == 'release':
         if sub == 'edit':
             return await command_release_edit(i, opts)
@@ -481,7 +490,7 @@ def _arg(parts, n):
 
 
 MODULES = {'giveaway': 'bot.features.giveaways.giveaway', 'reldraft': 'bot.features.games.reldraft', 'testerboard': 'bot.features.testers.testerboard',
-           'help': 'bot.discord_ui.help', 'forms': 'bot.features.bugs.forms'}
+           'help': 'bot.discord_ui.help', 'forms': 'bot.features.bugs.forms', 'editcmd': 'bot.features.updates.editcmd'}
 
 
 async def _lazy(module, name, *args):
@@ -531,6 +540,7 @@ MODALS = {
     'tp': lambda i, p, f: testers.modal_profile(i, f),
     'note': lambda i, p, f: modal_note(i, p[1], f),
     'annedit': lambda i, p, f: modal_ann_edit(i, int(p[1]), f),
+    'updedit': lambda i, p, f: _lazy('editcmd', 'modal_edit', i, int(p[1]), f),
     'gwp': lambda i, p, f: _lazy('giveaway', 'on_modal', i, p[0], int(p[1]), f),
     'gwr': lambda i, p, f: _lazy('giveaway', 'on_modal', i, p[0], int(p[1]), f),
     'gwb': lambda i, p, f: _lazy('giveaway', 'on_modal', i, p[0], int(p[1]), f),
