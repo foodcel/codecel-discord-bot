@@ -39,6 +39,12 @@ def needs_info(user_id, missing, kind='bug', multiple=False, personal=False):
     return _card('❓ Almost there: please add', items + ([''] + extra if extra else []), 'Reply in this post. I check it again when you do.', ping=_who(user_id))
 
 
+def dev_question(user_id, questions):
+    """The developer (or their agent) needs a bit more from the reporter."""
+    items = [f'• {q.strip()[:200]}' for q in questions[:3] if q.strip()]
+    return _card('❓ A question from the developer', items, 'Reply in this post.', ping=_who(user_id))
+
+
 def logged(bug, low_info=False, dev_report=False, was_asked=False):
     """The report is on the developer's board."""
     if dev_report:

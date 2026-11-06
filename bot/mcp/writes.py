@@ -62,6 +62,44 @@ async def set_status(member, allowed, ids, status, confirm=''):
     return ('Changed: ' + ', '.join(done) if done else 'Nothing changed.') + (('\nSkipped: ' + ', '.join(skipped)) if skipped else '')
 
 
+ASK_GAP_HOURS, ASKS_PER_HOUR = 6, 10
+_asked = defaultdict(deque)
+
+
+async def ask_reporter(member, allowed, bug_id, questions):
+    """Posts a short question card in the report's thread, pinging only the reporter. The report stays with the dev; the answer lands in the transcript."""
+    from bot.core.ctx import fetch_channel
+    from bot.core.db import all_
+    from bot.core.db import now as now_ms
+    from bot.discord_ui.components import allowed as only
+    from bot.features.bugs import replies
+    b, why = reports.owned(allowed, bug_id)
+    if not b:
+        return why
+    qs = [str(q).strip() for q in (questions or []) if str(q).strip()][:3]
+    if not qs:
+        return 'Give one to three short questions.'
+    if b['status'] in st.DONE:
+        return 'That report is closed. Ask in Discord if you really need to.'
+    q, t = _asked[str(member.id)], time.monotonic()
+    while q and t - q[0] > 3600:
+        q.popleft()
+    if len(q) >= ASKS_PER_HOUR:
+        return f'Limit reached: at most {ASKS_PER_HOUR} questions an hour.'
+    recent = all_('SELECT 1 FROM kv WHERE k=? AND CAST(v AS INTEGER) > ?', f"mcp_ask:{b['id']}", now_ms() - ASK_GAP_HOURS * 3600000)
+    if recent:
+        return f'This reporter was asked less than {ASK_GAP_HOURS} hours ago. Wait for the answer (read the transcript).'
+    thread = await fetch_channel(b['thread_id'])
+    if not thread:
+        return 'The post is gone.'
+    view, files = replies.dev_question(b['reporter_id'], qs)
+    await thread.send(view=view, files=files, allowed_mentions=only(users=[b['reporter_id']]))
+    from bot.core.db import kv_set
+    kv_set(f"mcp_ask:{b['id']}", now_ms())
+    q.append(t)
+    return 'Asked. The reporter was pinged in the post. Read the transcript later to see the answer.'
+
+
 def policy(tag_id):
     g = get_game(tag_id) or {}
     return (g.get('mcp_mode') if g.get('mcp_mode') in MODES else 'manual'), int(g.get('mcp_count') or 5)
