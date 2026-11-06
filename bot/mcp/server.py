@@ -112,6 +112,11 @@ def build():
         return await writes.set_status(member_of(_user.get()), my_games(), ids, status, confirm)
 
     @mcp.tool()
+    async def ask_reporter(id: int, questions: list[str]) -> str:
+        """Ask the reporter one to three short questions in the report's post (they are pinged). Use it only when the transcript really lacks something you need. Later read the transcript to see the answer."""
+        return await writes.ask_reporter(member_of(_user.get()), my_games(), id, questions)
+
+    @mcp.tool()
     def updates_due(game: str) -> str:
         """Whether the game's update policy says an update should be posted now, and which fixed reports are waiting for one."""
         return writes.due_text(my_games(), game)

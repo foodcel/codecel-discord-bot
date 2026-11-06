@@ -44,7 +44,7 @@ def verify(token):
     if not token or not token.startswith('cdl_'):
         return None
     row = one('SELECT user_id, expires_at FROM mcp_tokens WHERE token_hash=? AND revoked=0', _hash(token))
-    if not row or (row['expires_at'] and row['expires_at'] < now()):
+    if not row or (row['expires_at'] and row['expires_at'] < now()) or blocked(row['user_id']):
         return None
     run('UPDATE mcp_tokens SET last_used=? WHERE token_hash=?', now(), _hash(token))
     run('INSERT INTO mcp_usage(user_id,day,calls) VALUES(?,?,1) ON CONFLICT(user_id,day) DO UPDATE SET calls=calls+1', row['user_id'], time.strftime('%Y-%m-%d', time.gmtime()))
@@ -60,6 +60,24 @@ def limited(user_id):
         return True
     q.append(t)
     return False
+
+
+def blocked(user_id):
+    from bot.core.db import kv_get
+    return kv_get(f'mcp_block:{user_id}') == '1'
+
+
+def set_blocked(user_id, on):
+    from bot.core.db import kv_del, kv_set
+    if on:
+        kv_set(f'mcp_block:{user_id}', '1')
+    else:
+        kv_del(f'mcp_block:{user_id}')
+
+
+def blocked_ids():
+    from bot.core.db import kv_keys
+    return [r['k'].split(':', 1)[1] for r in kv_keys('mcp_block:') if r['v'] == '1']
 
 
 def paused():

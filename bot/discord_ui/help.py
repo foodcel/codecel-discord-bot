@@ -21,7 +21,7 @@ PAGES = {
         ('🔎', 'Invites', ['invites check']),
         ('🎁', 'Giveaways', ['giveaway+']),
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
-        ('🔌', 'MCP', ['mcp status', 'mcp kick', 'mcp pause', 'mcp resume'])]),
+        ('🔌', 'MCP', ['mcp status', 'mcp kick', 'mcp allow', 'mcp pause', 'mcp resume'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
         ('🎮', 'Your games', ['claim+', 'release+', 'progress', 'update+']),
         ('⚙️', 'Settings', ['pings', 'mcp+'])]),
@@ -39,7 +39,7 @@ HUNTING = ('🔍', 'Bug hunting', [('!bug', 'reply to a message to post it in th
                                   ('!suggest', 'the same for an idea in the improvements forum')])
 
 SHORT = {
-    'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token', 'update': 'post, edit or set when your agent posts updates',
+    'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token', 'mcp status': 'who uses it and who is connected', 'mcp kick': 'stop a developer until you allow them again', 'mcp allow': 'let a stopped developer back in', 'mcp pause': 'switch the MCP off for everyone', 'mcp resume': 'switch it back on', 'update': 'post, edit or set when your agent posts updates',
     'update new': 'draft and post an update', 'update edit': 'change an update you posted', 'update policy': 'when your agent may post updates',
     'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it', 'giveaway': 'run a giveaway',
     'assign': 'give a game to a dev, even if someone holds it', 'exclude': 'take a post off the bounty board', 'include': 'put an excluded post back',
