@@ -26,7 +26,7 @@ From then on the agent can:
 1. `/mcp setup` (dev only) shows a private card: the URL, a token (shown once), and a copy-paste line for each agent. `/mcp revoke` kills it.
 2. In the agent: "what is open for Peggle?" → a short list, grouped: "#3 #7 #12 are the same bug: car falls through the map".
 3. "Look at #3" → full report, the reporter's replies, device, screenshots, frames of the video, a download link for the whole video.
-4. The agent fixes the code, then: "mark #3 and #7 fixed" → asks to confirm → done (same effect as typing `3 fixed`, same dev log entry, reporter told when the update posts).
+4. The agent fixes the code, then: "mark #3 and #7 fixed" → asks to confirm → done (same effect as the status buttons on the bug page, same dev log entry, reporter told when the update posts).
 5. "Write the update" → the agent sends what it changed (its own commit notes). The bot structures it into **Fixes / Changes / What's new**, matches fixes to bug numbers, sends the dev a Discord DM with the real card as a preview.
 6. The agent asks: **merge into the last update or a new post? ping: nobody / @Updates / the game's role?** The tool cannot post until `ping` is given and the preview was seen.
 7. Posted; logged in #dev-logs as "via MCP".
@@ -76,7 +76,7 @@ Inside the bot process (it already has the database, Discord and the card code),
 ## Cons, plainly
 - A public address is new attack surface: tokens leak, endpoints get scanned. Mitigated with hashed tokens, rate limits, TLS, per-dev scope, and no write without confirm; it is still more exposure than today.
 - Prompt injection can never be fully excluded when an agent reads player text. We reduce it; the dev still has to read what the agent is about to do.
-- A dev's agent can mark the wrong bug fixed. The confirm step and the dev log are the safety net, and `3 fixed` typed by hand has the same risk today.
+- A dev's agent can mark the wrong bug fixed. The confirm step and the dev log are the safety net, and the status buttons have the same risk today.
 - The audit costs AI calls and can be wrong; it only suggests.
 - If the VM is down, the agents lose access (the zip download in Discord keeps working).
 - Each agent supports MCP a little differently; expect to test each one your team uses.
