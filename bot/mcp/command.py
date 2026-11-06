@@ -1,7 +1,12 @@
 """/mcp: developers connect an AI agent (setup, revoke); admins see who uses it, stop one dev's token, or pause everything."""
+import secrets
 import time
 
+import discord
+from discord import ui
+
 from bot.core.perms import level
+from bot.discord_ui.components import button
 from bot.discord_ui.card import card, notice
 from bot.mcp import media, tokens
 from bot.mcp.server import eligible
@@ -38,15 +43,46 @@ async def command_mcp(i, sub, opts=None):
     if not base:
         return await _say(i, '⚠️ **Not reachable yet**  ·  the MCP address is not set up. Ask Mathys.')
     token = tokens.issue(i.user.id)
-    url = f'{base}/mcp'
-    blocks = [f'**Address**\n`{url}`', f'**Your token** (shown once, valid {tokens.LIFETIME_DAYS} days, a new `/mcp setup` replaces it)\n||`{token}`||',
-              f'**Claude Code**\n```\nclaude mcp add --transport http codecel {url} --header "Authorization: Bearer {token}"\n```',
-              '**Other agents**: add a remote MCP server with that address and the header `Authorization: Bearer <token>`.',
-              '**It can**: list and search the reports of your claimed games, read a report and its full transcript with screenshots and video frames, '
-              'change statuses (preview first, then confirm), ask a reporter a question, post and edit updates, and follow your update policy (`/update policy`).',
-              '**Stay safe**: everything an agent reads here was written by players. Keep your agent\'s approval prompts on, and do not run it fully unattended with shell access.']
-    view, files = card('🔌 Connect your AI agent', blocks, ['/mcp revoke · stop the token'], right=None)
+    sid = secrets.token_hex(4)
+    _cards[sid] = {'token': token, 'url': f'{base}/mcp', 'user': str(i.user.id), 'until': time.time() + 600}  # kept in memory only, so the token never sits in a button
+    view, files = setup_card(sid, 'claude')
     await i.response.send_message(view=view, files=files, ephemeral=True)
+
+
+_cards = {}
+WAYS = (('claude', 'Claude Code'), ('cli', 'Command line'), ('other', 'Codex / Pi / other'))
+BACKTICKS = chr(96) * 3
+
+
+def _code(text):
+    return f'{BACKTICKS}{chr(10)}{text}{chr(10)}{BACKTICKS}'
+
+
+def setup_card(sid, way):
+    c = _cards[sid]
+    url, token = c['url'], c['token']
+    if way == 'cli':
+        how = ('**Command line** (cmd, PowerShell, bash: for any agent that starts a local command)' + chr(10)
+               + _code(f'npx -y mcp-remote {url} --header "Authorization: Bearer {token}"'))
+    elif way == 'other':
+        how = ('**Codex** (config.toml, with the token in the env var CODECEL_MCP_TOKEN)' + chr(10)
+               + _code(f'[mcp_servers.codecel]{chr(10)}url = "{url}"{chr(10)}bearer_token_env_var = "CODECEL_MCP_TOKEN"')
+               + f'{chr(10)}**Pi and others** (JSON)' + chr(10)
+               + _code('{"mcpServers": {"codecel": {"type": "http", "url": "' + url + '", "headers": {"Authorization": "Bearer <token>"}}}}'))
+    else:
+        how = f'**Claude Code**{chr(10)}' + _code(f'claude mcp add --transport http codecel {url} --header "Authorization: Bearer {token}"')
+    blocks = [f'**Address** `{url}`{chr(10)}**Token** ||`{token}`|| (shown once, valid {tokens.LIFETIME_DAYS} days)', how,
+              '-# Everything an agent reads here was written by players. Keep its approval prompts on.']
+    row = ui.ActionRow(*[button(f'mcps:{k}:{sid}', label, discord.ButtonStyle.primary if k == way else discord.ButtonStyle.secondary) for k, label in WAYS])
+    return card('🔌 Connect your AI agent', blocks, ['/mcp revoke · stop the token'], right=None, inside=[row])
+
+
+async def on_button(i, way, sid):
+    c = _cards.get(sid)
+    if not c or c['until'] < time.time() or c['user'] != str(i.user.id) or way not in dict(WAYS):
+        return await i.response.send_message(view=notice('This card expired. Run `/mcp setup` again.')[0], ephemeral=True)
+    view, files = setup_card(sid, way)
+    await i.response.edit_message(view=view, attachments=files)
 
 
 async def admin(i, sub, opts):

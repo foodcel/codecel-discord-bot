@@ -490,7 +490,7 @@ def _arg(parts, n):
 
 
 MODULES = {'giveaway': 'bot.features.giveaways.giveaway', 'reldraft': 'bot.features.games.reldraft', 'testerboard': 'bot.features.testers.testerboard',
-           'help': 'bot.discord_ui.help', 'forms': 'bot.features.bugs.forms', 'editcmd': 'bot.features.updates.editcmd'}
+           'help': 'bot.discord_ui.help', 'forms': 'bot.features.bugs.forms', 'editcmd': 'bot.features.updates.editcmd', 'mcpcmd': 'bot.mcp.command'}
 
 
 async def _lazy(module, name, *args):
@@ -514,6 +514,7 @@ BUTTONS = {
     'rel': lambda i, p: _lazy('reldraft', 'on_button', i, p[1], int(p[2])),  # the /release preview
     'tbd': lambda i, p: _lazy('testerboard', 'on_button', i, p[1], _arg(p, 2)),
     'help': lambda i, p: _lazy('help', 'button_help', i, p[1]),
+    'mcps': lambda i, p: _lazy('mcpcmd', 'on_button', i, p[1], p[2]),
     'ann': lambda i, p: button_ann(i, p[1], int(p[2]), _arg(p, 3)),
     'strike': lambda i, p: button_strike(i, p[1], p[2]),
     'exp': lambda i, p: button_exploit(i, p[1], p[2]),                       # status buttons on a high-priority exploit card
