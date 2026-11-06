@@ -63,9 +63,9 @@ def too_long(groups):
     return [f'{name} · {text}' for _, rows in groups for name, text in rows if visible(f'├─ {name} · {text}') > MAX]
 
 
-def build(title, groups, footer):
+def build(title, groups, footer, ping=None):
     blocks = [f'**{head}**{NL}{tree(*rows)}' for head, rows in groups]
-    return card(title, [NL.join(blocks[:1])] + blocks[1:], footer)
+    return card(title, blocks, footer, ping=ping)
 
 
 def cards():
@@ -92,4 +92,5 @@ async def main():
     await finish(client)
 
 
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())
