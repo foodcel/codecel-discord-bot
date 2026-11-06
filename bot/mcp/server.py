@@ -101,7 +101,7 @@ def build():
 
         text = re.sub(r'!?\[([^\]]*)\]\(@@(\w+)@@\)', swap, part['md'])
         head, _, body = text.partition('## Summary (auto-generated)')
-        out = [head + reports.UNTRUSTED + chr(10) + '## Summary (auto-generated)' + body[:60000] + chr(10) + reports.END]
+        out = [head + reports.fence('## Summary (auto-generated)' + reports.clean(body))]
         if notes:
             out.append(f'{len(notes)} more picture(s) were left out (the limit is 12 per call); open the Discord post for them.')
         return out + images
