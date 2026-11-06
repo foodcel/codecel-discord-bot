@@ -34,8 +34,24 @@ def wrap(text):
 
 
 def _games(allowed):
-    """allowed: [(tag_id, name)] the dev may see."""
+    """allowed: [(key, name)] the dev may see. The key is the game's forum tag id, or 'name:<game>' for a game with no tag (in development or testing)."""
     return {str(t): n for t, n in allowed}
+
+
+def key_of(bug):
+    """The key a report belongs to: its game tag, or its game name when it has none (tester reports of unreleased games)."""
+    return str(bug['game_tag_id']) if bug.get('game_tag_id') else 'name:' + (bug.get('game_name') or '').strip().lower()
+
+
+def untagged(key):
+    return str(key).startswith('name:')
+
+
+def game_sql(key):
+    """(sql, params) selecting the reports of one game key."""
+    if untagged(key):
+        return "(game_tag_id IS NULL AND LOWER(game_name)=?)", [str(key)[5:]]
+    return "game_tag_id=?", [str(key)]
 
 
 def find_game(allowed, name):
@@ -49,10 +65,11 @@ def games_text(allowed):
     if not allowed:
         return 'You own no games here. Claim one with /claim new in Discord.'
     lines = []
-    for tag_id, name in allowed:
-        n = one("SELECT COUNT(*) c FROM bugs WHERE kind='bug' AND game_tag_id=? AND deleted=0 AND routed=1 AND status IN ('new','investigating','fixing')", str(tag_id))['c']
-        s = one("SELECT COUNT(*) c FROM bugs WHERE kind='suggestion' AND game_tag_id=? AND deleted=0 AND routed=1 AND status IN ('new','investigating','fixing')", str(tag_id))['c']
-        lines.append(f'- {name}: {n} open bugs, {s} open suggestions')
+    for key, name in allowed:
+        sql, prm = game_sql(key)
+        n = one(f"SELECT COUNT(*) c FROM bugs WHERE kind='bug' AND {sql} AND deleted=0 AND routed=1 AND status IN ('new','investigating','fixing')", *prm)['c']
+        s = one(f"SELECT COUNT(*) c FROM bugs WHERE kind='suggestion' AND {sql} AND deleted=0 AND routed=1 AND status IN ('new','investigating','fixing')", *prm)['c']
+        lines.append(f'- {name}: {n} open bugs, {s} open suggestions' + (' (in development or testing)' if untagged(key) else ''))
     return '\n'.join(lines)
 
 
@@ -61,8 +78,9 @@ def list_text(allowed, game, kind='bug', status='', since_id=0):
     if not hit:
         return f'No game of yours matches "{game}". Your games: ' + (', '.join(n for _, n in allowed) or 'none') + '.'
     tag_id, name = hit
-    where = "kind=? AND game_tag_id=? AND deleted=0 AND routed=1 AND status NOT IN (%s)" % ','.join('?' * len(EXPLOITS))
-    params = [kind, str(tag_id), *EXPLOITS]
+    gsql, gprm = game_sql(tag_id)
+    where = f"kind=? AND {gsql} AND deleted=0 AND routed=1 AND status NOT IN (%s)" % ','.join('?' * len(EXPLOITS))
+    params = [kind, *gprm, *EXPLOITS]
     if since_id:
         where += ' AND id>?'
         params.append(int(since_id))
@@ -85,7 +103,7 @@ def list_text(allowed, game, kind='bug', status='', since_id=0):
 def report_text(allowed, bug_id, guild_id):
     """One report in full. It must belong to one of the dev's games, and never be an exploit report."""
     b = one('SELECT * FROM bugs WHERE id=? AND deleted=0', int(bug_id))
-    if not b or str(b['game_tag_id']) not in _games(allowed):
+    if not b or key_of(b) not in _games(allowed):
         return 'No report with that id among your games.'
     if b['status'] in EXPLOITS:
         return 'That is an exploit report. Read it in Discord, it is not shown here.'
@@ -104,7 +122,7 @@ def report_text(allowed, bug_id, guild_id):
 def owned(allowed, bug_id):
     """(report, None) when it is one of the dev's games and not an exploit report, else (None, why)."""
     b = one('SELECT * FROM bugs WHERE id=? AND deleted=0', int(bug_id))
-    if not b or str(b['game_tag_id']) not in _games(allowed):
+    if not b or key_of(b) not in _games(allowed):
         return None, 'No report with that id among your games.'
     if b['status'] in EXPLOITS:
         return None, 'That is an exploit report. Read it in Discord, it is not shown here.'
@@ -121,8 +139,9 @@ def search_text(allowed, game, query):
         return 'Give at least one word to search for.'
     tag_id, name = hit
     like = ' AND '.join("LOWER(COALESCE(title,'') || ' ' || COALESCE(summary,'') || ' ' || COALESCE(body,'')) LIKE ?" for _ in words)
-    rows = all_(f"SELECT * FROM bugs WHERE game_tag_id=? AND deleted=0 AND routed=1 AND status NOT IN ({','.join('?' * len(EXPLOITS))}) AND {like} ORDER BY id DESC LIMIT {LIMIT}",
-                str(tag_id), *EXPLOITS, *[f'%{w}%' for w in words])
+    gsql, gprm = game_sql(tag_id)
+    rows = all_(f"SELECT * FROM bugs WHERE {gsql} AND deleted=0 AND routed=1 AND status NOT IN ({','.join('?' * len(EXPLOITS))}) AND {like} ORDER BY id DESC LIMIT {LIMIT}",
+                *gprm, *EXPLOITS, *[f'%{w}%' for w in words])
     if not rows:
         return f'{name}: nothing matches "{query}".'
     out = [f'{name}: {len(rows)} reports with "{query}", newest first.']
