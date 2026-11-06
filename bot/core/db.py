@@ -104,7 +104,7 @@ for _col in ('saved_by TEXT',):  # bug hunting: who replied !bug / !suggest
     except Exception:
         pass
 
-for _col in ('message_id TEXT', 'channel_id TEXT', 'payload TEXT'):  # where an announcement was posted, and its lines (to add to it later)
+for _col in ('message_id TEXT', 'channel_id TEXT', 'payload TEXT', 'merged_at INTEGER'):  # where an announcement was posted, and its lines (to add to it later)
     try:
         db.execute(f'ALTER TABLE announcements ADD COLUMN {_col}')
     except Exception:
@@ -122,7 +122,7 @@ for _col in ('source_link TEXT', 'progress INTEGER', 'working INTEGER', 'test_li
     except Exception:
         pass
 
-for _col in ('mcp_mode TEXT', 'mcp_count INTEGER'):  # when a dev's agent may post an update: manual | every | critical | count (after mcp_count fixes)
+for _col in ('mcp_mode TEXT', 'mcp_count INTEGER', 'merge_hours INTEGER', 'agent_ping INTEGER'):  # update settings: when the agent posts (mode, count), the merge window in hours (0 = off), whether the agent may ping
     try:
         db.execute(f'ALTER TABLE games ADD COLUMN {_col}')
     except Exception:

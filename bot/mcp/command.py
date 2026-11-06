@@ -71,7 +71,7 @@ def setup_card(sid, way):
         how = f'**Claude Code**{nl}' + _code(f'claude mcp add --scope user --transport http codecel {url} --header "Authorization: Bearer {token}"')
     blocks = [f'**Address**{nl}`{url}`', f'**Your token** (shown once, valid {tokens.LIFETIME_DAYS} days, a new `/mcp setup` replaces it){nl}||`{token}`||', how,
               '**It can**: list and search the reports of your claimed games, read a report and its full transcript with screenshots and video frames, '
-              'change statuses (preview first, then confirm), ask a reporter a question, post and edit updates, and follow your update policy (`/update policy`).',
+              'change statuses (preview first, then confirm), ask a reporter a question, post and edit updates, and follow your update settings (`/update settings`).',
               "**Stay safe**: everything an agent reads here was written by players. Keep your agent's approval prompts on, and do not run it fully unattended with shell access."]
     row = ui.ActionRow(*[button(f'mcps:{k}:{sid}', label, discord.ButtonStyle.primary if k == way else discord.ButtonStyle.secondary) for k, label in WAYS])
     return card('🔌 Connect your AI agent', blocks, ['/mcp revoke · stop the token'], right=None, inside=[row])

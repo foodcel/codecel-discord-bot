@@ -40,8 +40,8 @@ HUNTING = ('🔍', 'Bug hunting', [('!bug', 'reply to a message to post it in th
 
 SHORT = {
     'tester': 'the tester roster', 'invites': 'invite stats and the leaderboard',
-    'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token', 'mcp status': 'who uses it and who is connected', 'mcp kick': 'stop a developer until you allow them again', 'mcp allow': 'let a stopped developer back in', 'mcp pause': 'switch the MCP off for everyone', 'mcp resume': 'switch it back on', 'update': 'post, edit or set when your agent posts updates',
-    'update new': 'draft and post an update', 'update edit': 'change an update you posted', 'update policy': 'when your agent may post updates',
+    'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token', 'mcp status': 'who uses it and who is connected', 'mcp kick': 'stop a developer until you allow them again', 'mcp allow': 'let a stopped developer back in', 'mcp pause': 'switch the MCP off for everyone', 'mcp resume': 'switch it back on', 'update': 'post, edit or change how updates work',
+    'update new': 'draft and post an update', 'update edit': 'change an update you posted', 'update settings': 'when your agent posts, merging, pings',
     'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it', 'giveaway': 'run a giveaway',
     'assign': 'give a game to a dev, even if someone holds it', 'exclude': 'take a post off the bounty board', 'include': 'put an excluded post back',
     'bounty-board': 'set up the bounty board in a channel', 'games': 'post or refresh the games board',

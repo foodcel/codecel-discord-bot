@@ -1,7 +1,6 @@
-"""/update edit (change a posted update) and /update policy (when a dev's AI agent may post updates)."""
+"""/update edit (change a posted update) and /update settings (when the dev's AI agent posts, merging, pings)."""
 import re
 
-from bot.core.db import get_game
 from bot.core.perms import can_manage
 from bot.discord_ui.card import notice
 from bot.discord_ui.components import FormModal
@@ -65,11 +64,10 @@ async def modal_edit(i, id_, fields):
     await i.edit_original_response(view=notice(('✅ **Edited**  ·  ' if ok else '⚠️ **Not edited**  ·  ') + msg)[0])
 
 
-async def command_policy(i, opts):
+async def command_settings(i, opts):
     tag_id = opts.get('game')
     if not tag_name(tag_id) or not _mine(i.user, tag_id):
         return await i.response.send_message(view=notice('Pick one of your games.')[0], ephemeral=True)
-    mode = opts.get('mode')
-    text = writes.set_policy([(tag_id, tag_name(tag_id))], tag_name(tag_id), mode, opts.get('count'))
-    g = get_game(tag_id) or {}
-    await i.response.send_message(view=notice(f"✅ **Saved**  ·  {text}" + (' Your AI agent follows this when it checks for fixes.' if g else ''))[0], ephemeral=True)
+    changed = any(opts.get(k) not in (None, '') for k in ('mode', 'count', 'merge', 'ping'))
+    text = writes.set_settings([(tag_id, tag_name(tag_id))], tag_name(tag_id), opts.get('mode'), opts.get('count'), opts.get('merge'), opts.get('ping'))
+    await i.response.send_message(view=notice(('✅ **Saved**  ·  ' if changed else '⚙️ **Update settings**  ·  ') + text)[0], ephemeral=True)

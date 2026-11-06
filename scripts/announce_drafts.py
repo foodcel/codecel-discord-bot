@@ -29,11 +29,11 @@ TESTER = [
 ]
 
 DEV = [
-    ('Commands', [('/claim', 'new, edit, drop'), ('/release', 'new, quiet, edit, undo'), ('/update', 'new, edit, policy'),
+    ('Commands', [('/claim', 'new, edit, drop'), ('/release', 'new, quiet, edit, undo'), ('/update', 'new, edit, settings'),
                   ('/suggest', 'replaces /improvement and !improve'), ('Removed', '/config, /gamelink, /unrelease, /unclaim'),
                   ('Removed', '/tester find, typing 12 fixed in a board'), ('Status', 'use the buttons on the bug page')]),
-    ('Updates', [('Merging', 'updates within 12h fold into one card'), ('🆕', 'marks what the latest addition brought'),
-                 ('/update edit', 'change a posted update'), ('Players', 'hear of their fix when it posts'),
+    ('Updates', [('Merging', 'off by default, set the hours in settings'), ('🆕', 'marks what a merge added'),
+                 ('/update edit', 'change a posted update'), ('/update settings', 'agent posting, merging, pings'), ('Players', 'hear of their fix when it posts'),
                  ('Testers', 'told at once, never in public updates')]),
     ('Reports', [('Your own', "skip the bot's questions"), ('Silence', 'logged for you, never closed'),
                  ('Clips', 'links become videos, not YouTube/Vimeo')]),
@@ -41,17 +41,17 @@ DEV = [
 
 MCP = [
     ('Connect', [('/mcp setup', 'address and token, valid 30 days'), ('Who', 'devs, for the games they claimed'),
-                 ('New setup', 'replaces your old token'), ('Scope', 'add with --scope user: every repo')]),
+                 ('New setup', 'replaces your old token'), ('Repos', 'one setup works in all your game repos')]),
     ('It can', [('Read', 'transcript, screenshots, video frames'), ('Search', 'related and duplicate reports'),
-                ('Ask', 'a question to the reporter'), ('Status', 'preview first, then confirm'),
-                ('Updates', 'post and edit, per /update policy')]),
+                ('Ask', 'a question to the reporter'), ('Mark reports', 'fixed, duplicate, not a bug'),
+                ('Updates', 'post and edit, per /update settings')]),
     ('Several games', [('Token', 'one covers every game you claimed'), ('Repo', "open the agent in the game's repo"),
                        ('CLAUDE.md', '"This repo is game X on codecel"')]),
     ('Loops', [('Wake-up', "the MCP can't, the agent must check"), ('How', 'Claude Code /loop, or a scheduled claude -p'),
-               ('since_id', 'a check sees only newer reports'), ('Updates', 'none until /update policy is set'),
+               ('since_id', 'a check sees only newer reports'), ('Updates', 'none until /update settings allows it'),
                ('Cost', 'every check uses usage: narrow access')]),
     ('Safety', [('Untrusted', 'player text is data, agents know it'), ('Approvals', 'keep them on, no unattended shell'),
-                ('Pings', 'only for high or critical fixes'), ('Admins', '/mcp status, kick, pause')]),
+                ('Pings', 'off unless you turn them on'), ('Admins', '/mcp status, kick, pause')]),
 ]
 
 
@@ -71,7 +71,7 @@ def build(title, groups, footer):
 def cards():
     return (('tester announcement', build('🧪 Tester update', TESTER, ['/bug · report a bug', '/tester profile · your details']), TESTER),
             ('developer announcement 1 of 2', build('🛠️ Dev update', DEV, ['/help · every command', '/update edit · change a posted update']), DEV),
-            ('developer announcement 2 of 2', build('🔌 MCP for developers', MCP, ['/mcp setup · connect your agent', '/update policy · when your agent posts']), MCP))
+            ('developer announcement 2 of 2', build('🔌 MCP for developers', MCP, ['/mcp setup · connect your agent', '/update settings · when your agent posts']), MCP))
 
 
 async def main():

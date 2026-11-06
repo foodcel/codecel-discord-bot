@@ -129,7 +129,7 @@ def serve():
     server.member_of = lambda uid: None
     for name in ('set_status', 'post_update', 'ask_reporter', 'edit_update'):
         setattr(writes, name, record(name))
-    writes.set_policy = lambda *a, **k: (LOG.open('a').write(json.dumps({'tool': 'set_update_policy', 'args': [str(x) for x in a[1:]]}) + '\n'), 'OK recorded')[1]
+    writes.set_settings = lambda *a, **k: (LOG.open('a').write(json.dumps({'tool': 'update_settings', 'args': [str(x) for x in a[1:]]}) + '\n'), 'OK recorded')[1]
     media.public_url = lambda: 'http://127.0.0.1:8913'
     app = server.build().streamable_http_app()
     print('serving on http://127.0.0.1:8913/mcp, report ids', ids, flush=True)
