@@ -121,6 +121,59 @@ async def set_testing(member, allowed, game, on=True, play_link=''):
     return ('Saved: ' if ok else '') + text
 
 
+async def edit_game(member, allowed, game, title='', online='', description=''):
+    """Changes how a RELEASED game shows in the library: its title, whether it is online, and the short line under it (a single - removes the line)."""
+    from bot.core.db import run
+    from bot.core.perms import owns
+    from bot.features.games.games import NONE, _find, clean_name, owner_ids, refresh_game_board
+    hit = reports.find_game(allowed, game)
+    if not hit:
+        return f'No game of yours matches "{game}".'
+    k, rel, _ = _find(hit[1])
+    if not rel or hit[1] == NONE:
+        return f'{hit[1]} is not released yet. Only released games can be edited here.'
+    if not owns(member, owner_ids(rel)):
+        return 'Only the dev who owns this game can change it.'
+    changes = {}
+    if (title or '').strip():
+        changes['title'] = title.strip()[:100]
+    if (online or '').strip().lower() in ('online', 'offline'):
+        changes['online'] = 1 if online.strip().lower() == 'online' else 0
+    if (description or '').strip():
+        changes['notes'] = None if description.strip() == '-' else description.strip()[:140]
+    if not changes:
+        return 'Nothing to change: give a title, online (online or offline) or a description.'
+    if 'online' in changes:
+        from bot.features.games.watch import forget
+        forget(k)  # by hand: the automatic watch starts from nothing for this game
+    run(f"UPDATE game_status SET {','.join(c + '=?' for c in changes)} WHERE key=?", *changes.values(), k)
+    await refresh_game_board()
+    return f"Updated {clean_name(rel['name'])}: " + ', '.join(f"{c} {'removed' if v is None else v}" for c, v in changes.items()) + '.'
+
+
+def testers_text(member, allowed, game):
+    """Who volunteered to test the game, and which other testers are open to it, with their devices and free times."""
+    from bot.core.ctx import ctx
+    from bot.features.games.games import key as game_key
+    from bot.features.testers import testers
+    hit = reports.find_game(allowed, game)
+    if not hit:
+        return f'No game of yours matches "{game}".'
+    roster = {r['user_id']: r for r in testers.everyone()}
+    volunteers = testers.testers_of(game_key(hit[1]))
+
+    def line(uid):
+        r = roster.get(uid) or {}
+        m = ctx.guild.get_member(int(uid)) if ctx.guild else None
+        return f"- {m.display_name if m else uid}: devices {r.get('devices') or '?'}; free {r.get('availability') or '?'}; best for {r.get('best_for') or '?'}"
+
+    rest = [u for u, r in roster.items() if u not in volunteers and (r['status'] == 'active' or (r['status'] == 'private' and r['only_for'] in (str(member.id), testers.ANY_DEV)))]
+    out = [f'{hit[1]}: {len(volunteers)} tester(s) volunteered' + (':' if volunteers else '.')] + [line(u) for u in volunteers]
+    if rest:
+        out += [f'Other testers open for testing ({len(rest)}):'] + [line(u) for u in rest[:15]]
+    return reports.fence(reports.clean(chr(10).join(out)))
+
+
 def add_note(allowed, bug_id, text):
     """Adds a line to the developer note of a report (it shows on the report for the dev)."""
     from bot.core.db import update_bug
