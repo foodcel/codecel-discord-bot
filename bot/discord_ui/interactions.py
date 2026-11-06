@@ -454,6 +454,9 @@ async def handle_command(i):
         await i.response.defer(ephemeral=True, thinking=True)
         n = await post_previews(opts.get('what') or 'all')
         return await i.edit_original_response(content=f'Posted {n} preview message(s) in <#{cfg.test_id}>.')
+    if name == 'mcp':
+        from bot.mcp.command import command_mcp
+        return await command_mcp(i, sub)
     if name == 'release':
         if sub == 'edit':
             return await command_release_edit(i, opts)

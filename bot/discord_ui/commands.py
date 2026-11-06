@@ -91,6 +91,10 @@ COMMANDS = [
     _bug_command(),
     _improvement_command(),
     command('help', 'Show the commands you can use'),
+    command('mcp', 'Connect your AI agent to the reports of your games', [
+        sub('setup', 'Get the address and your personal token (shown only to you)'),
+        sub('revoke', 'Stop your token from working'),
+    ]),
     command('mog', 'Admin: Codecel posts a mog GIF and pings Robin and Redwing Helper'),
     {'type': 3, 'name': 'Mog'},  # right click a message, Apps, Mog: Codecel replies to it with a GIF
     command('pings', 'Choose when the bot pings you', [

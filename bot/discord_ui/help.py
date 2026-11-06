@@ -23,7 +23,7 @@ PAGES = {
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
         ('🎮', 'Your games', ['claim+', 'release+', 'progress', 'update']),
-        ('⚙️', 'Settings', ['pings'])]),
+        ('⚙️', 'Settings', ['pings', 'mcp+'])]),
     'tester': ('🧪', 'Tester', 'For testers.', [
         ('🧪', 'Testing', ['tester profile',
                           ('/bug', 'in the testing channel: report a bug as a thread')])]),
@@ -38,6 +38,7 @@ HUNTING = ('🔍', 'Bug hunting', [('!bug', 'reply to a message to post it in th
                                   ('!suggest', 'the same for an idea in the improvements forum')])
 
 SHORT = {
+    'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token',
     'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it', 'giveaway': 'run a giveaway',
     'assign': 'give a game to a dev, even if someone holds it', 'exclude': 'take a post off the bounty board', 'include': 'put an excluded post back',
     'bounty-board': 'set up the bounty board in a channel', 'games': 'post or refresh the games board',

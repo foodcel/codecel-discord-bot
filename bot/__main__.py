@@ -90,6 +90,8 @@ async def on_ready():
     asyncio.ensure_future(timer_loop())
     asyncio.ensure_future(board.sync_loop())
     asyncio.ensure_future(watch.watch_loop())  # every 5 minutes: is each released game still on Roblox?
+    from bot.mcp.server import serve as mcp_serve
+    asyncio.ensure_future(mcp_serve())  # the MCP for devs' AI agents; a failure only skips it
     asyncio.ensure_future(cards.guard_loop())  # the library and its cards are always there, a rival bot's posts never
 
     async def step(name, work):
