@@ -14,7 +14,7 @@ Built with Python (discord.py), SQLite and the Anthropic API (Claude Haiku by de
 
 **Dev boards** (one forum post per dev)
 - A summary of the dev's open bugs plus two dropdowns: open a game's bugs in a private page (screenshots, videos, status buttons), or download a transcript.
-- Type `12 fixed`, `1-5 fixed`, `7 investigating` in the board. A new bug gives the dev a ghost ping that they can turn off with `/pings`.
+- A new bug gives the dev a ghost ping that they can turn off with `/pings`.
 - Fixed bugs: the reporter (and everyone who reacted 👀) is pinged, the post closes and is deleted after 24 hours. A reply of "still broken" reopens it.
 - **Transcripts**: a zip per bug or per game with the conversation, screenshots, full videos and a few video frames (via ffmpeg), so an AI agent can read it. Files that do not fit Discord's upload limit become download links.
 - **Fix log**: a pinned post with fixed / open counts per game and every fix with its transcript.

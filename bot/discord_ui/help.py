@@ -22,12 +22,8 @@ PAGES = {
         ('🎁', 'Giveaways', ['giveaway+']),
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
-        ('🎮', 'Your games', ['claim+', 'release+', 'progress']),
-        ('📣', 'Updates and settings', ['update', 'pings']),
-        ('⌨️', 'Typed in your board', [
-            ('12 fixed', 'mark a bug fixed, investigating, duplicate…'),
-            ('1-5 fixed', 'the same for a range of bugs'),
-            ('7 added', 'mark an idea as added or declined')])]),
+        ('🎮', 'Your games', ['claim+', 'release+', 'progress', 'update']),
+        ('⚙️', 'Settings', ['pings'])]),
     'tester': ('🧪', 'Tester', 'For testers.', [
         ('🧪', 'Testing', ['tester profile',
                           ('/bug', 'in the testing channel: report a bug as a thread')])]),

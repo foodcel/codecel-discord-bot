@@ -1,4 +1,4 @@
-"""Messages typed in dev boards and bug posts: dev commands ("12 fixed"), jr-dev cleanup, reporters answering."""
+"""Messages typed in dev boards and bug posts: jr-dev cleanup, dev commands inside a post ("fixed"), reporters answering."""
 import asyncio
 
 import discord
@@ -11,9 +11,6 @@ from bot.features.bugs.fixes import apply_status
 from bot.features.bugs.intake import handle_bug_message
 from bot.features.bugs.parse import parse_command
 from bot.features.bugs import nums
-from bot.core.db import all_
-from bot.core.perms import can_manage
-from bot.features.games.bounty import owners_for
 from bot.core.perms import level
 from bot.features.bugs.suggest import handle_suggestion_message
 
@@ -31,6 +28,7 @@ async def _delete_later(m, seconds):
 
 
 async def handle_dev(msg, kind='bug'):
+    """A message in a dev board: only jr devs are stopped (they may not write there). Nothing typed there is a command."""
     member = await _member_of(msg)
     lvl = level(member)
     if lvl == 'jr':
@@ -45,34 +43,6 @@ async def handle_dev(msg, kind='bug'):
         except Exception:
             pass
         return
-    if lvl not in ('admin', 'dev'):
-        return
-    cmd = parse_command(msg.content)
-    if not cmd or not cmd['ids']:
-        return
-    mine = [b for b in all_("SELECT * FROM bugs WHERE kind=? AND routed=1 AND deleted=0 AND status IN ('new','investigating','fixing')", kind)
-            if can_manage(member, owners_for(b['game_tag_id'], b['game_name']))]
-    r = nums.resolve(cmd, kind, candidates=mine)
-    if r['unknown_game']:
-        return  # words that name no game: not a command
-    if r['ambiguous']:
-        try:
-            n = await msg.reply(f"Which game? Type it first, like `{(mine[0]['game_name'] or 'sonic')[:20].lower()} {r['ambiguous'][0]} {cmd['status'].replace('_', ' ')}`.", allowed_mentions=discord.AllowedMentions(replied_user=False))
-            asyncio.ensure_future(_delete_later(n, 10))
-        except Exception:
-            pass
-        return
-    done, skipped = await apply_status(r['ids'], cmd['status'], member, kind, via='typed in the board')
-    skipped = r['skipped'] + skipped
-    try:
-        await msg.add_reaction('✅' if done else '❌')
-    except Exception:
-        pass
-    if skipped:
-        try:
-            await msg.reply(f"Skipped: {', '.join(skipped)}", allowed_mentions=discord.AllowedMentions(replied_user=False))
-        except Exception:
-            pass
 
 
 async def handle_bug_thread(msg):

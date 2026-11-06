@@ -68,7 +68,7 @@ def board_card(key):
     else:
         n = lambda s: len([b for b in bugs if b['status'] == s])
         title = f"{'🎮 Unclaimed games' if base == 'unclaimed' else '😊 Your bug board'} · 🐛 {n('new')} open · 🔎 {n('investigating')} investigating · 🛠️ {n('fixing')} fixing"
-        foot = 'Pick a game below to browse its bugs. Type `sonic 3 fixed`, `sonic 1-5 fixed` or `sonic 7 investigating` here.'
+        foot = 'Pick a game below to browse its bugs.'
     by = {}
     for b in sorted(bugs, key=lambda b: (lkey(b['game_name'] or ''), -b['votes'] if suggestion else 0, b['id'])):
         by.setdefault(b['game_name'] or 'Unknown game', []).append(b)
