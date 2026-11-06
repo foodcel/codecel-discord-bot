@@ -10,7 +10,7 @@ COMMANDS = {
     'mog': ADMIN, 'Mog': ADMIN, 'preview': ADMIN, 'botrules': ADMIN, 'games': ADMIN, 'bounty-board': ADMIN,
     'assign': ADMIN, 'exclude': ADMIN, 'include': ADMIN, 'strikes': ADMIN, 'pardon': ADMIN,
     # developers (and admins)
-    'config': DEV, 'update': DEV, 'pings': DEV, 'release': DEV, 'progress': DEV, 'claim': DEV,
+    'update': DEV, 'pings': DEV, 'release': DEV, 'progress': DEV, 'claim': DEV,
     # admins and the Giveaway Manager role
     'giveaway': GIVEAWAY,
 }

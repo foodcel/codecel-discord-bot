@@ -75,7 +75,6 @@ def end(token):
 # Commands that only show something or open a draft: the log says so, so it never looks like something was changed.
 READ_ONLY = {
     '/strikes': 'Looked up only: nothing changed',
-    '/config show': 'Looked up only: nothing changed',
     '/preview': 'Posted previews in the test channel: nothing live changed',
     '/botrules': 'Posted the rules message',
 }

@@ -8,10 +8,10 @@ from bot.core.links import web_url
 from bot.features.bugs.nums import label
 from bot.core.ai import interpret_note
 from bot.features.updates.announce import (_ago, chosen, chosen_ids, confirm_view, draft_payload, edit_kw, items, merge_announcement, ping_role, polish_dev_updates,
-                       polish_fixes, post_announcement, recent_announcement, snooze, unannounced)
+                       polish_fixes, post_announcement, recent_announcement, snooze)
 from bot.features.games import board as bounty_board
 from bot.features.testers import testers
-from bot.features.games.bounty import board_name_for, get_claims, owners_for
+from bot.features.games.bounty import owners_for
 from bot.features.bugs.bugview import handle_view, open_game
 from bot.discord_ui import commands as bounty_board_commands
 from bot.discord_ui.components import NO_MENTIONS, FormModal, make_view, modal_fields, select
@@ -94,74 +94,8 @@ async def autocomplete(i):
     if name in ('release', 'games', 'progress'):
         return await autocomplete_games(i, {'edit': 'release-edit', 'undo': 'unrelease'}.get(sub, name) if name == 'release' else name, fvalue)
     q = str(fvalue).lower()
-    if fname == 'board':
-        lst = [{'name': c['name'][:100], 'value': c['name'][:100]} for c in get_claims()]
-    else:
-        only_mine = name == 'update' or (name == 'config' and sub == 'set')
-        lst = [{'name': t['name'], 'value': t['id']} for t in game_tags() if not only_mine or can_manage(i.user, owner_of(t['id']))]
+    lst = [{'name': t['name'], 'value': t['id']} for t in game_tags() if name != 'update' or can_manage(i.user, owner_of(t['id']))]
     await i.response.autocomplete([app_commands.Choice(name=c['name'], value=c['value']) for c in lst if q in c['name'].lower()][:25])
-
-
-# ---- /config ----
-def describe_game(g):
-    owners = owners_for(g['tag_id'], g['name'])
-    owners_txt = ' '.join(f'<@{o}>' for o in owners) if owners else 'nobody (unclaimed)'
-    return '\n'.join([
-        f"Owner: {owners_txt}{' (set by admin)' if g.get('owner_override') else ''} · board name: {board_name_for(g['tag_id'], g['name']) or 'no match'}",
-        f"Link: {g.get('link') or '—'} · Icon: {'set' if g.get('icon_url') else 'auto/none'}",
-        f"Channel: {f'<#{g['announce_channel_id']}>' if g.get('announce_channel_id') else '—'} · Ping: {f'<@&{g['ping_role_id']}>' if g.get('ping_role_id') else '—'}",
-        f"Offer an announcement at **{g['threshold']}** fixes · ready now: **{len(unannounced(g['tag_id']))}**",
-    ])
-
-
-async def config_set(i, opts):
-    tag_id = opts.get('game')
-    name = tag_name(tag_id)
-    if not name:
-        return await deny(i, 'Unknown game.')
-    if not can_manage(i.user, owner_of(tag_id)):
-        return await deny(i, 'Only the dev who claimed this game (or an admin) can change it.')
-    patch = {}
-    link = opts.get('link')
-    icon = opts.get('icon')
-    if link:
-        if not http(link):
-            return await deny(i, 'The link must start with http:// or https://')
-        patch['link'] = link
-    if icon:
-        if not http(icon):
-            return await deny(i, 'The icon must be an image URL starting with http(s)://')
-        patch['icon_url'] = icon
-    if opts.get('channel'):
-        patch['announce_channel_id'] = str(opts['channel'])
-    if opts.get('role'):
-        if str(opts['role']) == str(cfg.guild_id):
-            return await deny(i, 'Pick a role for the ping, not @everyone.')
-        patch['ping_role_id'] = str(opts['role'])
-    if opts.get('threshold'):
-        patch['threshold'] = opts['threshold']
-    owner = opts.get('owner')
-    board = opts.get('board')
-    if owner or board:
-        if level(i.user) != 'admin':
-            return await deny(i, 'Only admins can set the owner or board name.')
-        if owner:
-            patch['owner_override'] = str(owner)
-        if board:
-            patch['board_name'] = board
-    if not patch:
-        return await deny(i, 'Nothing to change. Pass at least one option.')
-    g = upsert_game(tag_id, name, patch)
-    if patch.get('owner_override') or patch.get('board_name'):
-        schedule_boards()
-    return await i.response.send_message(f"Saved **{g['name']}**.\n{describe_game(g)}", ephemeral=True)
-
-
-async def config_show(i, opts):
-    only = opts.get('game')
-    tags = [t for t in game_tags() if not only or t['id'] == only]
-    text = '\n\n'.join(f"**{t['name']}**\n{describe_game(upsert_game(t['id'], t['name']))}" for t in tags)
-    return await i.response.send_message(text[:1990] or 'No games.', ephemeral=True, allowed_mentions=NO_MENTIONS)
 
 
 # ---- /update and the announcement drafts ----
@@ -490,8 +424,6 @@ async def handle_command(i):
         return await board_handlers[name](i, opts)
     if level(i.user) in ('jr', 'none'):
         return await deny(i)
-    if name == 'config':
-        return await (config_set(i, opts) if sub == 'set' else config_show(i, opts))
     if name == 'update':
         return await command_update(i, opts)
     if name in ('strikes', 'pardon') and level(i.user) != 'admin':

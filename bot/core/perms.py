@@ -29,7 +29,7 @@ def is_staff(m):
 
 
 def can_manage(m, owners):
-    """Status commands, /update, /config for a game: admin, or a dev who owns it. Unclaimed = any dev."""
+    """Status commands, /update for a game: admin, or a dev who owns it. Unclaimed = any dev."""
     lv = level(m)
     if lv == 'admin':
         return True

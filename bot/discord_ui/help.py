@@ -23,7 +23,7 @@ PAGES = {
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
         ('🎮', 'Your games', ['claim+', 'release+', 'progress']),
-        ('📣', 'Updates and settings', ['update', 'config', 'pings']),
+        ('📣', 'Updates and settings', ['update', 'pings']),
         ('⌨️', 'Typed in your board', [
             ('12 fixed', 'mark a bug fixed, investigating, duplicate…'),
             ('1-5 fixed', 'the same for a range of bugs'),
@@ -51,7 +51,7 @@ SHORT = {
     'pardon': 'remove a strike (and give back bug hunting)', 'botrules': 'post the bug report rules here', 'preview': 'post the finished embeds in the test channel',
     'claim new': 'take a game (add its Steam page with link:)', 'claim edit': 'change the link to the original game', 'claim drop': 'drop a game you claimed', 'release new': 'your game is out: paste its Roblox link',
     'release quiet': 'add a finished game without announcing it', 'release edit': 'fix a released game', 'release undo': 'move a game back to unreleased',
-    'progress': 'how far a game is, or put it in testing', 'update': 'draft and post an update', 'config': "a game's channel, link and pings",
+    'progress': 'how far a game is, or put it in testing', 'update': 'draft and post an update',
     'pings': 'choose when the bot pings you', 'tester profile': 'fill in or change your tester profile',
     'giveaway new': 'start a giveaway (opens a preview first)', 'giveaway end': 'end one now and draw', 'giveaway reroll': 'draw a new winner',
     'giveaway cancel': 'cancel a running giveaway', 'giveaway stats': 'how many new members it brought', 'giveaway list': 'the latest giveaways',

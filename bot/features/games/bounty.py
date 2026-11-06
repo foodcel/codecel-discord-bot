@@ -46,7 +46,7 @@ async def refresh_claims():
     if board.is_live():  # this bot runs the board: the claims are in its own database
         return set_claims(board.live_claims())
     if not cfg.bounty_id:
-        return False  # optional feature, owners can also be set with /config
+        return False  # optional feature, owners can also be set with /assign
     try:
         ch = await ctx.client.fetch_channel(int(cfg.bounty_id))
     except Exception:
@@ -121,7 +121,7 @@ def match_claims(game_name, pool=None):
 
 
 def owners_for(tag_id, game_name):
-    """Owner override (/config) > confirmed board name > auto match."""
+    """Owner override > confirmed board name > auto match."""
     row = get_game(tag_id) if tag_id else None
     if row and row.get('owner_override'):
         return [o for o in row['owner_override'].split(',') if o]

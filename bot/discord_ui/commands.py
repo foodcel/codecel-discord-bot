@@ -87,19 +87,6 @@ PREVIEW_CHOICES = [
 ]
 
 COMMANDS = [
-    command('config', 'Set up a game for update announcements', [
-        sub('set', 'Change announcement settings for a game', [
-            option(STRING, 'game', 'Game', required=True, autocomplete=True),
-            option(STRING, 'link', 'Link to the game'),
-            option(STRING, 'icon', 'Icon image URL (auto-pulled from a Roblox link if empty)'),
-            option(CHANNEL, 'channel', 'Announcement channel', channel_types=[GUILD_TEXT, GUILD_ANNOUNCEMENT]),
-            option(ROLE, 'role', 'Role to ping on announcements'),
-            option(INTEGER, 'threshold', 'Fixes before an announcement is offered', min_value=1, max_value=50),
-            option(USER, 'owner', 'Admin only: force the owner of this game'),
-            option(STRING, 'board', 'Admin only: the bounty-board name of this game', autocomplete=True),
-        ]),
-        sub('show', 'Show game settings', [option(STRING, 'game', 'Game', autocomplete=True)]),
-    ]),
     command('update', 'Post a game update with its bug fixes', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
     _bug_command(),
     _improvement_command(),
