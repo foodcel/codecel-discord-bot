@@ -28,6 +28,11 @@ async def main():
         return None
     devlog.update_step = quiet  # no entries in #dev-logs
     announce.schedule_boards = lambda *a, **k: None  # no refresh of the real dev boards
+    from bot.features.games import games as games_mod
+
+    async def no_refresh(*a, **k):
+        return None
+    games_mod.refresh_game_board = no_refresh  # nor of the real games board
     owner = ctx.guild.get_member(int(ctx.guild.owner_id))
     ch = await fetch_channel(cfg.test_id)
     made = []
@@ -86,6 +91,13 @@ async def main():
         e1 = await writes.edit_update(owner, allowed, ann[0]['id'], fixes=['Fixed the car falling through the road (edited)'])
         check('edit_update edits the card', e1.startswith('Edited'), e1)
         check('the edit is saved', 'edited' in json.loads(all_('SELECT payload FROM announcements WHERE id=?', ann[0]['id'])[0]['payload'])['bugfixes'][0])
+        gk = games_mod.key(NAME)
+        run("INSERT OR REPLACE INTO game_status(key,name,owners,since,status,released_at,released_by,link) VALUES(?,?,?,?,'released',?,?,?)", gk, NAME, str(owner.id), '2026-01-01', now(), str(owner.id), 'https://www.roblox.com/games/1/x')
+        eg = await writes.edit_game(owner, allowed, 'MCP', title='MCP Test Renamed', online='offline', description='Only 1 map so far')
+        row_ = all_('SELECT title, online, notes FROM game_status WHERE key=?', gk)[0]
+        check('edit_game changes title, online and description', eg.startswith('Updated') and row_['title'] == 'MCP Test Renamed' and row_['online'] == 0 and row_['notes'] == 'Only 1 map so far', f'{eg} {row_}')
+        check('edit_game with nothing to change says so', 'Nothing to change' in await writes.edit_game(owner, allowed, 'MCP'))
+        check('list_testers answers', 'volunteered' in writes.testers_text(owner, allowed, 'MCP'))
         check('list_updates shows it', 'night' in writes.updates_text(allowed, 'MCP').lower() or 'edited' in writes.updates_text(allowed, 'MCP'))
         check('the owner of another game cannot edit it', 'No update' in await writes.edit_update(owner, [('z', 'Z')], ann[0]['id'], fixes=['x']))
     finally:
@@ -111,6 +123,7 @@ async def main():
         run('DELETE FROM bugs WHERE game_tag_id=?', TAG)
         run('DELETE FROM announcements WHERE tag_id=?', TAG)
         run('DELETE FROM games WHERE tag_id=?', TAG)
+        run('DELETE FROM game_status WHERE key=?', games_mod.key(NAME))
         run("DELETE FROM pending WHERE data LIKE ?", f'%{TAG}%')
         print('cleaned up')
     print('ALL PASSED' if ok else 'SOMETHING FAILED')
