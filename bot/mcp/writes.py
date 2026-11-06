@@ -126,6 +126,8 @@ def set_settings(allowed, game, mode=None, count=None, merge=None, ping=None):
     hit = reports.find_game(allowed, game)
     if not hit:
         return f'No game of yours matches "{game}".'
+    if reports.untagged(hit[0]):
+        return f'{hit[1]} is in development or testing: update settings start once the game is released.'
     patch = {}
     if mode:
         mode = mode.lower()
@@ -151,6 +153,8 @@ def due_text(allowed, game):
     if not hit:
         return f'No game of yours matches "{game}".'
     tag_id, name = hit
+    if reports.untagged(tag_id):
+        return f'{name} is in development or testing: it has no updates yet. Fix reports and set their status; updates start once the game is released.'
     mode, n = policy(tag_id)
     w = announce.unannounced(tag_id)
     big = [b for b in w if b['kind'] == 'bug' and b.get('severity') in BIG]
@@ -172,11 +176,13 @@ async def post_update(member, allowed, game, fixes=None, changes=None, whats_new
     if not hit:
         return f'No game of yours matches "{game}".'
     tag_id, name = hit
+    if reports.untagged(tag_id):
+        return f'{name} is in development or testing: updates are for released games.'
     fixes, changes, new = _fix_list(fixes), _fix_list(changes), _fix_list(whats_new)
     bugs, sugs = [], []
     for i in bug_ids or []:
         b, why = reports.owned(allowed, i)
-        if not b or str(b['game_tag_id']) != str(tag_id):
+        if not b or reports.key_of(b) != str(tag_id):
             return f'id {i}: {why or "that report is not in this game"}'
         if b['status'] != st.FIXED or b['announced']:
             return f"id {i} is not a fixed report that is still waiting for an update (status {b['status']}, announced {bool(b['announced'])})."
@@ -212,6 +218,8 @@ def updates_text(allowed, game):
     hit = reports.find_game(allowed, game)
     if not hit:
         return f'No game of yours matches "{game}".'
+    if reports.untagged(hit[0]):
+        return f'{hit[1]}: no updates yet, it is in development or testing.'
     rows = edit.recent([hit[0]], 6)
     if not rows:
         return f'{hit[1]}: no updates posted yet.'
