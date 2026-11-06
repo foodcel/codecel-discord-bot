@@ -69,7 +69,12 @@ def games_text(allowed):
         sql, prm = game_sql(key)
         n = one(f"SELECT COUNT(*) c FROM bugs WHERE kind='bug' AND {sql} AND deleted=0 AND routed=1 AND status IN ('new','investigating','fixing')", *prm)['c']
         s = one(f"SELECT COUNT(*) c FROM bugs WHERE kind='suggestion' AND {sql} AND deleted=0 AND routed=1 AND status IN ('new','investigating','fixing')", *prm)['c']
-        lines.append(f'- {name}: {n} open bugs, {s} open suggestions' + (' (in development or testing)' if untagged(key) else ''))
+        extra = ''
+        if untagged(key):
+            from bot.features.games.games import key as game_key
+            st = one('SELECT progress, working, testing_at FROM game_status WHERE key=?', game_key(name)) or {}
+            extra = ' (in development' + (f", {st['progress']}% done" if st.get('progress') is not None else '') + (', being worked on' if st.get('working') else '') + (', in testing' if st.get('testing_at') else '') + ')'
+        lines.append(f'- {name}: {n} open bugs, {s} open suggestions{extra}')
     return '\n'.join(lines)
 
 

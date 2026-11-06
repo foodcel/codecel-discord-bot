@@ -100,6 +100,40 @@ async def ask_reporter(member, allowed, bug_id, questions):
     return 'Asked. The reporter was pinged in the post. Read the transcript later to see the answer.'
 
 
+async def set_progress(member, allowed, game, percent=-1, working=''):
+    """How far the game is (0-100) and whether the dev is working on it: the same as /progress. The progress bar is on the bounty board."""
+    from bot.features.games.games import apply_progress
+    hit = reports.find_game(allowed, game)
+    if not hit:
+        return f'No game of yours matches "{game}".'
+    w = None if working in ('', None) else str(working).lower() in ('yes', 'true', 'on', '1')
+    ok, text = await apply_progress(member, hit[1], None if percent is None or int(percent) < 0 else int(percent), w, None, '', ping=False)
+    return ('Saved: ' if ok else '') + text
+
+
+async def set_testing(member, allowed, game, on=True, play_link=''):
+    """Puts the game into testing (or takes it out): the same as /progress testing. The tester card is posted without a ping."""
+    from bot.features.games.games import apply_progress
+    hit = reports.find_game(allowed, game)
+    if not hit:
+        return f'No game of yours matches "{game}".'
+    ok, text = await apply_progress(member, hit[1], None, None, 'on' if on else 'off', play_link or '', ping=False)
+    return ('Saved: ' if ok else '') + text
+
+
+def add_note(allowed, bug_id, text):
+    """Adds a line to the developer note of a report (it shows on the report for the dev)."""
+    from bot.core.db import update_bug
+    b, why = reports.owned(allowed, bug_id)
+    if not b:
+        return why
+    text = ' '.join(str(text or '').split())[:300]
+    if not text:
+        return 'Give a note.'
+    update_bug(b['id'], {'note': ((b.get('note') + chr(10)) if b.get('note') else '') + text})
+    return 'Note added.'
+
+
 def policy(tag_id):
     g = get_game(tag_id) or {}
     return (g.get('mcp_mode') if g.get('mcp_mode') in MODES else 'manual'), int(g.get('mcp_count') or 5)
