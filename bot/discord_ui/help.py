@@ -121,7 +121,8 @@ def page_card(role, n, total, member):
     if role in ('dev', 'tester'):  # devs and testers can report a message
         groups.append(HUNTING)
     desc = descriptions()
-    blocks = [f'-# {intro}'] + [f"**{g_emoji} {title}**{chr(10)}{_tree(entries, desc)}" for g_emoji, title, entries in groups]
+    sections = [f"**{g_emoji} {title}**{chr(10)}{_tree(entries, desc)}" for g_emoji, title, entries in groups]
+    blocks = [f'-# {intro}', (chr(10) * 2).join(sections)]  # one text part, so a blank line sits between the sections
     below = [ui.ActionRow(button(f'help:{n - 1}', 'Previous', discord.ButtonStyle.secondary, disabled=n == 0),
                           button(f'help:{n + 1}', 'Next', discord.ButtonStyle.primary, disabled=n >= total - 1))] if total > 1 else []
     return card(f'{emoji} Help · {label}', blocks, [f'Page {n + 1} of {total} · {label}'], below=below)
