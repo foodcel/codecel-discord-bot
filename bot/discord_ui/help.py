@@ -49,8 +49,8 @@ SHORT = {
     'tester edit': "change a tester's details", 'tester post': 'post the tester guide and roster', 'strikes': "show a user's troll strikes",
     'mog': 'Codecel posts a mog GIF and pings Robin and Redwing Helper',
     'pardon': 'remove a strike (and give back bug hunting)', 'botrules': 'post the bug report rules here', 'preview': 'post the finished embeds in the test channel',
-    'claim new': 'take a game (add its Steam page with link:)', 'claim edit': 'change the link to the original game', 'claim drop': 'drop a game you claimed', 'release new': 'your game is out: paste its Roblox link',
-    'release quiet': 'add a finished game without announcing it', 'release edit': 'fix a released game', 'release undo': 'move a game back to unreleased',
+    'claim new': 'take a game (add its Steam page with link:)', 'claim edit': 'change the link to the original game', 'claim drop': 'drop a game you claimed', 'release new': 'paste its Roblox link',
+    'release quiet': 'add it without announcing it', 'release edit': 'fix a released game', 'release undo': 'move it back to unreleased',
     'progress': 'how far a game is, or put it in testing', 'update': 'draft and post an update',
     'pings': 'choose when the bot pings you', 'tester profile': 'fill in or change your tester profile',
     'giveaway new': 'start a giveaway (opens a preview first)', 'giveaway end': 'end one now and draw', 'giveaway reroll': 'draw a new winner',
@@ -94,19 +94,18 @@ def _subs(name):
 
 
 def _tree(entries, desc):
-    """One branch per command. An entry like 'claim+' is a command with its sub-commands as a smaller branch under it."""
+    """One line per command; an entry like 'claim+' lists its sub-commands as bullets under it (a blank line keeps the groups apart)."""
     lines = []
     for n, item in enumerate(entries):
-        branch, stem = ('└─', EM * 2) if n == len(entries) - 1 else ('├─', '│' + EM)
         many = isinstance(item, str) and item.endswith('+')
         item = item[:-1] if many else item
         text, what = item if isinstance(item, tuple) else (f'/{item}', SHORT.get(item) or _clean(desc.get(item, '')))
-        lines.append(f"{branch} **{text}**{EM}·{EM}{what}" if what else f'{branch} **{text}**')
+        lines.append(f"**{text}**{EM}·{EM}{what}" if what else f'**{text}**')
         if many:
-            subs = _subs(item)
-            for k, sname in enumerate(subs):
-                what = SHORT.get(f'{item} {sname}') or _clean(desc.get(f'{item} {sname}', ''))
-                lines.append(f"{stem}{'└─' if k == len(subs) - 1 else '├─'} **{sname}**{EM}·{EM}{what}")
+            for sname in _subs(item):
+                lines.append(f"•{EM}`{sname}`{EM}{SHORT.get(f'{item} {sname}') or _clean(desc.get(f'{item} {sname}', ''))}")
+            if n < len(entries) - 1:
+                lines.append('')
     return chr(10).join(lines)
 
 
