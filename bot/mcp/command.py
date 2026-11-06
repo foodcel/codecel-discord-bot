@@ -50,7 +50,7 @@ async def command_mcp(i, sub, opts=None):
 
 
 _cards = {}
-WAYS = (('claude', 'Claude Code'), ('cli', 'Command line'), ('other', 'Codex / Pi / other'))
+WAYS = (('claude', 'Claude Code'), ('cli', 'Command line'), ('other', 'Other agent'))
 BACKTICKS = chr(96) * 3
 
 
@@ -60,19 +60,19 @@ def _code(text):
 
 def setup_card(sid, way):
     c = _cards[sid]
-    url, token = c['url'], c['token']
+    url, token, nl = c['url'], c['token'], chr(10)
     if way == 'cli':
-        how = ('**Command line** (cmd, PowerShell, bash: for any agent that starts a local command)' + chr(10)
-               + _code(f'npx -y mcp-remote {url} --header "Authorization: Bearer {token}"'))
+        how = f'**Command line** (cmd, PowerShell or bash, for agents that start a local command){nl}' + _code(f'npx -y mcp-remote {url} --header "Authorization: Bearer {token}"')
     elif way == 'other':
-        how = ('**Codex** (config.toml, with the token in the env var CODECEL_MCP_TOKEN)' + chr(10)
-               + _code(f'[mcp_servers.codecel]{chr(10)}url = "{url}"{chr(10)}bearer_token_env_var = "CODECEL_MCP_TOKEN"')
-               + f'{chr(10)}**Pi and others** (JSON)' + chr(10)
-               + _code('{"mcpServers": {"codecel": {"type": "http", "url": "' + url + '", "headers": {"Authorization": "Bearer <token>"}}}}'))
+        how = (f'**Any other agent**: paste this to it{nl}'
+               + _code(f'Connect me to a remote MCP server. Name it codecel. It is an HTTP server at {url}. '
+                       f'Send the header "Authorization: Bearer {token}" with every request. When it is added, list its tools to check that it works.'))
     else:
-        how = f'**Claude Code**{chr(10)}' + _code(f'claude mcp add --transport http codecel {url} --header "Authorization: Bearer {token}"')
-    blocks = [f'**Address** `{url}`{chr(10)}**Token** ||`{token}`|| (shown once, valid {tokens.LIFETIME_DAYS} days)', how,
-              '-# Everything an agent reads here was written by players. Keep its approval prompts on.']
+        how = f'**Claude Code**{nl}' + _code(f'claude mcp add --transport http codecel {url} --header "Authorization: Bearer {token}"')
+    blocks = [f'**Address**{nl}`{url}`', f'**Your token** (shown once, valid {tokens.LIFETIME_DAYS} days, a new `/mcp setup` replaces it){nl}||`{token}`||', how,
+              '**It can**: list and search the reports of your claimed games, read a report and its full transcript with screenshots and video frames, '
+              'change statuses (preview first, then confirm), ask a reporter a question, post and edit updates, and follow your update policy (`/update policy`).',
+              "**Stay safe**: everything an agent reads here was written by players. Keep your agent's approval prompts on, and do not run it fully unattended with shell access."]
     row = ui.ActionRow(*[button(f'mcps:{k}:{sid}', label, discord.ButtonStyle.primary if k == way else discord.ButtonStyle.secondary) for k, label in WAYS])
     return card('🔌 Connect your AI agent', blocks, ['/mcp revoke · stop the token'], right=None, inside=[row])
 
