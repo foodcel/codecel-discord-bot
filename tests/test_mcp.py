@@ -31,6 +31,22 @@ class Games(unittest.TestCase):
         self.assertIn('No report', reports.report_text([], 1, '0'))
 
 
+class Who(unittest.TestCase):
+    def test_only_plain_developers_may_use_it(self):
+        from types import SimpleNamespace as N
+        from bot.core.env import cfg
+
+        def member(role_ids, admin=False):
+            return N(guild_permissions=N(administrator=admin), roles=[N(id=r) for r in role_ids])
+
+        self.assertTrue(server.eligible(member([cfg.dev_role])))
+        self.assertFalse(server.eligible(member([cfg.dev_role], admin=True)))  # an admin never connects an agent
+        self.assertFalse(server.eligible(member([])))
+        self.assertFalse(server.eligible(None))
+        if cfg.jr_role:
+            self.assertFalse(server.eligible(member([cfg.dev_role, cfg.jr_role])))
+
+
 class Access(unittest.TestCase):
     def test_no_token_is_401_and_the_app_is_never_reached(self):
         sent, reached = [], []
