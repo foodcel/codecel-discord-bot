@@ -89,6 +89,28 @@ async def download(url):
             return await r.read()
 
 
+def card_text(m):
+    """The words of a message built from components (the bot's cards have no plain text): headings, lines and small print, in order."""
+    out = []
+
+    def walk(c):
+        for name in ('content', 'label'):
+            v = getattr(c, name, None)
+            if isinstance(v, str) and v.strip():
+                out.append(v.strip())
+                break
+        for kids in ('children', 'components'):
+            for k in getattr(c, kids, None) or []:
+                walk(k)
+        acc = getattr(c, 'accessory', None)
+        if acc is not None and not hasattr(acc, 'url'):
+            walk(acc)
+
+    for c in getattr(m, 'components', None) or []:
+        walk(c)
+    return chr(10).join(x for x in out if not x.startswith('<t:'))[:1500]
+
+
 async def bug_bundle(bug):
     """One bug: markdown with @@key@@ placeholders for files, plus the downloaded files themselves."""
     thread = None if bug['deleted'] else await fetch_channel(bug['thread_id'])
@@ -143,8 +165,9 @@ async def bug_bundle(bug):
         else:
             tag = m.author.display_name
         t = fmt(m.created_at.timestamp() * 1000)
-        if (m.content or '').strip():
-            md.append(f'[{t}] {tag}: {m.content.strip()}')
+        text = (m.content or '').strip() or card_text(m)
+        if text:
+            md.append(f'[{t}] {tag}: {text}')
         for a in m.attachments:
             typ = a.content_type or ''
             try:
