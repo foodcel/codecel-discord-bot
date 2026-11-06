@@ -68,7 +68,7 @@ def setup_card(sid, way):
                + _code(f'Connect me to a remote MCP server. Name it codecel. It is an HTTP server at {url}. '
                        f'Send the header "Authorization: Bearer {token}" with every request. When it is added, list its tools to check that it works.'))
     else:
-        how = f'**Claude Code**{nl}' + _code(f'claude mcp add --transport http codecel {url} --header "Authorization: Bearer {token}"')
+        how = f'**Claude Code**{nl}' + _code(f'claude mcp add --scope user --transport http codecel {url} --header "Authorization: Bearer {token}"')
     blocks = [f'**Address**{nl}`{url}`', f'**Your token** (shown once, valid {tokens.LIFETIME_DAYS} days, a new `/mcp setup` replaces it){nl}||`{token}`||', how,
               '**It can**: list and search the reports of your claimed games, read a report and its full transcript with screenshots and video frames, '
               'change statuses (preview first, then confirm), ask a reporter a question, post and edit updates, and follow your update policy (`/update policy`).',
