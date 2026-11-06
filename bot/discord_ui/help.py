@@ -101,10 +101,13 @@ def _tree(entries, desc):
     for item in entries:
         many = isinstance(item, str) and '+' in item
         name, _, only = item.partition('+') if many else (item, '', '')
+        subs = _subs(name, only) if many else []
+        if many and len(subs) == 1:  # one sub-command is not a group: it reads as the plain command
+            name, many, subs = f'{name} {subs[0]}', False, []
         text, what = item if isinstance(item, tuple) else (f'/{name}', SHORT.get(name) or _clean(desc.get(name, '')))
         line = f"**{text}**{EM}·{EM}{what}" if what else f'**{text}**'
         if many:
-            blocks.append([line] + [f"•{EM}`{sname}`{EM}{SHORT.get(f'{name} {sname}') or _clean(desc.get(f'{name} {sname}', ''))}" for sname in _subs(name, only)])
+            blocks.append([line] + [f"•{EM}`{sname}`{EM}{SHORT.get(f'{name} {sname}') or _clean(desc.get(f'{name} {sname}', ''))}" for sname in subs])
         else:
             plain.append(line)
     if plain:
