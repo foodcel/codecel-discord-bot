@@ -21,7 +21,7 @@ from bot.discord_ui.ui import E, EM
 
 def unannounced(tag_id):
     """What an update can announce: every bug marked fixed in the bugs channel (that is the confirmation) and every added suggestion."""
-    return all_("SELECT * FROM bugs WHERE game_tag_id=? AND status='fixed' AND announced=0 ORDER BY id", tag_id)
+    return all_("SELECT * FROM bugs WHERE game_tag_id=? AND status='fixed' AND announced=0 AND COALESCE(source,'')<>'tester' ORDER BY id", tag_id)
 
 
 HALF_RULE = '─' * 28  # fills one half of the embed

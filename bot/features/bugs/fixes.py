@@ -104,8 +104,8 @@ async def mark_fixed(bug, actor_id):
     update_bug(bug['id'], {'status': 'fixed', 'fixed_at': now(), 'fixed_by': actor_id, 'notified': 0, 'announced': 0})
     # Keep the conversation and screenshots: the post is deleted 24h after the reporter is told, but the fix log still offers a transcript.
     fire(snapshot_bug(bug_by_id(bug['id'])), 'snapshot')
-    if bug['kind'] == 'suggestion' or not bug['game_tag_id']:
-        await tell_fixed(bug)  # a suggestion, or a bug with no game tag (it can never be in an update): told at once
+    if bug['kind'] == 'suggestion' or not bug['game_tag_id'] or bug.get('source') == 'tester':
+        await tell_fixed(bug)  # a suggestion, a bug with no game tag, or a tester's report (testers are told at once, it never goes into a public update)
     schedule_boards()
     fire(maybe_offer(bug['game_tag_id']), 'offer')
 
