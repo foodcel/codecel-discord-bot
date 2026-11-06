@@ -27,7 +27,7 @@ _pending = {}  # token -> {'files': [...], 't': ms}
 
 
 def evidence(opts):
-    """([files the player attached], the links box) from a /bug or /improvement command."""
+    """([files the player attached], the links box) from a /bug or /suggest command."""
     files = [{'url': a['url'], 'name': a['filename'], 'size': a['size'], 'type': a.get('content_type') or ''}
              for a in (opts.get(n) for n in ('file',) + tuple(f'file_{n}' for n in range(2, 11))) if a]
     return files, (opts.get('links') or '').strip()

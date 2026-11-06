@@ -46,11 +46,11 @@ async def main():
     await show('**Reopened** (the player said it is still broken)', replies.reopened(bug))
     await show('**Closed** (fake or abusive)', replies.troll_closed())
 
-    await ch.send('# 2 · Posts made by /bug, /improvement and !bug', allowed_mentions=NO_MENTIONS)
+    await ch.send('# 2 · Posts made by /bug, /suggest and !bug', allowed_mentions=NO_MENTIONS)
     form = {'title': 'Car falls through the map', 'what': 'After the second checkpoint my car drops through the road', 'steps': '1. Start a race on Harbor\n2. Drive past checkpoint 2',
             'expected': 'The car stays on the road', 'device': 'PS5', 'why': ''}
     await show('**/bug post**', report_card('bug', me, bug['game_name'], form))
-    await show('**/improvement post**', report_card('suggestion', me, bug['game_name'], {**form, 'title': 'Add a night mode', 'what': 'A darker map for night races', 'why': 'Easier on the eyes'}))
+    await show('**/suggest post**', report_card('suggestion', me, bug['game_name'], {**form, 'title': 'Add a night mode', 'what': 'A darker map for night races', 'why': 'Easier on the eyes'}))
     await show('**!bug saved from a message**', report_card('bug', me, bug['game_name'], form, origin='https://discord.com/channels/1/2/3',
                                                           footer='Saved from a message by a tester · replies go in this post'))
 

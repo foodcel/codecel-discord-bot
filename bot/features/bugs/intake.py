@@ -41,7 +41,7 @@ def _text(m):
 
 async def gather(thread, bug):
     msgs = [m async for m in thread.history(limit=50)]
-    # a post made by /bug or /improvement is written by the bot for the player: its first message counts as the player's own
+    # a post made by /bug or /suggest is written by the bot for the player: its first message counts as the player's own
     def is_player_answer(m):  # anyone who is not the bot and not staff may answer the questions (another player who saw the same bug, for example)
         return not m.author.bot and not (isinstance(m.author, discord.Member) and level(m.author) in ('admin', 'dev', 'jr'))
     mine = sorted((m for m in msgs if str(m.author.id) == bug['reporter_id'] or (bug.get('source') == 'form' and m.id == thread.id) or is_player_answer(m)),

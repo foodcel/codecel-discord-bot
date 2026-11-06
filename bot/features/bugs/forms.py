@@ -1,4 +1,4 @@
-"""/bug and /improvement for everyone: a short form that makes the post in the right forum for the player. From then on the bot treats it
+"""/bug and /suggest for everyone: a short form that makes the post in the right forum for the player. From then on the bot treats it
 exactly like a post written by hand: it checks it, tags it, asks for what is missing and sends it to the dev who owns the game.
 (Testers using /bug in the testing channel keep their own flow, see tester.py.)"""
 import asyncio
@@ -23,7 +23,7 @@ _last = {}
 
 KINDS = {
     'bug': {'noun': 'bug report', 'command': '/bug', 'icon': '🐛'},
-    'suggestion': {'noun': 'improvement', 'command': '/improvement', 'icon': '💡'},
+    'suggestion': {'noun': 'improvement', 'command': '/suggest', 'icon': '💡'},
 }
 
 
@@ -73,7 +73,7 @@ async def command_form(i, opts, kind):
 
 
 def _card(kind, user_id, game, form, too_big=None, media=None, origin=None, footer=None):
-    """The first message of a /bug or /improvement post, as a card: (view, files). origin: the message a !bug reply saved."""
+    """The first message of a /bug or /suggest post, as a card: (view, files). origin: the message a !bug reply saved."""
     meta = KINDS[kind]
     who = 'Reporter' if kind == 'bug' else 'Player'
     facts = [row('Game', game), row(who, f'<@{user_id}>')]

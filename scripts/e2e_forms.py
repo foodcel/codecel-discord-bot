@@ -1,4 +1,4 @@
-"""End-to-end check of /bug and /improvement for everyone on the real server: forms are sent as a made-up player, the posts are made in the
+"""End-to-end check of /bug and /suggest for everyone on the real server: forms are sent as a made-up player, the posts are made in the
 real forums, checked by Claude, then everything is removed. The real dev boards are never touched."""
 import asyncio
 from types import SimpleNamespace
@@ -77,7 +77,7 @@ async def main():
 
     row, t, msgs, sent = await submit('suggestion', game, {
         'title': '[BOT TEST] Add a practice mode', 'what': 'Please add a practice mode in Vyra Station where songs can be slowed down.', 'why': 'It would help me learn hard songs.'})
-    print('4. /improvement:', {k: row[k] for k in ('id', 'kind', 'source', 'status', 'game_name', 'routed')})
+    print('4. /suggest:', {k: row[k] for k in ('id', 'kind', 'source', 'status', 'game_name', 'routed')})
     print('   post:', t.name, '| in suggestions forum:', str(t.parent_id) == cfg.suggestions_id, '| tags:', [x.name for x in t.applied_tags])
     print('   bot said:', [m[:100] for m in msgs])
 

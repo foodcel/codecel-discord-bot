@@ -134,7 +134,7 @@ def describe_interaction(i):
     t = i.type
     if t == discord.InteractionType.application_command:
         name = i.data['name']
-        if name in ('bug', 'improvement', 'update'):  # a tester's report is not a dev action; /update has its own single entry (update_step)
+        if name in ('bug', 'suggest', 'update'):  # a tester's report is not a dev action; /update has its own single entry (update_step)
             return None
         sub, opts, _ = get_options(i)
         from bot.features.games.games import clean_name

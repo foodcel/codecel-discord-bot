@@ -63,7 +63,7 @@ async def handle(m):
     member = m.author
 
     if not is_tester(member):
-        return False  # players use /bug and /improvement
+        return False  # players use /bug and /suggest
     in_testing = bool(cfg.testing_id) and str(m.channel.id) == str(cfg.testing_id)
     from bot.features.bugs.hunting import blocked
     if level(member) != 'admin' and blocked(member.id) and str(m.channel.id) != str(cfg.test_id):

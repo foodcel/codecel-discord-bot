@@ -412,7 +412,7 @@ async def handle_command(i):
     if name == 'help':  # for everyone
         from bot.discord_ui.help import command_help
         return await command_help(i)
-    if name == 'improvement':  # for everyone, like /bug
+    if name == 'suggest':  # for everyone, like /bug
         from bot.features.bugs.forms import command_form
         return await command_form(i, opts, 'suggestion')
     if name == 'bug':

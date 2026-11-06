@@ -25,7 +25,7 @@ def sub(name, description, options=None):
 
 
 def _evidence_options():
-    """Up to 10 files and a links box on /bug and /improvement. Anything more goes in as replies in the post, which have no limit."""
+    """Up to 10 files and a links box on /bug and /suggest. Anything more goes in as replies in the post, which have no limit."""
     files = [option(ATTACHMENT, 'file' if n == 1 else f'file_{n}', 'A screenshot or video (optional)' if n == 1 else 'Another file (optional)') for n in range(1, 11)]
     return files + [option(STRING, 'links', 'Clip or video links, separated by spaces (optional)', max_length=400)]
 
@@ -37,7 +37,7 @@ def _bug_command():
 
 def _improvement_command():
     opts = [option(STRING, 'game', 'Which game', required=True, autocomplete=True), *_evidence_options()]
-    return command('improvement', 'Suggest an improvement: pick the game, add files or links if you have them, and fill in a short form', opts)
+    return command('suggest', 'Suggest an improvement: pick the game, add files or links if you have them, and fill in a short form', opts)
 
 
 FORUM, TEXT = 15, 0
