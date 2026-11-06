@@ -42,13 +42,16 @@ def games_text(allowed):
     return '\n'.join(lines)
 
 
-def list_text(allowed, game, kind='bug', status=''):
+def list_text(allowed, game, kind='bug', status='', since_id=0):
     hit = find_game(allowed, game)
     if not hit:
         return f'No game of yours matches "{game}". Your games: ' + (', '.join(n for _, n in allowed) or 'none') + '.'
     tag_id, name = hit
     where = "kind=? AND game_tag_id=? AND deleted=0 AND routed=1 AND status NOT IN (%s)" % ','.join('?' * len(EXPLOITS))
     params = [kind, str(tag_id), *EXPLOITS]
+    if since_id:
+        where += ' AND id>?'
+        params.append(int(since_id))
     if status.lower() in OPEN_WORDS:
         where += ' AND status IN (%s)' % ','.join('?' * len(OPEN))
         params += list(OPEN)

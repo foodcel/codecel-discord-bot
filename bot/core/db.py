@@ -122,6 +122,12 @@ for _col in ('source_link TEXT', 'progress INTEGER', 'working INTEGER', 'test_li
     except Exception:
         pass
 
+for _col in ('mcp_mode TEXT', 'mcp_count INTEGER'):  # when a dev's agent may post an update: manual | every | critical | count (after mcp_count fixes)
+    try:
+        db.execute(f'ALTER TABLE games ADD COLUMN {_col}')
+    except Exception:
+        pass
+
 for _col in ('note TEXT', 'device TEXT', 'body TEXT', 'source TEXT'):
     try:
         db.execute(f'ALTER TABLE bugs ADD COLUMN {_col}')

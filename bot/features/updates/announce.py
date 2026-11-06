@@ -105,6 +105,11 @@ def draft_view(id_, p=None):
 
 
 MERGE_HOURS = 12  # updates of a game this close together become one embed
+FRESH = '🆕 '  # in front of the lines the latest addition brought, so a reader sees what changed in a card that grew
+
+
+def mark(lines, fresh):
+    return [FRESH + line if line in fresh else line for line in lines]
 
 
 def recent_announcement(tag_id):
@@ -382,9 +387,10 @@ async def _merge_announcement(pending_id):
     new = new_old + [l for l in new_lines if l not in new_old]
     updates = changes + new
     version = p.get('version') or old.get('version') or ''
-    # an update posted in the old embed look becomes the card in place
+    fresh = [l for l in bug_lines if l not in old['bugfixes']] + [l for l in p['updates'] if l not in changes_old] + [l for l in new_lines if l not in new_old]
+    # an update posted in the old embed look becomes the card in place; the lines this addition brought get a 🆕
     from bot.features.games.cards import released_row_for, update_card
-    view, files = update_card(game, released_row_for(game['name']), bugfixes, changes, new, version, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
+    view, files = update_card(game, released_row_for(game['name']), mark(bugfixes, fresh), mark(changes, fresh), mark(new, fresh), version, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
     await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=NO_MENTIONS)
     b_ids, n_ids = chosen_ids(p)
     for i in b_ids + n_ids:
@@ -392,7 +398,7 @@ async def _merge_announcement(pending_id):
     from bot.features.bugs.fixes import tell_released
     asyncio.ensure_future(tell_released(b_ids, msg.jump_url))
     run('UPDATE announcements SET bug_ids=?, payload=? WHERE id=?',
-        json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'changes': changes, 'new': new, 'version': version, 'ping_role': old.get('ping_role'), 'poster': old.get('poster')}), row['id'])
+        json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'changes': changes, 'new': new, 'version': version, 'ping_role': old.get('ping_role'), 'poster': old.get('poster'), 'fresh': fresh}), row['id'])
     schedule_boards()
     del_pending(pending_id)
     other = kv_get(f"offer:{p['tagId']}")

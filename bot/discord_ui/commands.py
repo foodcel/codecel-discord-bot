@@ -87,13 +87,26 @@ PREVIEW_CHOICES = [
 ]
 
 COMMANDS = [
-    command('update', 'Post a game update with its bug fixes', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
+    command('update', 'Post a game update, change a posted one, or set when your AI agent posts', [
+        sub('new', 'Draft and post an update with the bug fixes that are waiting', [option(STRING, 'game', 'Game', required=True, autocomplete=True)]),
+        sub('edit', 'Change an update that was already posted', [option(STRING, 'update', 'Which update', required=True, autocomplete=True)]),
+        sub('policy', 'When your AI agent may post updates for a game', [
+            option(STRING, 'game', 'Game', required=True, autocomplete=True),
+            option(STRING, 'mode', 'When', required=True, choices=[('Only when I say so (manual)', 'manual'), ('After every fixed report', 'every'),
+                                                                    ('When a high or critical fix is waiting', 'critical'), ('After a number of fixes', 'count')]),
+            option(INTEGER, 'count', 'For "after a number of fixes": how many', min_value=1, max_value=50),
+        ]),
+    ]),
     _bug_command(),
     _improvement_command(),
     command('help', 'Show the commands you can use'),
     command('mcp', 'Connect your AI agent to the reports of your games', [
         sub('setup', 'Get the address and your personal token (shown only to you)'),
         sub('revoke', 'Stop your token from working'),
+        sub('status', 'Admin: who has a token, who is connected, when it last called'),
+        sub('kick', 'Admin: stop a developer token', [option(USER, 'user', 'The dev', required=True)]),
+        sub('pause', 'Admin: switch the MCP off for everyone'),
+        sub('resume', 'Admin: switch the MCP back on'),
     ]),
     command('mog', 'Admin: Codecel posts a mog GIF and pings Robin and Redwing Helper'),
     {'type': 3, 'name': 'Mog'},  # right click a message, Apps, Mog: Codecel replies to it with a GIF
