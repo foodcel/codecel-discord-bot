@@ -1,6 +1,6 @@
 # Plan: the codecel MCP (bug reports and updates inside a dev's AI session)
 
-Status: planned, not built.
+Status: M1 built and live (read-only tools, tokens, /mcp setup). Hosted with Tailscale Funnel on the VM (userspace, no sudo): https://codecel-bot.tail2de29f.ts.net, set up with deploy/tailscale-install.sh.
 Decided (2026-11-05): hosting through a **Cloudflare Tunnel** (`cloudflared` on the bot's VM, outbound only, no open port); the audit **only suggests**;
 updates through the MCP: **game owners and admins**, same as `/update`, pings limited to none / the game's role / @Updates.
 
