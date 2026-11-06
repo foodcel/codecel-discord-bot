@@ -51,12 +51,14 @@ SETUP_COMMAND = command('bounty-board', 'Rank a suggestions forum by votes in a 
 
 # Registered only once the board is set up with /bounty-board, so they never sit next to another bot's /claim before that.
 BOARD_COMMANDS = [
-    command('claim', "Claim a game you're working on: a suggestion, or a custom game", [
-        option(STRING, 'post', "Type to search the forum's posts, or pick \"Custom game\" for one that has no post", required=True,
-               autocomplete=True),
-        option(STRING, 'link', 'Link to the original game (Steam page etc.), shown on the games board'),
+    command('claim', 'Claim a game you are working on, or drop one you claimed', [
+        sub('new', "Claim a game you're working on: a suggestion, or a custom game", [
+            option(STRING, 'post', "Type to search the forum's posts, or pick \"Custom game\" for one that has no post", required=True,
+                   autocomplete=True),
+            option(STRING, 'link', 'Link to the original game (Steam page etc.), shown on the games board'),
+        ]),
+        sub('drop', 'Drop a game you claimed: it goes back to Top suggestions', [option(STRING, 'post', 'The game', required=True, autocomplete=True)]),
     ]),
-    command('unclaim', 'Drop a game you claimed: it goes back to Top suggestions', [option(STRING, 'post', 'The game', required=True, autocomplete=True)]),
     command('assign', 'Give a game to a dev, taking it from whoever holds it (admins only)', [
         option(STRING, 'post', "Type to search the forum's posts, or pick \"Custom game\" for one that has no post", required=True,
                autocomplete=True),

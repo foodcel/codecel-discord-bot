@@ -49,7 +49,7 @@ The items marked **checked** were re-read in the code after the audit. The other
 - **Update drafts:** no lock, so several drafts can appear for the same fixes. A hand-edited draft marks every id announced.
 - **AI:** one daily cap for everyone. A spammer can use it up and stop triage for all. A failed AI call leaves a report stuck or closes it as "never answered".
 - **Cards:** a long roster or games list passes Discord's 4,000-character or 40-part limit and silently stops updating. The tester board then reposts itself.
-- **Dev boards** do not refresh after `/claim`, `/unclaim` or `/assign`.
+- **Dev boards** do not refresh after `/claim` or `/assign`.
 - **Modal and button handlers:** `annedit`, `tr:`, `trg:`, `bd:`, `fl:` and others check permissions only by being in dev-only channels.
 - **`/pardon` and `/strikes`** are open to every dev, but `/help` says admin.
 - **The rival-bot GIF reply** has no cooldown, so it can loop.

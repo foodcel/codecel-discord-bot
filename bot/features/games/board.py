@@ -20,15 +20,15 @@ DESCRIPTION_LIMIT = 3800  # embed descriptions cap at 4096
 DEFAULT_VOTE_EMOJI = '🔥'  # when the forum has no default reaction set
 HIGHLY_REQUESTED_VOTES = 30  # a post reaching this gets the tag (never removed by the bot)
 HIGHLY_REQUESTED_TAG = 'Highly Requested'
-IN_DEVELOPMENT_TAG = 'In Development'  # added on /claim, removed on /unclaim
+IN_DEVELOPMENT_TAG = 'In Development'  # added on /claim, removed on /claim drop
 FORUM_SYNC_SECONDS = 3600
 BOARD_REFRESH_DELAY = 5  # seconds; a burst of votes becomes one edit of the pinned messages
 CUSTOM = 'custom:'  # autocomplete value of a game with no forum post, followed by its name
 CLAIM = 'claim:'  # autocomplete value of an existing claim, followed by its id
 MAX_CUSTOM_GAME = 60
 FOOT_TOP = '\n'.join([
-    '/claim · take a game from the list, or your own (add its Steam page with link:)',
-    '/unclaim · drop a game you claimed, it comes back here',
+    '/claim new · take a game from the list, or your own (add its Steam page with link:)',
+    '/claim drop · drop a game you claimed, it comes back here',
     'Admins: /assign gives a game to a dev · /exclude hides a post · /include brings it back',
 ])
 
@@ -488,7 +488,7 @@ def add_claim(post, custom, user_id):
 
 
 async def command_claim(i, opts):
-    """/claim post [link]: link is the page of the original game (Steam etc.), shown on the games board."""
+    """/claim new post [link]: link is the page of the original game (Steam etc.), shown on the games board."""
     from bot.features.games.games import http, set_source_link
     if not await ensure_board(i):
         return

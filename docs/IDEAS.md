@@ -17,7 +17,7 @@ Devs and testers can turn any message into a report without retyping it.
 One command that explains the bot, organized per role. You only see the sections for the roles you have.
 
 - **Sections.** Everyone (`/bug`, `/improvement`, where to use them), Tester (`/tester profile`, the testing channel and `/bug` there),
-  Dev (`/claim`, `/unclaim`, `/release`, `/progress`, `/update`, `/config`, `/pings`, typed commands like `12 fixed`
+  Dev (`/claim`, `/release`, `/progress`, `/update`, `/config`, `/pings`, typed commands like `12 fixed`
   and `7 added`), Admin (`/assign`, `/exclude`, `/include`, `/bounty-board`, `/tester add|remove|status|edit|post`, `/games`, `/strikes`, `/pardon`, `/botrules`, `/preview`).
   Jr devs see the dev section marked "read only".
 - **Look.** One embed in the same style as the boards: a section per role with a tree of commands and one short line each, plus a footer with where to ask.
@@ -56,7 +56,7 @@ language: more minimal, less wording, clear what to read and where to press, and
 **Plan to link it with /release, the bounty board and the games board.**
 1. `/release game link` stays the one action: it completes the bounty claim, moves the game to Released on our games board, and now also adds or refreshes the game's row in the #games library.
    `/unrelease` removes the row. Extra optional fields on /release: `original` (studio credit), `roblox_name` (when the Roblox name differs), `platforms`. Remembered, so later updates reuse them.
-2. **Art comes for free from data we already have.** The Steam link given on `/claim link:` / `/gamelink` contains the Steam app id, so the cover is
+2. **Art comes for free from data we already have.** The Steam link given on `/claim new link:` / `/progress source:` contains the Steam app id, so the cover is
    `.../steam/apps/<id>/library_600x900.jpg` (and `header.jpg` for a wide hero). Non-Steam games: a Roblox game icon from the Roblox link, or one `art:` image the dev attaches.
 3. **Our library layout (minimal).** One container per page: hero banner, a short title, a divider, then one row per game: name linked, one grey line `Original: studio`, platform icons only
    (no words), and a **Play** button on the right as the only thing to press (clear target; the cover art moves to the hero or a small thumbnail instead of the button). The long disclaimer shrinks to one footer line.

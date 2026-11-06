@@ -18,11 +18,11 @@ from bot.core.perms import level, owns
 from bot.discord_ui.ui import E, EM, ZW, cut, lkey
 
 FOOT_UNRELEASED = '\n'.join([
-    '/claim · take a game (add its Steam page with link:)',
+    '/claim new · take a game (add its Steam page with link:)',
     '/progress · how far it is, working on it, testing:on, or source: its original link',
     '/release new · the game is out (paste its Roblox link)',
     '/release quiet · add it without announcing it',
-    '/unclaim · drop a game you claimed',
+    '/claim drop · drop a game you claimed',
 ])
 FOOT_RELEASED = '\n'.join([
     '/release edit · fix a released game\'s title, link, image or credits',

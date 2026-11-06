@@ -43,5 +43,5 @@ def can_confirm(m):
 
 
 def owns(m, owners):
-    """The games commands (/release, /gamelink, /progress...): an admin, or the dev who owns the game. A game nobody owns is admin only."""
+    """The games commands (/release, /progress...): an admin, or the dev who owns the game. A game nobody owns is admin only."""
     return level(m) == 'admin' or (level(m) == 'dev' and str(m.id) in [str(o) for o in owners])

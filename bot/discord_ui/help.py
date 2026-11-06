@@ -22,7 +22,7 @@ PAGES = {
         ('🎁', 'Giveaways', ['giveaway new', 'giveaway end', 'giveaway reroll', 'giveaway stats', 'giveaway cancel', 'giveaway list']),
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
-        ('🎮', 'Your games', ['claim', 'unclaim', 'release new', 'release quiet', 'release edit', 'release undo', 'progress']),
+        ('🎮', 'Your games', ['claim new', 'claim drop', 'release new', 'release quiet', 'release edit', 'release undo', 'progress']),
         ('📣', 'Updates and settings', ['update', 'config', 'pings']),
         ('⌨️', 'Typed in your board', [
             ('12 fixed', 'mark a bug fixed, investigating, duplicate…'),
@@ -48,7 +48,7 @@ SHORT = {
     'tester edit': "change a tester's details", 'tester post': 'post the tester guide and roster', 'strikes': "show a user's troll strikes",
     'mog': 'Codecel posts a mog GIF and pings Robin and Redwing Helper',
     'pardon': 'remove a strike (and give back bug hunting)', 'botrules': 'post the bug report rules here', 'preview': 'post the finished embeds in the test channel',
-    'claim': 'take a game (add its Steam page with link:)', 'unclaim': 'drop a game you claimed', 'release new': 'your game is out: paste its Roblox link',
+    'claim new': 'take a game (add its Steam page with link:)', 'claim drop': 'drop a game you claimed', 'release new': 'your game is out: paste its Roblox link',
     'release quiet': 'add a finished game without announcing it', 'release edit': 'fix a released game', 'release undo': 'move a game back to unreleased',
     'progress': 'how far a game is, put it in testing, or set its original link', 'update': 'draft and post an update', 'config': "a game's channel, link and pings",
     'pings': 'choose when the bot pings you', 'tester profile': 'fill in or change your tester profile',
