@@ -80,6 +80,8 @@ async def timer_loop():
 
 
 EMOJI_NAMES = ['bugsquash', 'fixed_it', 'shipit', 'thinking_hard', 'playtesting', 'crashed']  # the status emoji take turns
+WORDS = ['vibecoding', 'symbioting', 'churning', 'percolating', 'noodling', 'cogitating', 'marinating', 'tinkering', 'squashing bugs', 'shipping', 'crunching',
+         'spelunking', 'simmering', 'debugging', 'ruminating', 'wrangling', 'forging', 'hatching', 'pondering', 'cooking']  # one word per dot cycle, like the spinner of a coding agent
 DOT_STEP = 5      # seconds between the dots: "vibecoding" then one more dot each step (Discord limits how often a status may change, so not every second)
 EMOJI_EVERY = 600  # seconds each emoji stays
 
@@ -90,7 +92,7 @@ async def status_loop():
         emojis = [e for e in (discord.utils.get(ctx.guild.emojis, name=name) for name in EMOJI_NAMES) if e] if ctx.guild else []
         emoji = emojis[(n * DOT_STEP // EMOJI_EVERY) % len(emojis)] if emojis else VIBE
         try:
-            await client.change_presence(activity=discord.CustomActivity(name='vibecoding' + '.' * (n % 4), emoji=emoji), status=discord.Status.online)
+            await client.change_presence(activity=discord.CustomActivity(name=WORDS[(n // 4) % len(WORDS)] + '.' * (n % 4), emoji=emoji), status=discord.Status.online)
         except Exception:
             pass
         n += 1
