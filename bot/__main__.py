@@ -79,19 +79,22 @@ async def timer_loop():
                 traceback.print_exc()
 
 
-FRAMES = ['vibecoding.', 'vibecoding..', 'vibecoding...', 'vibecoding..']  # the dots grow, next to the animated server emoji
+EMOJI_NAMES = ['bugsquash', 'fixed_it', 'shipit', 'thinking_hard', 'playtesting', 'crashed']  # the status emoji take turns
+DOT_STEP = 5      # seconds between the dots: "vibecoding" then one more dot each step (Discord limits how often a status may change, so not every second)
+EMOJI_EVERY = 600  # seconds each emoji stays
 
 
 async def status_loop():
     n = 0
     while True:
-        await asyncio.sleep(30)
-        n += 1
-        text = FRAMES[n % len(FRAMES)]
+        emojis = [e for e in (discord.utils.get(ctx.guild.emojis, name=name) for name in EMOJI_NAMES) if e] if ctx.guild else []
+        emoji = emojis[(n * DOT_STEP // EMOJI_EVERY) % len(emojis)] if emojis else VIBE
         try:
-            await client.change_presence(activity=discord.CustomActivity(name=text, emoji=VIBE), status=discord.Status.online)
+            await client.change_presence(activity=discord.CustomActivity(name='vibecoding' + '.' * (n % 4), emoji=emoji), status=discord.Status.online)
         except Exception:
             pass
+        n += 1
+        await asyncio.sleep(DOT_STEP)
 
 
 @client.event
