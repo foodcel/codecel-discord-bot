@@ -37,8 +37,7 @@ intents.guild_reactions = True
 intents.webhooks = True  # a webhook made in the library channel is deleted at once
 # nothing pings @everyone or a role unless that one message allows it by name (a game named @everyone, a line in an update...)
 SAFE = discord.AllowedMentions(everyone=False, roles=False, users=True, replied_user=True)
-VIBE = discord.PartialEmoji(name='vibecoding', id=1568425788829863936, animated=True)  # the animated emoji of the server
-client = discord.Client(intents=intents, allowed_mentions=SAFE, activity=discord.CustomActivity(name='vibecoding...', emoji=VIBE), status=discord.Status.online)
+client = discord.Client(intents=intents, allowed_mentions=SAFE, activity=discord.CustomActivity(name='💻 vibecoding...'), status=discord.Status.online)
 ctx.client = client
 
 _claim_task = None
@@ -79,20 +78,32 @@ async def timer_loop():
                 traceback.print_exc()
 
 
-EMOJI_NAMES = ['bugsquash', 'fixed_it', 'shipit', 'thinking_hard', 'playtesting', 'crashed']  # the status emoji take turns
-WORDS = ['vibecoding', 'symbioting', 'churning', 'percolating', 'noodling', 'cogitating', 'marinating', 'tinkering', 'squashing bugs', 'shipping', 'crunching',
-         'spelunking', 'simmering', 'debugging', 'ruminating', 'wrangling', 'forging', 'hatching', 'pondering', 'cooking']  # one word per dot cycle, like the spinner of a coding agent
-DOT_STEP = 5      # seconds between the dots: "vibecoding" then one more dot each step (Discord limits how often a status may change, so not every second)
-EMOJI_EVERY = 600  # seconds each emoji stays
+# The status goes through themes. Each theme has its animated server emoji (for messages), a standard emoji that leads the status (a bot cannot show a
+# custom emoji in its status), and words that fit it. A theme stays THEME_EVERY seconds; the words change with every dot cycle.
+THEMES = [
+    ('vibecoding', '💻', ['vibecoding', 'typing', 'writing code']),
+    ('bugsquash', '🐛', ['squashing bugs', 'hunting bugs', 'swatting bugs']),
+    ('fixed_it', '✅', ['fixing it', 'patching', 'polishing']),
+    ('shipit', '🚀', ['shipping', 'launching', 'deploying']),
+    ('thinking_hard', '🤔', ['thinking', 'pondering', 'planning']),
+    ('playtesting', '🎮', ['playtesting', 'grinding', 'speedrunning']),
+    ('crashed', '💥', ['crashing', 'rebooting', 'recovering']),
+    ('reading_reports', '📖', ['reading reports', 'reading logs', 'checking tickets']),
+    ('coffee_break', '☕', ['brewing coffee', 'taking a break', 'refueling']),
+    ('napping', '😴', ['resting', 'napping', 'idling']),
+    ('compiling', '⚙️', ['compiling', 'building', 'loading']),
+]
+DOT_STEP = 5      # seconds between the dots: the word, then one more dot each step (Discord limits how often a status may change, so not every second)
+THEME_EVERY = 600  # seconds each theme stays
 
 
 async def status_loop():
     n = 0
     while True:
-        emojis = [e for e in (discord.utils.get(ctx.guild.emojis, name=name) for name in EMOJI_NAMES) if e] if ctx.guild else []
-        emoji = emojis[(n * DOT_STEP // EMOJI_EVERY) % len(emojis)] if emojis else VIBE
+        _, mark, words = THEMES[(n * DOT_STEP // THEME_EVERY) % len(THEMES)]
+        text = f"{mark} {words[(n // 4) % len(words)]}{'.' * (n % 4)}"
         try:
-            await client.change_presence(activity=discord.CustomActivity(name=WORDS[(n // 4) % len(WORDS)] + '.' * (n % 4), emoji=emoji), status=discord.Status.online)
+            await client.change_presence(activity=discord.CustomActivity(name=text), status=discord.Status.online)
         except Exception:
             pass
         n += 1
