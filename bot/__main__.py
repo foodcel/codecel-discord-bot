@@ -37,7 +37,7 @@ intents.guild_reactions = True
 intents.webhooks = True  # a webhook made in the library channel is deleted at once
 # nothing pings @everyone or a role unless that one message allows it by name (a game named @everyone, a line in an update...)
 SAFE = discord.AllowedMentions(everyone=False, roles=False, users=True, replied_user=True)
-client = discord.Client(intents=intents, allowed_mentions=SAFE, activity=discord.CustomActivity(name='💻 vibecoding...'), status=discord.Status.online)
+client = discord.Client(intents=intents, allowed_mentions=SAFE, activity=discord.CustomActivity(name='vibecoding...'), status=discord.Status.online)
 ctx.client = client
 
 _claim_task = None
@@ -108,8 +108,11 @@ async def status_loop():
         custom = mine.get(name) or (discord.utils.get(ctx.guild.emojis, name=name) if ctx.guild else None)
         try:
             await client.change_presence(activity=discord.CustomActivity(name=word + '.' * (n % 4), emoji=custom or mark), status=discord.Status.online)
-        except Exception:
-            pass
+        except Exception as e:
+            if n % 200 == 0:
+                print('status', repr(e)[:200])
+        if n == 0:
+            print('status emoji:', getattr(custom, 'id', None) or mark, 'app emoji found:', len(mine))
         n += 1
         await asyncio.sleep(DOT_STEP)
 
