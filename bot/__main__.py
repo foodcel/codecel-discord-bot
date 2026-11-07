@@ -106,6 +106,7 @@ async def status_loop():
     while True:
         name, mark, word = flat[(n * DOT_STEP // STATUS_EVERY) % len(flat)]
         custom = mine.get(name) or (discord.utils.get(ctx.guild.emojis, name=name) if ctx.guild else None)
+        custom = discord.PartialEmoji(name=custom.name, id=custom.id, animated=custom.animated) if custom else None  # a status takes a PartialEmoji
         try:
             await client.change_presence(activity=discord.CustomActivity(name=word + '.' * (n % 4), emoji=custom or mark), status=discord.Status.online)
         except Exception as e:
