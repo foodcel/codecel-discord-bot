@@ -398,7 +398,7 @@ async def _merge_announcement(pending_id):
     # an update posted in the old embed look becomes the card in place; the lines this addition brought get a 🆕
     from bot.features.games.cards import released_row_for, update_card
     view, files = update_card(game, released_row_for(game['name']), mark(bugfixes, fresh), mark(changes, fresh), mark(new, fresh), version, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
-    await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=NO_MENTIONS)
+    await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(old['ping_role']))], everyone=False, users=False) if old.get('ping_role') else NO_MENTIONS)  # keeps the role mention (and its ping) the update was posted with
     b_ids, n_ids = chosen_ids(p)
     for i in b_ids + n_ids:
         update_bug(i, {'announced': 1})

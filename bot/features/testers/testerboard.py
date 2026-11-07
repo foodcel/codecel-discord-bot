@@ -149,8 +149,9 @@ async def update_card(game_key):
     try:
         ch = await fetch_channel(ref['channel'])
         msg = await ch.fetch_message(int(ref['message']))
-        view, files, _ = card_view({'key': game_key, 'name': ref['name'], 'owners': ref['owners']}, ref['ping'])
-        await msg.edit(view=view, attachments=files, allowed_mentions=NO_MENTIONS)  # an edit never pings again: the mention stays as it was sent
+        view, files, role = card_view({'key': game_key, 'name': ref['name'], 'owners': ref['owners']}, ref['ping'])
+        # an edit with no allowed mentions would strip the role mention from the message, and with it the ping testers got: keep the role allowed
+        await msg.edit(view=view, attachments=files, allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(role))], everyone=False, users=False) if role else NO_MENTIONS)
         return True
     except Exception as e:
         print('update tester card', repr(e)[:120])
