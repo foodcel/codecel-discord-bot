@@ -41,6 +41,12 @@ def buddy(p, ox=0, bob=0, eyes='open', mouth='flat', arms=('mid', 'mid'), legs=T
             r(ex, 11, ex + 1, 13, EYE)
         elif eyes == 'up':
             r(ex - 1, 11, ex, 12, EYE)
+        elif eyes == 'left':
+            r(ex - 1, 12, ex, 13, EYE)
+        elif eyes == 'right':
+            r(ex + 1, 12, ex + 2, 13, EYE)
+        elif eyes == 'closed':
+            r(ex, 13, ex + 1, 13, EYE)
         elif eyes == 'x':
             for dx, dy in ((0, 0), (2, 0), (1, 1), (0, 2), (2, 2)):
                 r(ex - 1 + dx, 11 + dy, ex - 1 + dx, 11 + dy, EYE)
@@ -177,7 +183,71 @@ def crash(n):
     return p.im
 
 
-EMOJI = {'bugsquash': bugsquash, 'fixed_it': fixed, 'shipit': shipit, 'thinking_hard': thinking, 'playtesting': testing, 'crashed': crash}
+def reading(n):
+    p = Pad()
+    buddy(p, eyes=['left', 'left', 'right', 'right', 'left', 'left', 'right', 'right'][n], mouth='flat', arms=('down', 'down'))
+    p.px(8, 15, 23, 27, WHITE)                      # the report
+    p.px(8, 15, 23, 15, METAL)
+    for k in range(5):
+        p.px(10, 17 + k * 2, 21 - (k % 2) * 4, 17 + k * 2, GREY)
+    scan = 17 + (n % 5) * 2
+    p.px(10, scan, 21, scan, YELLOW)                # the line being read
+    p.px(25, 5, 28, 8, (150, 200, 255))             # a magnifier
+    p.px(26, 6, 27, 7, (230, 245, 255))
+    p.px(24, 9, 25, 10, WOOD)
+    return p.im
+
+
+def coffee(n):
+    p = Pad()
+    sip = n in (3, 4)
+    buddy(p, eyes='blink' if sip else 'open', mouth='smile', arms=('down', 'up' if sip else 'chin'))
+    my = 12 if sip else 17
+    p.px(24, my, 28, my + 5, WHITE)                 # the mug
+    p.px(29, my + 1, 30, my + 3, WHITE)
+    p.px(25, my + 1, 27, my + 1, (110, 70, 45))
+    for k in range(3):                              # steam
+        p.dot(25 + ((n + k) % 3), my - 2 - k * 2, (200, 205, 220))
+    return p.im
+
+
+def napping(n):
+    p = Pad()
+    bob = 1 if n % 4 in (2, 3) else 0
+    buddy(p, bob=bob, eyes='closed', mouth='flat', arms=('down', 'down'))
+    for k in range(3):                              # the Zs float up and grow
+        step = (n + k * 3) % 8
+        x, y = 22 + k * 3 - (step // 4), 9 - step
+        size = 2 if step < 4 else 3
+        if y >= 0:
+            p.px(x, y, x + size, y, BLUE)
+            p.px(x + size - 1, y + 1, x + size - 1, y + 1, BLUE) if size == 2 else p.px(x + 1, y + 1, x + 1, y + 1, BLUE)
+            p.px(x, y + size, x + size, y + size, BLUE)
+    return p.im
+
+
+def compiling(n):
+    p = Pad()
+    buddy(p, eyes='up' if n % 2 == 0 else 'open', mouth='flat', arms=('mid', 'mid'))
+    p.px(4, 24, 27, 28, (50, 50, 62))               # the progress bar
+    p.px(5, 25, 26, 27, (30, 30, 40))
+    fill = 2 + n * 3
+    p.px(5, 25, min(5 + fill, 26), 27, GREEN)
+    gx, gy = 25, 4                                  # a spinning gear
+    p.px(gx, gy + 1, gx + 3, gy + 2, GREY)
+    p.px(gx + 1, gy, gx + 2, gy + 3, GREY)
+    if n % 2 == 0:
+        p.dot(gx, gy, GREY)
+        p.dot(gx + 3, gy + 3, GREY)
+    else:
+        p.dot(gx + 3, gy, GREY)
+        p.dot(gx, gy + 3, GREY)
+    p.dot(gx + 1, gy + 1, (47, 49, 54))
+    return p.im
+
+
+EMOJI = {'bugsquash': bugsquash, 'fixed_it': fixed, 'shipit': shipit, 'thinking_hard': thinking, 'playtesting': testing, 'crashed': crash,
+         'reading_reports': reading, 'coffee_break': coffee, 'napping': napping, 'compiling': compiling}
 
 
 def to_gif_frame(im):
