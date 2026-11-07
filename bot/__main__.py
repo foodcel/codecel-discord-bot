@@ -99,9 +99,13 @@ STATUS_EVERY = 60  # seconds each word stays
 
 async def status_loop():
     n, flat = 0, [(name, mark, word) for name, mark, words in THEMES for word in words]
+    try:  # the bot's own (application) emoji: those show in its status
+        mine = {e.name: e for e in await client.fetch_application_emojis()}
+    except Exception:
+        mine = {}
     while True:
         name, mark, word = flat[(n * DOT_STEP // STATUS_EVERY) % len(flat)]
-        custom = discord.utils.get(ctx.guild.emojis, name=name) if ctx.guild else None
+        custom = mine.get(name) or (discord.utils.get(ctx.guild.emojis, name=name) if ctx.guild else None)
         try:
             await client.change_presence(activity=discord.CustomActivity(name=word + '.' * (n % 4), emoji=custom or mark), status=discord.Status.online)
         except Exception:
