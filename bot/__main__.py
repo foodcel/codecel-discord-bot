@@ -37,7 +37,8 @@ intents.guild_reactions = True
 intents.webhooks = True  # a webhook made in the library channel is deleted at once
 # nothing pings @everyone or a role unless that one message allows it by name (a game named @everyone, a line in an update...)
 SAFE = discord.AllowedMentions(everyone=False, roles=False, users=True, replied_user=True)
-client = discord.Client(intents=intents, allowed_mentions=SAFE, activity=discord.CustomActivity(name='🤖 vibecoding...'), status=discord.Status.online)
+VIBE = discord.PartialEmoji(name='vibecoding', id=1568425788829863936, animated=True)  # the animated emoji of the server
+client = discord.Client(intents=intents, allowed_mentions=SAFE, activity=discord.CustomActivity(name='vibecoding...', emoji=VIBE), status=discord.Status.online)
 ctx.client = client
 
 _claim_task = None
@@ -78,7 +79,7 @@ async def timer_loop():
                 traceback.print_exc()
 
 
-FRAMES = [('🤖', 'vibecoding.'), ('⌨️', 'vibecoding..'), ('⚡', 'vibecoding...'), ('🧠', 'vibecoding..')]  # bots cannot show custom or animated emoji in a status, so the emoji and the dots change instead
+FRAMES = ['vibecoding.', 'vibecoding..', 'vibecoding...', 'vibecoding..']  # the dots grow, next to the animated server emoji
 
 
 async def status_loop():
@@ -86,9 +87,9 @@ async def status_loop():
     while True:
         await asyncio.sleep(30)
         n += 1
-        emoji, text = FRAMES[n % len(FRAMES)]
+        text = FRAMES[n % len(FRAMES)]
         try:
-            await client.change_presence(activity=discord.CustomActivity(name=f'{emoji} {text}'), status=discord.Status.online)
+            await client.change_presence(activity=discord.CustomActivity(name=text, emoji=VIBE), status=discord.Status.online)
         except Exception:
             pass
 
