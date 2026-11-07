@@ -100,10 +100,11 @@ THEME_EVERY = 600  # seconds each theme stays
 async def status_loop():
     n = 0
     while True:
-        _, mark, words = THEMES[(n * DOT_STEP // THEME_EVERY) % len(THEMES)]
-        text = f"{mark} {words[(n // 4) % len(words)]}{'.' * (n % 4)}"
+        name, mark, words = THEMES[(n * DOT_STEP // THEME_EVERY) % len(THEMES)]
+        text = f"{words[(n // 4) % len(words)]}{'.' * (n % 4)}"
+        custom = discord.utils.get(ctx.guild.emojis, name=name) if ctx.guild else None
         try:
-            await client.change_presence(activity=discord.CustomActivity(name=text), status=discord.Status.online)
+            await client.change_presence(activity=discord.CustomActivity(name=text, emoji=custom or mark), status=discord.Status.online)
         except Exception:
             pass
         n += 1
