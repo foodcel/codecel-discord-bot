@@ -105,10 +105,9 @@ async def status_loop():
         mine = {}
     while True:
         name, mark, word = flat[(n * DOT_STEP // STATUS_EVERY) % len(flat)]
-        custom = mine.get(name) or (discord.utils.get(ctx.guild.emojis, name=name) if ctx.guild else None)
-        custom = discord.PartialEmoji(name=custom.name, id=custom.id, animated=custom.animated) if custom else None  # a status takes a PartialEmoji
+        custom = mine.get(name)  # only logged: Discord drops any emoji a bot puts in its status, so the matching standard emoji goes in the text
         try:
-            await client.change_presence(activity=discord.CustomActivity(name=word + '.' * (n % 4), emoji=custom or mark), status=discord.Status.online)
+            await client.change_presence(activity=discord.CustomActivity(name=f"{mark} {word}{'.' * (n % 4)}"), status=discord.Status.online)
         except Exception as e:
             if n % 200 == 0:
                 print('status', repr(e)[:200])
