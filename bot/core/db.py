@@ -116,7 +116,7 @@ for _col in ('title TEXT', 'place_id TEXT', 'roblox_name TEXT', 'creator TEXT', 
     except Exception:
         pass
 
-for _col in ('source_link TEXT', 'progress INTEGER', 'working INTEGER', 'test_link TEXT'):  # link of the original game; % done; being worked on now
+for _col in ('source_link TEXT', 'progress INTEGER', 'working INTEGER', 'test_link TEXT', 'test_note TEXT'):  # link of the original game; % done; being worked on now
     try:
         db.execute(f'ALTER TABLE game_status ADD COLUMN {_col}')
     except Exception:

@@ -111,13 +111,13 @@ async def set_progress(member, allowed, game, percent=-1, working=''):
     return ('Saved: ' if ok else '') + text
 
 
-async def set_testing(member, allowed, game, on=True, play_link=''):
+async def set_testing(member, allowed, game, on=True, play_link='', note=''):
     """Puts the game into testing (or takes it out): the same as /progress testing. The tester card is posted without a ping."""
     from bot.features.games.games import apply_progress
     hit = reports.find_game(allowed, game)
     if not hit:
         return f'No game of yours matches "{game}".'
-    ok, text = await apply_progress(member, hit[1], None, None, 'on' if on else 'off', play_link or '', ping=False)
+    ok, text = await apply_progress(member, hit[1], None, None, 'on' if on else 'off', play_link or '', ping=False, note=(note or None))
     return ('Saved: ' if ok else '') + text
 
 

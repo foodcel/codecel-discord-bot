@@ -346,7 +346,7 @@ def set_source_link(name, owners, since, link):
         ON CONFLICT(key) DO UPDATE SET source_link=excluded.source_link""", key(name), name, ','.join(owners), since, link)
 
 
-async def apply_progress(member, name, percent=None, working=None, testing=None, link='', ping=True, channel_is_test=False):
+async def apply_progress(member, name, percent=None, working=None, testing=None, link='', ping=True, channel_is_test=False, note=None):
     """Progress, working and testing of a game, for /progress and for the MCP. Returns (ok, text). `ping`: whether a game that goes into testing pings the Tester role."""
     if name == NONE:
         return False, 'No games are waiting to be released.'
@@ -365,8 +365,11 @@ async def apply_progress(member, name, percent=None, working=None, testing=None,
             return False, 'The link is for the testers: add `testing:on` too, so the game goes into testing.'
     if rel and not dev and (percent is not None or working is not None):
         return False, 'A released game has no progress bar. Use `testing:on` or `testing:off`.'
-    if percent is None and working is None and testing is None and not link:
-        return False, "Give a percent, say whether you are working on it, put it in testing, or add the testers' link."
+    note = None if note is None else str(note).strip()
+    if note and testing != 'on' and not g.get('testing_at'):
+        return False, 'A note for the testers goes on the testing card: put the game in testing too (testing:on).'
+    if percent is None and working is None and testing is None and not link and not note:
+        return False, "Give a percent, say whether you are working on it, put it in testing, add the testers' link, or write a note for the testers."
     if percent is not None and not 0 <= percent <= 100:
         return False, 'The percent must be between 0 and 100.'
     if working is None and percent is not None and g.get('working') is None:
@@ -375,6 +378,10 @@ async def apply_progress(member, name, percent=None, working=None, testing=None,
         set_progress(g['name'], owner_ids(g), g.get('since'), percent, None if working is None else int(bool(working)))
     tag_note = ''
     was_testing = bool(g.get('testing_at'))
+    if note is not None and note != '':  # what testers should know, shown on the testing card; a single - removes it
+        if not one('SELECT 1 FROM game_status WHERE key=?', key(g['name'])):
+            set_progress(g['name'], owner_ids(g), g.get('since'), None, None)
+        run('UPDATE game_status SET test_note=? WHERE key=?', None if note == '-' else note[:300], key(g['name']))
     if testing is not None or percent is not None:  # a percent means the game is back in development, unless testing was asked for too
         on = testing == 'on'
         if not one('SELECT 1 FROM game_status WHERE key=?', key(g['name'])):
@@ -391,7 +398,16 @@ async def apply_progress(member, name, percent=None, working=None, testing=None,
                     print('tester card', repr(e))
         else:
             run('DELETE FROM game_testers WHERE game_key=?', key(g['name']))
-            run('UPDATE game_status SET test_link=NULL WHERE key=?', key(g['name']))  # out of testing: the Play button goes with it
+            run('UPDATE game_status SET test_link=NULL, test_note=NULL WHERE key=?', key(g['name']))  # out of testing: the Play button and the note go with it
+    if note and testing != 'off' and (was_testing or testing is None):  # the card is already up: it shows the new note
+        tag_note += (chr(10) + '📝 The note is on the testing card.') if note != '-' else (chr(10) + '📝 The note was removed.')
+        try:
+            from bot.features.testers.testerboard import update_card
+            await update_card(key(g['name']))
+        except Exception as e:
+            print('tester card note', repr(e)[:120])
+    elif note and note != '-' and testing == 'on':
+        tag_note += chr(10) + '📝 The note is on the testing card.'
     if link and testing != 'off':
         run('UPDATE game_status SET test_link=? WHERE key=?', None if link == '-' else link, key(g['name']))
         tag_note += '\n▶️ Testers get a Play button for it on the tester board.' if link != '-' else '\n▶️ The Play button was removed.'
@@ -413,7 +429,7 @@ async def command_progress(i, opts):
     from bot.core.env import cfg
     await i.response.defer(ephemeral=True, thinking=True)  # the tag and the boards take longer than the 3 seconds Discord waits
     ok, text = await apply_progress(i.user, opts.get('game'), opts.get('percent'), opts.get('working'), opts.get('testing'), opts.get('link'),
-                                    ping=True, channel_is_test=str(i.channel_id) == str(cfg.test_id))
+                                    ping=True, channel_is_test=str(i.channel_id) == str(cfg.test_id), note=opts.get('note'))
     if not ok:
         return await i.edit_original_response(content=text)
     return await i.edit_original_response(view=notice(f"{E['fixed']} **PROGRESS**{EM}·{EM}{text}")[0])

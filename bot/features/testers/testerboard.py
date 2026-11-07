@@ -115,10 +115,10 @@ async def refresh_board():
 
 def card_view(g, ping=True):
     """The card of a game that just went into testing: (view, files, role pinged). The ping and the date are inside the card."""
-    row = one('SELECT art_url, icon_url, hero_url, test_link FROM game_status WHERE key=?', g['key']) or {}
+    row = one('SELECT art_url, icon_url, hero_url, test_link, test_note FROM game_status WHERE key=?', g['key']) or {}
     role = cfg.tester_ping_role if ping else None
     devs = ' '.join(f'<@{o}>' for o in g['owners']) or '—'
-    text = NL.join([f"### 🧪 {g['name']} needs testers", f'-# dev {devs}'] + ([f'-# <@&{role}>'] if role else []) + [f'-# <t:{int(time.time())}:D>'])  # dev, the ping and the date, one under the other
+    text = NL.join([f"### 🧪 {g['name']} needs testers", f'-# dev {devs}'] + ([f'-# <@&{role}>'] if role else []) + [f'-# <t:{int(time.time())}:D>'] + ([NL + row['test_note']] if row.get('test_note') else []))  # dev, the ping and the date, one under the other, then the dev's note
     cover = row.get('art_url') or row.get('icon_url') or row.get('hero_url')
     strip_ = strip()
     view = ui.LayoutView(timeout=None)

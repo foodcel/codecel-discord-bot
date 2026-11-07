@@ -126,9 +126,9 @@ def build():
         return await writes.set_progress(member_of(_user.get()), my_games(), game, percent, working)
 
     @mcp.tool()
-    async def set_testing(game: str, on: bool = True, play_link: str = '') -> str:
-        """Put a game into testing so testers can report bugs (on=true), or take it out (on=false). play_link: the Roblox link testers play the build with. The tester card is posted without pinging anyone."""
-        return await writes.set_testing(member_of(_user.get()), my_games(), game, on, play_link)
+    async def set_testing(game: str, on: bool = True, play_link: str = '', note: str = '') -> str:
+        """Put a game into testing so testers can report bugs (on=true), or take it out (on=false). play_link: the Roblox link testers play the build with. note: what testers should know, shown on the testing card (a single - removes it). The tester card is posted without pinging anyone."""
+        return await writes.set_testing(member_of(_user.get()), my_games(), game, on, play_link, note)
 
     @mcp.tool()
     async def edit_game(game: str, title: str = '', online: str = '', description: str = '') -> str:
