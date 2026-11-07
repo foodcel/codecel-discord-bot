@@ -37,7 +37,7 @@ intents.guild_reactions = True
 intents.webhooks = True  # a webhook made in the library channel is deleted at once
 # nothing pings @everyone or a role unless that one message allows it by name (a game named @everyone, a line in an update...)
 SAFE = discord.AllowedMentions(everyone=False, roles=False, users=True, replied_user=True)
-client = discord.Client(intents=intents, allowed_mentions=SAFE, activity=discord.CustomActivity(name='*tokenmogs the loser below me*'), status=discord.Status.online)
+client = discord.Client(intents=intents, allowed_mentions=SAFE, activity=discord.CustomActivity(name='🤖 vibecoding...'), status=discord.Status.online)
 ctx.client = client
 
 _claim_task = None
@@ -78,6 +78,21 @@ async def timer_loop():
                 traceback.print_exc()
 
 
+FRAMES = [('🤖', 'vibecoding.'), ('⌨️', 'vibecoding..'), ('⚡', 'vibecoding...'), ('🧠', 'vibecoding..')]  # bots cannot show custom or animated emoji in a status, so the emoji and the dots change instead
+
+
+async def status_loop():
+    n = 0
+    while True:
+        await asyncio.sleep(30)
+        n += 1
+        emoji, text = FRAMES[n % len(FRAMES)]
+        try:
+            await client.change_presence(activity=discord.CustomActivity(name=f'{emoji} {text}'), status=discord.Status.online)
+        except Exception:
+            pass
+
+
 @client.event
 async def on_ready():
     global _started
@@ -92,6 +107,7 @@ async def on_ready():
     asyncio.ensure_future(watch.watch_loop())  # every 5 minutes: is each released game still on Roblox?
     from bot.mcp.server import serve as mcp_serve
     asyncio.ensure_future(mcp_serve())  # the MCP for devs' AI agents; a failure only skips it
+    asyncio.ensure_future(status_loop())  # the status "types": a small emoji and dot animation
     asyncio.ensure_future(cards.guard_loop())  # the library and its cards are always there, a rival bot's posts never
 
     async def step(name, work):
