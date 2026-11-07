@@ -79,7 +79,7 @@ async def timer_loop():
 
 
 # The status goes through themes. Each theme has its animated server emoji (for messages), a standard emoji that leads the status (a bot cannot show a
-# custom emoji in its status), and words that fit it. A theme stays THEME_EVERY seconds; the words change with every dot cycle.
+# custom emoji in its status), and words that fit it. Every STATUS_EVERY seconds the status moves to the next word (a new theme, and its emoji, every third word); the dots grow in between.
 THEMES = [
     ('vibecoding', '💻', ['vibecoding', 'typing', 'writing code']),
     ('bugsquash', '🐛', ['squashing bugs', 'hunting bugs', 'swatting bugs']),
@@ -93,18 +93,17 @@ THEMES = [
     ('napping', '😴', ['resting', 'napping', 'idling']),
     ('compiling', '⚙️', ['compiling', 'building', 'loading']),
 ]
-DOT_STEP = 5      # seconds between the dots: the word, then one more dot each step (Discord limits how often a status may change, so not every second)
-THEME_EVERY = 600  # seconds each theme stays
+DOT_STEP = 3       # seconds between the dots: the word, then one more dot each step (Discord limits how often a status may change, so not every second)
+STATUS_EVERY = 60  # seconds each word stays
 
 
 async def status_loop():
-    n = 0
+    n, flat = 0, [(name, mark, word) for name, mark, words in THEMES for word in words]
     while True:
-        name, mark, words = THEMES[(n * DOT_STEP // THEME_EVERY) % len(THEMES)]
-        text = f"{words[(n // 4) % len(words)]}{'.' * (n % 4)}"
+        name, mark, word = flat[(n * DOT_STEP // STATUS_EVERY) % len(flat)]
         custom = discord.utils.get(ctx.guild.emojis, name=name) if ctx.guild else None
         try:
-            await client.change_presence(activity=discord.CustomActivity(name=text, emoji=custom or mark), status=discord.Status.online)
+            await client.change_presence(activity=discord.CustomActivity(name=word + '.' * (n % 4), emoji=custom or mark), status=discord.Status.online)
         except Exception:
             pass
         n += 1
