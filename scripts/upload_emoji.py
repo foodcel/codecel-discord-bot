@@ -18,8 +18,9 @@ async def main():
         print('Not running. Pass --yes.')
         return await finish(client)
     shown = []
+    have = {e.name: e for e in await (await client.fetch_guild(int(ctx.guild.id))).fetch_emojis()}  # fetched: the small client has no emoji cache, so a cached check made duplicates
     for gif in sorted(GIF.parent.glob('*.gif')):
-        emoji = discord.utils.get(ctx.guild.emojis, name=gif.stem)
+        emoji = have.get(gif.stem)
         if not emoji:
             emoji = await ctx.guild.create_custom_emoji(name=gif.stem, image=gif.read_bytes(), reason='Codecel emoji pack')
         shown.append(f'{emoji} `:{gif.stem}:`')
