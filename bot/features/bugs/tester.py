@@ -85,7 +85,8 @@ async def command_bug(i, opts):
     game, tag_id = resolve_game(opts.get('game'))
     if not game:
         return await reply('Pick a game from the list.', ephemeral=True)
-    token = _keep(*evidence(opts), game=game)
+    files, links = evidence(opts)
+    token = _keep(files, game=game, links=links)
     return await i.response.send_modal(FormModal(f'tb:{tag_id or 0}:{token}', f'Bug report · {game}'[:45], [
         {'id': 'title', 'label': 'Short title', 'style': 'short', 'required': True, 'max': 80, 'placeholder': 'e.g. Car falls through the map'},
         {'id': 'what', 'label': 'What happened', 'style': 'paragraph', 'required': True, 'max': 1000, 'placeholder': 'Describe the bug'},
