@@ -1,4 +1,4 @@
-"""Uploads assets/emoji/vibecoding.gif as the server emoji :vibecoding: and shows it in the test channel: python scripts/upload_emoji.py --yes. Run on the VM."""
+"""Uploads every GIF in assets/emoji as a server emoji (named like the file) and shows them in the test channel: python scripts/upload_emoji.py --yes. Run on the VM."""
 import asyncio
 import sys
 from pathlib import Path
@@ -9,7 +9,7 @@ from _boot import boot, finish
 from bot.core.ctx import ctx, fetch_channel
 from bot.core.env import cfg
 
-GIF = Path(__file__).resolve().parent.parent / 'assets' / 'emoji' / 'vibecoding.gif'
+GIF = Path(__file__).resolve().parent.parent / 'assets' / 'emoji' / 'vibecoding.gif'  # the folder with every emoji GIF
 
 
 async def main():
@@ -17,12 +17,15 @@ async def main():
     if '--yes' not in sys.argv:
         print('Not running. Pass --yes.')
         return await finish(client)
-    emoji = discord.utils.get(ctx.guild.emojis, name='vibecoding')
-    if not emoji:
-        emoji = await ctx.guild.create_custom_emoji(name='vibecoding', image=GIF.read_bytes(), reason='Codecel status emoji')
-    print('emoji', emoji.id, 'animated', emoji.animated)
+    shown = []
+    for gif in sorted(GIF.parent.glob('*.gif')):
+        emoji = discord.utils.get(ctx.guild.emojis, name=gif.stem)
+        if not emoji:
+            emoji = await ctx.guild.create_custom_emoji(name=gif.stem, image=gif.read_bytes(), reason='Codecel emoji pack')
+        shown.append(f'{emoji} `:{gif.stem}:`')
+    print('emoji', len(shown), 'of', ctx.guild.emoji_limit, 'slots per kind')
     ch = await fetch_channel(cfg.test_id)
-    await ch.send(f'**Emoji preview** {emoji} vibecoding...', allowed_mentions=discord.AllowedMentions.none())
+    await ch.send('**Emoji pack** (not posted anywhere else)' + chr(10) + chr(10).join(shown), allowed_mentions=discord.AllowedMentions.none())
     await finish(client)
 
 
