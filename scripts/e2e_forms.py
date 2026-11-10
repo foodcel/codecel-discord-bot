@@ -65,7 +65,7 @@ async def main():
         'steps': '1. Start any song\n2. Restart it from the pause menu\n3. Tap the notes', 'expected': 'Notes should react', 'device': 'iPhone 14'})
     print('1. /bug:', {k: row[k] for k in ('id', 'kind', 'source', 'status', 'game_name', 'title', 'routed', 'device')})
     print('   post:', t.name, '| in bug forum:', str(t.parent_id) == cfg.bugs_id, '| tags:', [x.name for x in t.applied_tags])
-    print('   bot said:', [m[:100] for m in msgs]); print('   reply to player:', sent[0][:90].replace('\n', ' '))
+    print('   bot said:', [m[:100] for m in msgs]); print('   reply to player:', str(sent[0])[:90].replace('\n', ' '))
 
     row, t, msgs, sent = await submit('bug', game, {'title': '[BOT TEST] broken', 'what': 'it is broken', 'steps': 'idk', 'expected': '', 'device': ''})
     print('2. vague /bug:', {k: row[k] for k in ('id', 'status', 'asks')}, '| bot said:', [m[:120].replace('\n', ' ') for m in msgs])

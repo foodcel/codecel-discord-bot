@@ -23,7 +23,7 @@ from bot.discord_ui import devlog
 from bot.features.bugs import msgreport
 from bot.features.bugs import suggest
 from bot.features.testers import testers
-from bot.features.bugs.tags import ensure_fixed_tag, ensure_suggest_tags, load_tags
+from bot.features.bugs.tags import ensure_fixed_tag, ensure_open_posting, ensure_suggest_tags, load_tags
 from bot.core.timers import run_timers
 
 devlog.install()
@@ -141,6 +141,7 @@ async def on_ready():
             print(f'start-up step failed: {name}')
             traceback.print_exc()
 
+    await step('open posting', ensure_open_posting)
     await step('tags', load_tags)
     await step('suggestion tags', ensure_suggest_tags)
     await step('fixed tag', ensure_fixed_tag)

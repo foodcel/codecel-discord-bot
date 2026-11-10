@@ -83,6 +83,19 @@ async def ensure_suggest_tags():
     await load_tags()
 
 
+async def ensure_open_posting():
+    """Posts carry no game tag, so the forums must not require one (Discord refuses a post without a tag when it does)."""
+    for fid in (cfg.bugs_id, cfg.suggestions_id):
+        if not fid:
+            continue
+        try:
+            forum = await ctx.client.fetch_channel(int(fid))
+            if forum.flags.require_tag:
+                await forum.edit(require_tag=False, reason='Games are in the post title, not tags')
+        except Exception as e:
+            print('require_tag', repr(e))
+
+
 async def ensure_fixed_tag():
     """The bugs forum has one status tag: Fixed ✅. It is made when missing and gets its emoji."""
     forum = await ctx.client.fetch_channel(int(cfg.bugs_id))
