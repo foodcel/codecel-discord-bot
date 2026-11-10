@@ -31,7 +31,10 @@ async def main():
     update_bug(bug['id'], {'game_tag_id': tag['id'], 'game_name': tag['name']})
     nums.forget()
     if thread:  # the post is numbered again in its new game
-        await thread.edit(name=f"{nums.label(bug_by_id(bug['id']))} {titled(tag['name'], bug['title'])}"[:100])
+        was = thread.archived
+        await thread.edit(name=f"{nums.label(bug_by_id(bug['id']))} {titled(tag['name'], bug['title'])}"[:100], archived=False)
+        if was:
+            await thread.edit(archived=True)
     await refresh_all_boards()
     print('bug', bug['id'], 'is now on', tag['name'])
     await finish(client)
