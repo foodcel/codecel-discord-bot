@@ -1,12 +1,13 @@
-"""The forum tags of the bug channel and of the suggestions channel: game, device and status tags.
-A game is known by its tag in the bug forum (its "canonical" tag). The suggestions forum has its own tags with slightly different
-spellings, so they are matched by name."""
+"""The forum tags of the bug channel and of the suggestions channel: device and status tags (a fixed few).
+Games are NOT tags any more (a forum holds 20 tags at most): a game is a row of the `games` table, or a released game of the library. Its id is
+what the forum tag id used to be for the games that had a tag, and `g-<key>` for every other game. Posts carry the game in their title."""
 import difflib
 import re
 
 import discord
 
 from bot.core.ctx import ctx
+from bot.core.db import all_, upsert_game
 from bot.core.env import cfg
 
 STATUS_TAG = {
@@ -32,6 +33,15 @@ async def load_tags():
     _tags = _read(await ctx.client.fetch_channel(int(cfg.bugs_id)))
     if cfg.suggestions_id:
         _stags = _read(await ctx.client.fetch_channel(int(cfg.suggestions_id)))
+    _remember_game_tags()
+
+
+def _remember_game_tags():
+    """The game tags the bug forum still has are saved as games, so deleting them from the forum later loses nothing."""
+    for t in _tags:
+        if t['moderated'] or t['name'] in DEVICES or t['name'].lower() in {n.lower() for n in STATUS_TAG.values()}:
+            continue
+        upsert_game(t['id'], t['name'], {'name': t['name']})
 
 
 def _status_tag(name, emoji, id_=0):
@@ -95,11 +105,8 @@ async def ensure_fixed_tag():
     await load_tags()
 
 
-MAX_TAGS = 20  # Discord's limit for one forum
-
-
 def _has_game(name, names):
-    """True when a tag already stands for this game: the same name, or a longer or shorter form of it ("Peggle Deluxe" for "Peggle")."""
+    """True when a game already stands for this name: the same name, or a longer or shorter form of it ("Peggle Deluxe" for "Peggle")."""
     k = _norm(name)
     for n in names:
         o = _norm(n)
@@ -108,42 +115,37 @@ def _has_game(name, names):
     return False
 
 
-async def ensure_game_tags(name):
-    """Makes the game's tag in the bugs forum and in the suggestions forum when either has none.
-    Returns (forums where a tag was made, problems to tell the dev). A forum that is full (20 tags) cannot get one."""
-    made, problems = [], []
-    for label, fid in (('bugs', cfg.bugs_id), ('improvements', cfg.suggestions_id)):
-        if not fid:
-            continue
-        forum = await ctx.client.fetch_channel(int(fid))
-        names = [t.name for t in forum.available_tags]
-        if _has_game(name, names):
-            continue
-        if len(names) >= MAX_TAGS:
-            problems.append(f'The {label} forum is full (Discord allows {MAX_TAGS} tags), so **{name}** has no tag there. An admin must remove a tag to make room.')
-            continue
-        try:  # one edit with the whole list: creating tags one by one overwrites each other
-            await forum.edit(available_tags=[*forum.available_tags, discord.ForumTag(name=name[:20])], reason=f'Game released: {name}')
-            made.append(label)
-        except Exception as e:
-            print('game tag', label, repr(e))
-            problems.append(f'I could not make the **{name}** tag in the {label} forum.')
-    await load_tags()
-    return made, problems
-
-
 def _by_name(n, pool=None):
     n = str(n).lower()
     return next((t for t in (_tags if pool is None else pool) if t['name'].lower() == n), None)
 
 
+def game_tags():
+    """Every game a report can be about: [{'id', 'name'}]. The games that were tags (kept in the games table), then the released games of the library
+    that none of them stands for (id `g-<key>`)."""
+    from bot.features.games.games import clean_name
+    out = [{'id': r['tag_id'], 'name': r['name'], 'moderated': False} for r in all_('SELECT tag_id, name FROM games') if r['name']]
+    names = [t['name'] for t in out]
+    for r in all_("SELECT key, name, title, roblox_name FROM game_status WHERE status='released'"):
+        shown = clean_name(r['name'])
+        if any(_has_game(a, names) for a in (shown, r['name'], r['title'], r['roblox_name']) if a):
+            continue
+        out.append({'id': 'g-' + r['key'], 'name': shown, 'moderated': False})
+        names.append(shown)
+    return sorted(out, key=lambda t: t['name'].lower())
+
+
+def game_by_id(id_):
+    return next((t for t in game_tags() if t['id'] == str(id_)), None) if id_ else None
+
+
 def tag_name(id_):
+    """A game's name, or the name of a status or device tag."""
+    g = game_by_id(id_)
+    if g:
+        return g['name']
     t = next((t for t in _tags + _stags if t['id'] == str(id_)), None)  # ids are unique across forums
     return t['name'] if t else None
-
-
-def game_tags():
-    return [t for t in _tags if not t['moderated'] and t['name'] not in DEVICES]
 
 
 def device_tags():
@@ -151,6 +153,7 @@ def device_tags():
 
 
 def suggest_game_tags():
+    """The game tags old suggestion posts still carry (new posts get none)."""
     return [t for t in _stags if not t['moderated'] and t['name'] not in SUGGEST_STATUS_TAG.values()]
 
 
@@ -204,16 +207,6 @@ def canonical_game(name):
     return pool[m[0]] if m else None
 
 
-def to_suggest_tag_id(game_tag_id):
-    """The suggestions forum's tag for a game, given the bug forum's tag id."""
-    name = tag_name(game_tag_id)
-    for t in suggest_game_tags():
-        c = canonical_game(t['name'])
-        if c and c['name'] == name:
-            return t['id']
-    return None
-
-
 def applied_ids(thread):
     """Tag ids on a forum post. Threads in a normal text channel have none."""
     return [str(t.id) for t in thread.applied_tags]
@@ -240,29 +233,23 @@ def thread_game_tag(thread):
 
 async def set_tags(thread, game=None, device=None, status=KEEP, replace_game=False, kind='bug'):
     """status: a key of STATUS_TAG (SUGGEST_STATUS_TAG in the suggestions forum), None to clear the status tags, or KEEP.
-    game/device: tag ids of the bug forum to make sure are on (translated for the suggestions forum).
-    replace_game swaps out other game tags for `game`."""
+    device: a tag id of the bug forum to make sure is on. game and replace_game are kept so callers read the same, but games are not tags any more:
+    the game is in the post's title (see retitle)."""
     if not is_forum_post(thread):
         return  # tester threads live in a text channel and have no tags
     suggest = in_suggestions(thread)
     if not suggest and str(thread.parent_id) != str(cfg.bugs_id):
         return
     if suggest:
-        game = to_suggest_tag_id(game) if game else None
         device = None
-        status_map, pool, game_pool = SUGGEST_STATUS_TAG, _stags, suggest_game_tags()
+        status_map, pool = SUGGEST_STATUS_TAG, _stags
         if kind != 'suggestion' or (status is not KEEP and status is not None and status not in SUGGEST_STATUS_TAG):
             status = KEEP  # a bug that was posted here, or a status this forum has no tag for
     else:
-        status_map, pool, game_pool = STATUS_TAG, _tags, game_tags()
+        status_map, pool = STATUS_TAG, _tags
     current = applied_ids(thread)
     status_ids = {t['id'] for t in (_by_name(n, pool) for n in status_map.values()) if t}
     nxt = list(current) if status is KEEP else [i for i in current if i not in status_ids]
-    if game and replace_game:
-        games = {t['id'] for t in game_pool}
-        nxt = [i for i in nxt if i not in games]
-    if game and game not in nxt:
-        nxt.append(game)
     if device and device not in nxt:
         nxt.append(device)
     st = None
@@ -286,23 +273,21 @@ async def set_tags(thread, game=None, device=None, status=KEEP, replace_game=Fal
         print('setAppliedTags', e)
 
 
-async def ensure_tester_tag(name):
-    """The game's tag in the testers' forum, made when it is missing (unreleased games have no tag in the bugs forum, so this forum has its own).
-    Returns (ForumTag or None, problem text or None). A full forum (20 tags) gives no tag: the post is made without one."""
-    from bot.features.games.games import clean_name
-    forum = await ctx.client.fetch_channel(int(cfg.tester_forum_id))
-    label = clean_name(name)[:20]
-    names = [t.name for t in forum.available_tags]
-    hit = next((t for t in forum.available_tags if _norm(t.name) == _norm(label)), None) or next((t for t in forum.available_tags if _has_game(label, [t.name])), None)
-    if hit:
-        return hit, None
-    if len(names) >= MAX_TAGS:
-        return None, f'The testers forum is full (Discord allows {MAX_TAGS} tags), so **{label}** has no tag there. An admin must remove a tag to make room.'
-    try:
-        forum = await forum.edit(available_tags=[*forum.available_tags, discord.ForumTag(name=label)], reason=f'Tester report for {label}')
-    except Exception as e:
-        print('tester tag', repr(e))
-        return None, f'I could not make the **{label}** tag in the testers forum.'
-    forum = await ctx.client.fetch_channel(int(cfg.tester_forum_id))
-    return next((t for t in forum.available_tags if _norm(t.name) == _norm(label)), None), None
+def titled(game, title):
+    """The post title with the game in front: "Minecraft · Wither AI broken"."""
+    title = str(title or '')
+    return title if not game or title.lower().startswith(f'{game} · '.lower()) else f'{game} · {title}'
 
+
+async def retitle(thread, old, new):
+    """The report moved to another game: the game in the post's title follows ("#3 Peggle · title" becomes "#3 Minecraft · title")."""
+    m = re.match(r'^(#\d+\s+)?(.*)$', thread.name, re.S)
+    rest = m.group(2)
+    if old and rest.lower().startswith(f'{old} · '.lower()):
+        rest = rest[len(old) + 3:]
+    name = ((m.group(1) or '') + titled(new, rest))[:100]
+    if name != thread.name:
+        try:
+            await thread.edit(name=name)
+        except Exception as e:
+            print('retitle', repr(e))

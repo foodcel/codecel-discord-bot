@@ -16,7 +16,7 @@ from bot.features.bugs.devboard import post_exploit, route_bug
 from bot.features.bugs.fixes import reopen
 from bot.core.perms import is_staff, level
 from bot.features.bugs.strikes import strike_user
-from bot.features.bugs.tags import applied_ids, find_device_tag, find_game_tag, game_tags, set_tags, tag_name, thread_game_tag
+from bot.features.bugs.tags import applied_ids, find_device_tag, find_game_tag, game_by_id, game_tags, set_tags, tag_name, thread_game_tag, titled
 from bot.discord_ui.ui import E
 
 DAY = 86400000
@@ -74,7 +74,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         return  # stays as it is; the catch-up checks it again
     report = await gather(thread, bug)
     games = [t['name'] for t in game_tags()]
-    picked = [n for n in (tag_name(i) for i in applied_ids(thread)) if n]
+    picked = [n for n in [bug.get('game_name'), *(tag_name(i) for i in applied_ids(thread))] if n]
     known = all_("""SELECT id,title,summary,status,game_name FROM bugs
         WHERE kind='bug' AND id<>? AND status IN ('new','needs_info','investigating','fixing','fixed') AND deleted IN (0,1)
           AND COALESCE(source,'') <> 'tester'
@@ -86,7 +86,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         print('analyze failed:', e)
         return  # stays status=new, routed=0; catch-up retries later
 
-    game_tag = thread_game_tag(thread) or find_game_tag(a.get('game'))
+    game_tag = game_by_id(bug.get('game_tag_id')) or thread_game_tag(thread) or find_game_tag(a.get('game'))  # the game the player picked comes first
     device_tag = find_device_tag(a.get('device'))
     update_bug(bug['id'], {
         'game_tag_id': game_tag['id'] if game_tag else None,
@@ -178,7 +178,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         await set_tags(thread, game=gid, device=did, status=None)
         if not re.match(r'^#\d+\s', thread.name):
             try:
-                await thread.edit(name=f"{label(bug_by_id(bug['id']))} {thread.name}"[:100])
+                await thread.edit(name=f"{label(bug_by_id(bug['id']))} {titled(bug_by_id(bug['id'])['game_name'], thread.name)}"[:100])
             except Exception:
                 pass
         try:
@@ -248,7 +248,7 @@ async def log_unanswered(bug):
         await set_tags(thread, status=None)
         if not re.match(r'^#\d+\s', thread.name):
             try:
-                await thread.edit(name=f"{label(bug_by_id(bug['id']))} {thread.name}"[:100])
+                await thread.edit(name=f"{label(bug_by_id(bug['id']))} {titled(bug_by_id(bug['id'])['game_name'], thread.name)}"[:100])
             except Exception:
                 pass
         try:

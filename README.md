@@ -8,7 +8,7 @@ Built with Python (discord.py), SQLite and the Anthropic API (Claude Haiku by de
 
 **Reports**
 - Checks every new post in your bug forum against your template. Missing info gets a friendly list and the **Needs Info** tag, and the bot re-checks when the reporter answers. Posts left unanswered for 3 days are closed.
-- Sets the game and device tags, numbers the post (`#12 title`), spots duplicates (and bugs that were already fixed), and warns about personal info in screenshots.
+- Puts the game in the post's title, sets the device tag, numbers the post (`#12 title`), spots duplicates (and bugs that were already fixed), and warns about personal info in screenshots.
 - Exploit write-ups posted in the public bug forum are removed at once (testers are different: an exploit sent with `/bug` in the testing channel is kept and shown like any bug, so other testers can reproduce it) and appear as a **high priority** card on the owner's board. The reporter is told by DM and gets a DM on every status change.
 - Trolling gets a strike ladder: warning, 1-day mute, kick, 7-day ban, permanent ban. Kicks and bans need a developer's confirmation. Staff are never struck.
 
@@ -20,7 +20,7 @@ Built with Python (discord.py), SQLite and the Anthropic API (Claude Haiku by de
 - **Fix log**: a pinned post with fixed / open counts per game and every fix with its transcript.
 - **Update announcements**: after 3 fixes the bot drafts an update. Devs press Post, Edit or Later, or use `/update`. What a dev types is rewritten by Claude into clean patch notes.
 
-**Suggestions** (optional, `SUGGESTIONS_CHANNEL_ID` and `DEV_SUGGESTIONS_FORUM_ID`): the same idea for a forum where players suggest improvements. Claude checks each post, tags the game, asks for what is missing, spots duplicates and sends it to the dev who owns the game, on a suggestion board in its own dev-only forum (with the 🙏 votes). Devs type `12 added` or `7 declined`, or use the buttons; the player is pinged and the post is deleted after 24 hours. Added suggestions go into the update announcements next to the bug fixes. A bug posted there becomes a normal bug and the player is told. The bot creates the Added / Declined / Duplicate / Needs Info tags in that forum itself.
+**Suggestions** (optional, `SUGGESTIONS_CHANNEL_ID` and `DEV_SUGGESTIONS_FORUM_ID`): the same idea for a forum where players suggest improvements. Claude checks each post, names the game, asks for what is missing, spots duplicates and sends it to the dev who owns the game, on a suggestion board in its own dev-only forum (with the 🙏 votes). Devs type `12 added` or `7 declined`, or use the buttons; the player is pinged and the post is deleted after 24 hours. Added suggestions go into the update announcements next to the bug fixes. A bug posted there becomes a normal bug and the player is told. The bot creates the Added / Declined status tags in that forum itself.
 
 **Reports by command**: anyone can use `/bug` (a short form, up to 10 files and a links box) or `/suggest` (the same). More files and links go in as replies in the post, with no limit. The bot makes the post in the bug or suggestions forum for the player and then handles it like a post written by hand. Testers using `/bug` in the testing channel get a thread there instead, and the bug goes straight to the owning dev's board.
 
@@ -51,7 +51,7 @@ Permissions: **devs** act on the games they own (any dev on games nobody owns), 
 4. Invite it, then drag the bot's role **above** the roles it may punish.
 
 ### 2. Prepare the server
-- A **forum channel** for reports, with tags: your games, `Mobile`, `Computer`, `Controller`, and the status tags `Investigating`, `Needs Info`, `Fix in Progress`, `Fixed`, `Duplicate`, `Not a Bug`. Mark the status tags as *moderated* so only the bot sets them.
+- A **forum channel** for reports, with tags: `Mobile`, `Computer`, `Controller`, and the status tags `Investigating`, `Needs Info`, `Fix in Progress`, `Fixed`, `Duplicate`, `Not a Bug`. Mark the status tags as *moderated* so only the bot sets them. Games are not tags (a forum holds 20 at most): the game is in each post's title, and `/bug` lists the released games.
 - A **forum channel** only devs can see (the boards).
 - A **text channel** for the mod log, and optionally a tester channel and an updates channel.
 

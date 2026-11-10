@@ -54,6 +54,13 @@ MCP = [
                 ('Pings', 'off unless you turn them on'), ('Admins', '/mcp status, kick, pause')]),
 ]
 
+NOTE = [
+    ('Devs', [('/progress', 'game, testing:on, note:what to test'), ('Change it', 'run it again with a new note'),
+              ('Remove it', 'note: - , or testing:off'), ('Length', 'up to 300 characters'),
+              ('MCP', 'set_testing takes a note too')]),
+    ('Testers', [('On the card', 'the note shows under the date'), ('Changes', 'the card edits, no new ping')]),
+]
+
 
 def visible(line):
     return len(re.sub(r'[*`]', '', line))
@@ -71,7 +78,8 @@ def build(title, groups, footer, ping=None):
 def cards():
     return (('tester announcement', build('🧪 Tester update', TESTER, ['/bug · report a bug', '/tester profile · your details']), TESTER),
             ('developer announcement 1 of 2', build('🛠️ Dev update', DEV, ['/help · every command', '/update edit · change a posted update']), DEV),
-            ('developer announcement 2 of 2', build('🔌 MCP for developers', MCP, ['/mcp setup · connect your agent', '/update settings · when your agent posts']), MCP))
+            ('developer announcement 2 of 2', build('🔌 MCP for developers', MCP, ['/mcp setup · connect your agent', '/update settings · when your agent posts']), MCP),
+            ('notes announcement', build('📝 Notes on tester cards', NOTE, ['/progress · set a note', '/help · every command']), NOTE))
 
 
 async def main():
@@ -84,8 +92,12 @@ async def main():
         print('Not posting. Pass --yes.')
         return await finish(client)
     ch = await fetch_channel(cfg.test_id)
-    await clear_channel(ch)
+    if '--only' not in sys.argv:
+        await clear_channel(ch)
+    only = sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else ''
     for label, (view, files), _ in cards():
+        if only and only not in label:
+            continue
         await ch.send(f'**Draft: {label}** (not posted anywhere else)', allowed_mentions=NO_MENTIONS)
         await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
     print('posted')

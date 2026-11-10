@@ -13,7 +13,7 @@ from bot.discord_ui.components import NO_MENTIONS, FormModal
 from bot.core.ctx import fetch_channel
 from bot.core.db import bug_by_id, now, run, update_bug
 from bot.core.env import cfg
-from bot.features.bugs.tags import find_device_tag, tag_name, to_suggest_tag_id
+from bot.features.bugs.tags import find_device_tag, tag_name, titled
 from bot.features.bugs.tester import _keep, _pending, evidence, quote, safe
 from bot.features.bugs.transcript import download, upload_limit
 from bot.discord_ui.ui import E, EM, cut, sentence
@@ -52,8 +52,6 @@ async def command_form(i, opts, kind):
     tag_id = opts.get('game')
     if not tag_name(tag_id):
         return await reply('Pick a game from the list.', ephemeral=True)
-    if kind == 'suggestion' and not to_suggest_tag_id(tag_id):
-        return await reply('That game has no tag in the improvement forum yet. Ask a developer.', ephemeral=True)
     token = _keep(*evidence(opts))
     if kind == 'bug':
         inputs = [
@@ -157,16 +155,13 @@ async def modal_form(i, kind, tag_id, token, fields, analyze=True):
     if forum is None:
         return await i.edit_original_response(content='I could not find the forum. Ask a developer.')
     tags = []
-    game_tag = forum.get_tag(int(tag_id if kind == 'bug' else to_suggest_tag_id(tag_id)))
-    if game_tag:
-        tags.append(game_tag)
     dev = _device_tag(form['device']) if kind == 'bug' else None
     if dev and forum.get_tag(int(dev['id'])):
         tags.append(forum.get_tag(int(dev['id'])))
     chosen = await with_clips(chosen, *(form[k] for k in ('what', 'steps', 'expected', 'why', 'links')))
     batches, too_big, media = await _files(chosen)
     created = await forum.create_thread(
-        name=cut(form['title'], 100), view=(made := _card(kind, i.user.id, game, form, too_big, media))[0], files=batches[0] + made[1],
+        name=cut(titled(game, form['title']), 100), view=(made := _card(kind, i.user.id, game, form, too_big, media))[0], files=batches[0] + made[1],
         applied_tags=tags, allowed_mentions=NO_MENTIONS, reason=f"{meta['command']} by {i.user}")
     thread = created.thread
     for k, extra in enumerate(batches[1:]):
@@ -221,15 +216,11 @@ async def post_from_message(src, saver, kind, tag_id=None):
         return None
     game = tag_name(tag_id) if tag_id else None
     tags = []
-    if tag_id:
-        tag = forum.get_tag(int(tag_id if kind == 'bug' else to_suggest_tag_id(tag_id) or 0))
-        if tag:
-            tags.append(tag)
     batches, too_big, media = await _files(await with_clips(message_files(src), text))
     reporter = saver.id if src.author.bot else src.author.id
     view, card_files = _card(kind, reporter, game or 'New report', form, too_big, media, origin=src.jump_url,
                              footer=f'Saved from a message by {saver.display_name} · replies go in this post')
-    created = await forum.create_thread(name=cut(form['title'], 100), view=view, files=batches[0] + card_files, applied_tags=tags,
+    created = await forum.create_thread(name=cut(titled(game, form['title']), 100), view=view, files=batches[0] + card_files, applied_tags=tags,
                                         allowed_mentions=NO_MENTIONS, reason=f"{KINDS[kind]['command']} reply by {saver}")
     thread = created.thread
     for k, extra in enumerate(batches[1:]):

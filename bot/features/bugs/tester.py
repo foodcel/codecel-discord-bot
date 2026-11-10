@@ -15,7 +15,7 @@ from bot.core.db import bug_by_id, now, run, update_bug
 from bot.features.bugs.devboard import route_bug
 from bot.core.env import cfg
 from bot.core.perms import level
-from bot.features.bugs.tags import ensure_tester_tag, find_game_tag, game_tags, tag_name
+from bot.features.bugs.tags import find_game_tag, game_tags, tag_name, titled
 from bot.discord_ui.ui import E, EM, SEVERITY, cut, sentence
 
 def safe(n):
@@ -49,10 +49,10 @@ def is_tester(m):
 
 
 def known_games():
-    """Every game a tester can report: the games in the testing phase (released ones too), and the released ones that have a tag."""
+    """Every game a tester can report: the games in the testing phase (released ones too), and every released game."""
     from bot.features.games.games import clean_name, game_lists
     lists = game_lists()
-    names = [clean_name(g.get('title') or g['name']) for g in lists['unreleased'] + lists['released'] if g.get('testing_at')] + [t['name'] for t in game_tags()]  # the games in testing, and the released ones that have a tag
+    names = [clean_name(g.get('title') or g['name']) for g in lists['unreleased'] + lists['released'] if g.get('testing_at')] + [t['name'] for t in game_tags()]  # the games in testing, and every released game
     return list(dict.fromkeys(n for n in names if n))
 
 
@@ -126,13 +126,10 @@ def tester_report_embed(bug, form, tester_id, too_big=None, media=None, origin=N
 
 
 async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, media, origin=None, saved_by=None):
-    """The post in the testers' forum (tagged with the game), the bug saved, and the owner told. Returns (bug id, thread), or None without the forum."""
+    """The post in the testers' forum (the game is in its title), the bug saved, and the owner told. Returns (bug id, thread), or None without the forum."""
     forum = await fetch_channel(cfg.tester_forum_id)
     if forum is None:
         return None
-    tag, problem = await ensure_tester_tag(game)
-    if problem:
-        print('tester tag', problem)
     body = f"What happened: {form['what']}" + (f"\nSteps: {form['steps']}" if form['steps'] else '') + (f"\nShould happen: {form['expected']}" if form['expected'] else '')
     id_ = run("""INSERT INTO bugs(thread_id,reporter_id,game_tag_id,game_name,title,summary,severity,status,created_at,
         device,body,source,saved_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
@@ -141,8 +138,8 @@ async def create_report(reporter_id, game, tag_id, form, ai, batches, too_big, m
     bug = bug_by_id(id_)
     try:
         created = await forum.create_thread(
-            name=cut(f"{label(bug)} {bug['title']}", 100), view=(made := tester_report_embed(bug, form, reporter_id, too_big, media, origin))[0], files=batches[0] + made[1],
-            applied_tags=[tag] if tag else [], allowed_mentions=NO_MENTIONS, reason=f'Tester report for {game}')
+            name=cut(f"{label(bug)} {titled(game, bug['title'])}", 100), view=(made := tester_report_embed(bug, form, reporter_id, too_big, media, origin))[0], files=batches[0] + made[1],
+            allowed_mentions=NO_MENTIONS, reason=f'Tester report for {game}')
     except Exception:
         run('DELETE FROM bugs WHERE id=?', id_)
         raise

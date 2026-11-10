@@ -248,15 +248,7 @@ async def commit_release(i, d):
     await refresh_game_board()
     row = _row(k)
     from bot.features.games.cards import post_new_game_card, test_channel
-    from bot.features.bugs.tags import ensure_game_tags
     warn = ''
-    try:  # the game gets its tag in the bugs and improvements forums
-        made, problems = await ensure_game_tags(shown)
-        if made:
-            warn += NL + f"🏷️ Made the **{shown}** tag in the {' and '.join(made)} forum."
-        warn += ''.join(NL + '⚠️ ' + p for p in problems)
-    except Exception as e:
-        print('game tags', repr(e))
     if quiet:  # nothing is announced, and it can never get a card later
         run('UPDATE game_status SET card_at=? WHERE key=?', now(), k)
         return True, f"🔇 **ADDED QUIETLY**{EM}·{EM}{summary(row, shown)}{warn}\nNo card and no ping: it is only in the library and on the boards."

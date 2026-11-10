@@ -388,7 +388,6 @@ async def apply_progress(member, name, percent=None, working=None, testing=None,
             set_progress(g['name'], owner_ids(g), g.get('since'), None, None)
         run('UPDATE game_status SET testing_at=? WHERE key=?', now() if on else None, key(g['name']))
         if on:
-            tag_note = await _tester_tag_note(clean_name(g['name']))
             if not was_testing:  # newly in testing: a card for the testers, for a day (it pings the Tester role only when `ping`)
                 try:
                     from bot.features.testers.testerboard import post_card
@@ -433,17 +432,6 @@ async def command_progress(i, opts):
     if not ok:
         return await i.edit_original_response(content=text)
     return await i.edit_original_response(view=notice(f"{E['fixed']} **PROGRESS**{EM}·{EM}{text}")[0])
-
-
-async def _tester_tag_note(name):
-    """A game in testing gets its tag in the testers forum at once. Returns a line for the dev."""
-    try:
-        from bot.features.bugs.tags import ensure_tester_tag
-        tag, problem = await ensure_tester_tag(name)
-    except Exception as e:
-        print('tester tag', repr(e))
-        return ''
-    return f"\n🏷️ Testers can report it now: its tag **{tag.name}** is ready in the testers forum." if tag else (f'\n⚠️ {problem}' if problem else '')
 
 
 def set_progress(name, owners, since, percent, working):

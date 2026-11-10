@@ -18,7 +18,7 @@ from bot.core.env import cfg
 from bot.features.bugs.intake import CONFIDENT, DAY, MAX_ASKS, fetch_starter, gather
 from bot.core.perms import is_staff, level
 from bot.features.bugs.strikes import strike_user
-from bot.features.bugs.tags import canonical_game, find_game_tag, game_tags, set_tags, tag_name, thread_game_tag, applied_ids
+from bot.features.bugs.tags import applied_ids, canonical_game, find_game_tag, game_by_id, game_tags, set_tags, tag_name, thread_game_tag, titled
 
 _timers = {}
 
@@ -52,7 +52,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         return  # stays as it is; the catch-up checks it again
     report = await gather(thread, bug)
     games = [t['name'] for t in game_tags()]
-    picked = []
+    picked = [bug['game_name']] if bug.get('game_name') else []
     for i in applied_ids(thread):
         n = tag_name(i)
         c = canonical_game(n) if n else None
@@ -67,7 +67,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         print('analyze suggestion failed:', e)
         return  # stays status=new, routed=0; catch-up retries later
 
-    game_tag = thread_game_tag(thread) or find_game_tag(a.get('game')) or canonical_game(a.get('game'))
+    game_tag = game_by_id(bug.get('game_tag_id')) or thread_game_tag(thread) or find_game_tag(a.get('game')) or canonical_game(a.get('game'))  # the game the player picked comes first
     update_bug(bug['id'], {
         'game_tag_id': game_tag['id'] if game_tag else None,
         'game_name': game_tag['name'] if game_tag else (a.get('game') or None),
@@ -154,7 +154,7 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
         await set_tags(thread, game=gid, status=None, kind='suggestion')
         if not re.match(r'^#\d+\s', thread.name):
             try:
-                await thread.edit(name=f"{label(bug_by_id(bug['id']))} {thread.name}"[:100])
+                await thread.edit(name=f"{label(bug_by_id(bug['id']))} {titled(bug_by_id(bug['id'])['game_name'], thread.name)}"[:100])
             except Exception:
                 pass
         try:

@@ -127,7 +127,7 @@ def _option(name, v):
             p = board.post_by_id(s)
             return p['title'] if p else s
         return s
-    if name == 'game' and str(v).isdigit() and tag_name(v):
+    if name == 'game' and (str(v).isdigit() or str(v).startswith('g-')) and tag_name(v):
         return tag_name(v)
     return str(v)
 

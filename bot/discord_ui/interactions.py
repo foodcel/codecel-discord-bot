@@ -27,7 +27,7 @@ from bot.features.games.reldraft import text_view
 from bot.core.perms import can_confirm, can_manage, level
 from bot.features.updates.previews import post_previews
 from bot.features.bugs.strikes import pardon, resolve_strike, rules_card, strike_info
-from bot.features.bugs.tags import find_device_tag, find_game_tag, game_tags, set_tags, tag_name
+from bot.features.bugs.tags import find_device_tag, find_game_tag, game_tags, retitle, set_tags, tag_name
 from bot.features.bugs.tester import command_bug, modal_bug
 from bot.features.bugs.transcript import board_transcript, single_transcript
 from bot.discord_ui.ui import E, EM
@@ -262,7 +262,9 @@ async def modal_note(i, bug_id, fields):
     thread = await fetch_channel(bug['thread_id'])
     if thread:
         dev_tag = find_device_tag(r.get('device'))
-        await set_tags(thread, game=game_tag['id'] if game_tag else None, device=dev_tag['id'] if dev_tag else None, replace_game=True)
+        await set_tags(thread, device=dev_tag['id'] if dev_tag else None)
+        if game_tag:
+            await retitle(thread, bug['game_name'], game_tag['name'])
     if not game_tag:
         schedule_boards()
         return await i.edit_original_response(
