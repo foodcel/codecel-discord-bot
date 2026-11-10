@@ -9,7 +9,8 @@ from _boot import boot, finish
 from bot.core.ctx import fetch_channel
 from bot.core.db import bug_by_id, update_bug
 from bot.features.bugs.devboard import refresh_all_boards
-from bot.features.bugs.tags import game_tags, retitle
+from bot.features.bugs import nums
+from bot.features.bugs.tags import game_tags, titled
 
 
 def arg(name):
@@ -28,8 +29,9 @@ async def main():
         return await finish(client)
     thread = await fetch_channel(bug['thread_id'])
     update_bug(bug['id'], {'game_tag_id': tag['id'], 'game_name': tag['name']})
-    if thread:
-        await retitle(thread, bug['game_name'], tag['name'])
+    nums.forget()
+    if thread:  # the post is numbered again in its new game
+        await thread.edit(name=f"{nums.label(bug_by_id(bug['id']))} {titled(tag['name'], bug['title'])}"[:100])
     await refresh_all_boards()
     print('bug', bug['id'], 'is now on', tag['name'])
     await finish(client)
