@@ -125,7 +125,7 @@ async def on_ready():
     _started = True
     ctx.guild = client.get_guild(int(cfg.guild_id)) or await client.fetch_guild(int(cfg.guild_id))
     print(f'Logged in as {client.user}')
-    # the loops start first: a failing step below must never stop timers (giveaways, unbans, deletions) or the watches
+    # the loops start first: a failing step below must never stop timers (unbans, deletions) or the watches
     asyncio.ensure_future(timer_loop())
     asyncio.ensure_future(board.sync_loop())
     asyncio.ensure_future(watch.watch_loop())  # every 5 minutes: is each released game still on Roblox?

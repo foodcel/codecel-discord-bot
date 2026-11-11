@@ -118,18 +118,17 @@ bot/__main__.py            start-up and Discord events (python -m bot)
 bot/core/                  config (env.py: every id), database, timers, catch-up, AI calls, permissions,
                            access.py (who may use which command), links.py (every link check)
 bot/discord_ui/            slash command definitions and routing (interactions.py: one table per button / dropdown / form),
-                           the two looks (look.py, pngs.py, banner.py, ui.py), /help, the dev log
+                           the two looks (look.py, pngs.py, ui.py), /help, the dev log
 bot/features/bugs/         reports: intake (Claude), forms, tester reports, numbers, tags, dev boards, fixes, fix log, transcripts, strikes
 bot/features/updates/      update drafts and announcements, guides, announcement texts
 bot/features/games/        game lists, /release and its preview, the library, the Roblox watcher, the bounty board
 bot/features/testers/      the tester roster and the tester board
-bot/features/giveaways/    giveaways and boost counting
 bot/features/invites/      the invite tracker and /invites
 bot/features/fun/          /mog
 scripts/                   admin and diagnostic tools run by hand (lock_commands.py sets the per-role command rules)
 tests/                     tests for the logic that needs no Discord (deploy.sh runs them with a lint check)
 deploy/                    systemd unit, Oracle setup, deploy and rollback scripts
-docs/                      DESIGN.md (the two looks), GIVEAWAYS.md, AUDIT.md
+docs/                      DESIGN.md (the two looks), INVITES.md, AUDIT.md
 ```
 
 ## Safety notes

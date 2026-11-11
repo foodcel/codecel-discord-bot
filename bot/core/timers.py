@@ -1,4 +1,4 @@
-"""Delayed jobs stored in the database: delete a fixed post after 24h, lift a 7-day ban, close a report that never got its missing info, end a giveaway.
+"""Delayed jobs stored in the database: delete a fixed post after 24h, lift a 7-day ban, close a report that never got its missing info, 
 A job is removed only after it worked. One that fails is tried again 5, 10, 15... minutes later, up to MAX_TRIES times, then dropped (logged)."""
 import asyncio
 
@@ -31,12 +31,6 @@ async def _exec(t):
             await (await ch.fetch_message(int(message_id))).delete()
         except Exception as e:
             print('delete card', repr(e))
-    elif t['kind'] == 'gw_end':  # a giveaway's time is up
-        from bot.features.giveaways.giveaway import end
-        await end(int(t['target']))
-    elif t['kind'] == 'gw_claim':  # the claim window closed
-        from bot.features.giveaways.giveaway import claim_expired
-        await claim_expired(int(t['target']))
     elif t['kind'] == 'unban':
         try:
             await ctx.guild.unban(discord.Object(id=int(t['target'])), reason='7-day ban finished')

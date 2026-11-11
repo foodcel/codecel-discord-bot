@@ -3,7 +3,7 @@ scripts/lock_commands.py builds Discord's per-role rules from it, and tests/ che
 A command that is not listed is open to everyone (the command may still check more itself, like /tester's admin sub-commands)."""
 from bot.core.perms import level
 
-ADMIN, DEV, GIVEAWAY, EVERYONE = 'admin', 'dev', 'giveaway', 'everyone'
+ADMIN, DEV, EVERYONE = 'admin', 'dev', 'everyone'
 
 COMMANDS = {
     # admins only
@@ -11,8 +11,6 @@ COMMANDS = {
     'assign': ADMIN, 'exclude': ADMIN, 'include': ADMIN, 'strikes': ADMIN, 'pardon': ADMIN,
     # developers (and admins)
     'update': DEV, 'pings': DEV, 'release': DEV, 'mcp': DEV, 'progress': DEV, 'claim': DEV,
-    # admins and the Giveaway Manager role
-    'giveaway': GIVEAWAY,
 }
 
 
@@ -29,8 +27,7 @@ def allowed(member, name):
         return lv == 'admin'
     if need == DEV:
         return lv in ('admin', 'dev')
-    from bot.features.giveaways.giveaway import can_run
-    return can_run(member)
+    return False
 
 
 def names(need):

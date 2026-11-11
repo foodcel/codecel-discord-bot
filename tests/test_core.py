@@ -1,7 +1,6 @@
-"""Tests for the parts that need no Discord: links, giveaway prizes and entries, the draw, invite attribution, and the access table vs /help.
+"""Tests for the parts that need no Discord: links, invite attribution, and the access table vs /help.
 Run: python -m unittest discover -s tests   (deploy.sh runs them before every push)."""
 import asyncio
-import random
 import sys
 import types
 import unittest
@@ -10,7 +9,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from bot.core import access  # noqa: E402
-from bot.features.giveaways import giveaway as gw
 from bot.features.invites import invites
 from bot.core import links
 from bot.core.ctx import ctx  # noqa: E402
@@ -32,70 +30,6 @@ class Links(unittest.TestCase):
         self.assertEqual(links.roblox_any('ro.blox.com/Ebh5'), 'https://ro.blox.com/Ebh5')
         self.assertEqual(links.web_url('store.steampowered.com/app/1'), 'https://store.steampowered.com/app/1')
         self.assertIsNone(links.web_url('https://localhost/x'))
-
-
-class Prizes(unittest.TestCase):
-    def test_places_and_ranges(self):
-        p, err = gw.parse_prizes('1-2: 2k robux + nitro\n3–5 2k robux', 1)
-        self.assertIsNone(err)
-        self.assertEqual(p, [['2K Robux', 'Nitro']] * 2 + [['2K Robux']] * 3)
-
-    def test_missing_place_and_bad_line(self):
-        self.assertTrue(gw.parse_prizes('1: a\n3: b', 1)[1])
-        self.assertTrue(gw.parse_prizes('1-2: a\nhello', 1)[1])
-
-    def test_one_prize_for_everyone_and_split(self):
-        self.assertEqual(gw.parse_prizes('Nitro', 3)[0], [['Nitro']] * 3)
-        self.assertEqual(gw.split_prize('10K Robux', 5), [['2K Robux']] * 5)
-        self.assertEqual(gw.split_prize('Nitro', 2), [['Nitro']] * 2)
-
-    def test_duration(self):
-        self.assertEqual(gw.parse_duration('1d 6h'), 108000)
-        self.assertEqual(gw.fmt_duration(108000), '1d 6h')
-
-    def test_text_round_trip(self):
-        p, _ = gw.parse_prizes('1-2: 2K Robux + Nitro\n3-5: 2K Robux', 1)
-        self.assertEqual(gw.parse_prizes(gw.prize_text_of(p), 1)[0], p)
-
-
-class Draw(unittest.TestCase):
-    def test_same_seed_same_winners(self):
-        pool = [('a', 1), ('b', 5), ('c', 1), ('d', 3)]
-        self.assertEqual(gw.draw(pool, 3, random.Random('seed')), gw.draw(pool, 3, random.Random('seed')))
-
-    def test_nobody_wins_twice(self):
-        w = gw.draw([('a', 1), ('b', 1)], 5, random.Random(1))
-        self.assertEqual(sorted(w), ['a', 'b'])
-
-
-class Entries(unittest.TestCase):
-    def setUp(self):
-        self.member = types.SimpleNamespace(roles=[types.SimpleNamespace(id=5, name='Level 5'), types.SimpleNamespace(id=10, name='Level 10')],
-                                            premium_since=None, id=1)
-        self._q, self._guild = invites.qualified, ctx.guild
-        invites.qualified = lambda uid: 30
-        roles = {r.id: r for r in self.member.roles}
-        ctx.guild = types.SimpleNamespace(get_role=lambda i: roles.get(int(i)), premium_subscriber_role=None)
-
-    def tearDown(self):
-        invites.qualified, ctx.guild = self._q, self._guild
-
-    def config(self, **kw):
-        c = {'prizes': [['x']], 'req_roles': [], 'req_mode': 'any', 'blacklist': [], 'bonus': {'5': 2, '10': 5}, 'min_invites': 0,
-             'invite_entries': True, 'invite_cap': 10, 'min_days': 0, 'claim_hours': 0, 'ping': 'none', 'bonus_best': True, 'per_boost': 0}
-        c.update(kw)
-        return c
-
-    def test_cap_on_total(self):
-        self.assertEqual(gw.entries_for(self.member, self.config())[0], 10)
-
-    def test_highest_level_only(self):
-        total, rows = gw.entries_for(self.member, self.config(invite_entries=False, invite_cap=0))
-        self.assertEqual(total, 1 + 5)
-
-    def test_below_invite_minimum_is_zero(self):
-        invites.qualified = lambda uid: 1
-        self.assertEqual(gw.entries_for(self.member, self.config(min_invites=2))[0], 0)
 
 
 class InviteBurst(unittest.TestCase):
@@ -134,7 +68,7 @@ class StatusWords(unittest.TestCase):
     def test_only_known_statuses_in_code(self):
         import re
         from bot.features.bugs import statuses
-        others = {'running', 'drawing', 'ended', 'cancelled', 'draft', 'released', 'unreleased', 'active', 'private', 'pending', 'inactive', 'status'}  # giveaways, games, testers
+        others = {'draft', 'released', 'unreleased', 'active', 'private', 'pending', 'inactive', 'status'}  # games, testers
         root = Path(__file__).resolve().parent.parent / 'bot'
         found = set()
         for f in root.rglob('*.py'):
@@ -176,7 +110,7 @@ class AccessMatchesHelp(unittest.TestCase):
                         continue  # /mcp is a dev command; its status, kick, pause and resume parts check for an admin themselves
                     need = access.who(base)
                     if page == 'admin':
-                        self.assertIn(need, (access.ADMIN, access.GIVEAWAY, access.EVERYONE), e)
+                        self.assertIn(need, (access.ADMIN, access.EVERYONE), e)
                     elif page == 'dev':
                         self.assertIn(need, (access.DEV, access.EVERYONE), e)
                     else:

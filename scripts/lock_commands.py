@@ -3,8 +3,8 @@ Discord only lets an admin's login change those rules (the bot's own token canno
     python scripts/lock_commands.py --link                 prints the login link (the redirect below must be added in the Developer Portal first)
     python scripts/lock_commands.py --token <token>        sets the rules on every dev / admin command (the token is used once and never saved)
     python scripts/lock_commands.py --check                shows the rules that are set now (needs no token)
-The rules: admin commands = administrator roles only; dev commands = the Developers role and administrator roles; /giveaway = the Giveaway Manager role (if set)
-and administrator roles. @everyone is denied. Commands not listed here stay open to everyone."""
+The rules: admin commands = administrator roles only; dev commands = the Developers role and administrator roles.
+@everyone is denied. Commands not listed here stay open to everyone."""
 import json
 import sys
 import time
@@ -62,8 +62,8 @@ def main():
     token = urllib.parse.parse_qs(token.split('#', 1)[1]).get('access_token', [token])[0] if '#' in token else token  # the whole address works too
     roles = call('GET', f'/guilds/{guild}/roles', bot)
     admin_roles = [r['id'] for r in roles if int(r['permissions']) & 8 and not r.get('managed') and r['id'] != guild]
-    dev, giveaway = ENV.get('DEV_ROLE_ID'), ENV.get('GIVEAWAY_MANAGER_ROLE_ID')
-    allow = {**{n: admin_roles for n in ADMIN}, **{n: [dev, *admin_roles] for n in DEV}, 'giveaway': [x for x in (giveaway, *admin_roles) if x]}
+    dev = ENV.get('DEV_ROLE_ID')
+    allow = {**{n: admin_roles for n in ADMIN}, **{n: [dev, *admin_roles] for n in DEV}}
     for name, role_ids in allow.items():
         if name not in commands:
             print('skip (not registered):', name)

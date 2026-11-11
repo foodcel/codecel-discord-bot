@@ -2,7 +2,7 @@
 Discord does not say which invite a new member used, so the bot keeps a copy of every invite's use count and, when someone joins, looks for the one that went up.
 It only knows joins from the moment it runs (invites used before that show as "uses" but cannot be checked). An invite counts for the score when the
 person it brought is still in the server AND has the Verified role, checked at the moment the number is needed.
-It is a feature of its own: giveaways can read the number (invites.qualified), but nothing here depends on them.
+It is a feature of its own. (Redwing Helper's giveaways may ask for the number, see invites.qualified.)
 /invites stats [user] shows one person's numbers, /invites top the leaderboard."""
 import asyncio
 import time
@@ -122,7 +122,7 @@ def _bucket(rows):
     return out
 
 
-_legacy = (0, {})  # (when it was worked out, the answer): the giveaway card asks for every entrant, so it is kept for a few seconds
+_legacy = (0, {})  # (when it was worked out, the answer): asked for every member at once, so it is kept for a few seconds
 
 
 def legacy_by_inviter():
@@ -155,7 +155,7 @@ def stats(user_id):
 
 
 def qualified(user_id):
-    """The invites that count right now (a giveaway reads this for its invite rules)."""
+    """The invites that count right now."""
     return stats(user_id)['score']
 
 
@@ -260,7 +260,7 @@ async def command_invites(i, sub, opts):
             return await i.edit_original_response(content='I could not make a link right now. Ask an admin.')
         s = stats(i.user.id)
         text = (f"**Your personal invite link**{NL}{url}{NL}{NL}"
-                f"Share this one. Everyone who joins with it and verifies counts for you, so you can enter invite giveaways.{NL}"
+                f"Share this one. Everyone who joins with it and verifies counts for you.{NL}"
                 f"-# It never expires. {'Made just now. ' if new else ''}Right now **{s['score']}** of your invites count: see `/invites stats`.")
         return await i.edit_original_response(content=text, allowed_mentions=NO_MENTIONS)
     if sub == 'top':

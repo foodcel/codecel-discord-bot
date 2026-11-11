@@ -2,7 +2,7 @@
 
 For Redwing Helper (and anyone who needs to know). This is the list of everything Codecel does on the server: its commands, the channels it posts in or manages, and what runs by itself.
 
-Codecel is the bug, game and update bot. Players report bugs and suggestions to it, developers run their games through it (claims, progress, testing, releases, updates), and it keeps the game library, tester board and giveaways up to date.
+Codecel is the bug, game and update bot. Players report bugs and suggestions to it, developers run their games through it (claims, progress, testing, releases, updates), and it keeps the game library and tester board up to date. (Giveaways moved from Codecel to Redwing Helper on 2026-11-11.)
 
 ## Channels it posts in or manages
 
@@ -21,9 +21,8 @@ Codecel is the bug, game and update bot. Players report bugs and suggestions to 
 | **#developer-chat** | Game-down alerts (a released game that stopped existing on Roblox), and testing notes. Pings the game's developer. |
 | **#dev-logs** | A log of everything developers do with Codecel (commands, buttons, status changes). Tokens and secrets are never written there. |
 | **#mod-logs** | Strike notices. A kick or ban needs a developer's confirmation here. |
-| **#boosters** | Read only. Codecel reads boost messages here to give giveaway bonus entries. |
 | **#test** | Private preview channel for Codecel's own posts. |
-| Any channel | Giveaways are posted in the channel the host runs `/giveaway` in. `/mog` and the Mog right-click app reply where they are used. |
+| Any channel | `/mog` and the Mog right-click app reply where they are used. |
 
 It never posts in staff channels on its own.
 
@@ -32,7 +31,7 @@ It never posts in staff channels on its own.
 - **Developers** (and a jr role): developers run games; jr devs can only look.
 - **Testers**, **Helpers**: testers report games in testing; helpers can volunteer to test.
 - **Updates**: pinged by update announcements. **Releases**: can be pinged by a new-game card.
-- **Verified**: counts for giveaways and invites. **Giveaways**: can run giveaways.
+- **Verified**: an invite only counts once the invited person has it.
 - Commands are hidden by role: players only see player commands. Admin and developer commands are invisible to everyone else.
 
 ## Commands
@@ -62,8 +61,6 @@ It never posts in staff channels on its own.
 - `/mog` and the **Mog** right-click app: Codecel posts a mog GIF (the command pings Robin and Redwing Helper).
 - `/preview`: posts finished cards in #test.
 
-**Giveaway managers (and admins)**
-- `/giveaway new | end | reroll | cancel | stats | list`: prizes per place, role and invite requirements, bonus entries (levels, boosts, donators), entry button, winners, and how many new members a giveaway brought.
 
 **Typed triggers**
 - Developers and testers reply `!bug` or `!suggest` to a player's message (optionally with the game) and Codecel posts it in the right forum for that player.
@@ -79,7 +76,6 @@ It never posts in staff channels on its own.
 - **Games:** the library, the bounty board and the games board refresh themselves, and the library is guarded (deleted cards come back, other bots' posts in it are removed).
 - **Game watch:** every 5 minutes Codecel checks each released game still exists on Roblox. After two misses in a row it marks the game Offline and pings its developer in #developer-chat; when it comes back, it switches it on and says so.
 - **Testing:** a game put into testing gets its tester tag, a card for volunteers that expires after a day, and a Play button.
-- **Giveaways:** it ends giveaways on time, draws winners, handles claims and re-draws, counts invites and boosts, and shows the entry count that is valid.
 - **Invites:** it tracks which invite brought each member and counts only members who verify.
 - **Developer agent connections:** it serves read and write access to a developer's own games' reports for their AI agent, with limits, and logs the use (not the contents) in #dev-logs.
 - **Catching up:** when Codecel restarts it reads what it missed (new posts, replies, board messages) and carries on.

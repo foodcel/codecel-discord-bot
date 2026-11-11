@@ -161,21 +161,6 @@ COMMANDS = [
         option(STRING, 'link', 'The Roblox link testers play the test build with (shown as a Play button). A single - removes it'),
         option(STRING, 'note', 'A note for testers on the testing card (what to test, what you need). A single - removes it', max_length=300),
     ]),
-    command('giveaway', 'Run a giveaway: prizes per place, role and invite rules, bonus entries (admins and managers)', [
-        sub('new', 'Make a giveaway: the prize, how long, how many winners. Everything else is in the preview', [
-            option(STRING, 'prize', 'The big text on the banner, e.g. 10K Robux (split over the winners)', required=True, max_length=40),
-            option(STRING, 'duration', 'How long it runs: 3d, 12h, 1d 6h', required=True),
-            option(INTEGER, 'winners', 'How many winners (default 1)', min_value=1, max_value=50),
-        ]),
-        sub('end', 'End a giveaway now and draw the winners', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
-        sub('reroll', 'Draw a new winner for a place, for a winner you pick, or for every unclaimed place', [
-            option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True),
-            option(INTEGER, 'place', 'Which place (1 = first). Empty = every unclaimed place', min_value=1, max_value=50),
-            option(USER, 'user', 'Replace this winner (works even if they claimed). Skip the place then')]),
-        sub('cancel', 'Cancel a running giveaway', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
-        sub('stats', 'How many new members the giveaway brought (joins, links, who is verified)', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
-        sub('list', 'The latest giveaways'),
-    ]),
     command('invites', 'Invites: your numbers and the leaderboard', [
         sub('stats', 'How many people you invited, how many are verified and count', [option(USER, 'user', 'Someone else (default: you)')]),
         sub('top', 'The invite leaderboard'),

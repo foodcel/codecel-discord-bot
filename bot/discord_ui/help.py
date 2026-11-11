@@ -19,7 +19,6 @@ PAGES = {
         ('🎮', 'Games board', ['assign', 'exclude', 'include', 'bounty-board', 'games']),
         ('🧪', 'Testers', ['tester+add,remove,status,edit,post']),
         ('🔎', 'Invites', ['invites+check']),
-        ('🎁', 'Giveaways', ['giveaway+']),
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
         ('🔌', 'MCP', ['mcp+status,kick,allow,pause,resume'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
@@ -42,7 +41,7 @@ SHORT = {
     'tester': 'the tester roster', 'invites': 'invite stats and the leaderboard',
     'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token', 'mcp status': 'who uses it and who is connected', 'mcp kick': 'stop a developer until you allow them again', 'mcp allow': 'let a stopped developer back in', 'mcp pause': 'switch the MCP off for everyone', 'mcp resume': 'switch it back on', 'update': 'post, edit or change how updates work',
     'update new': 'draft and post an update', 'update edit': 'change an update you posted', 'update settings': 'when your agent posts, merging, pings',
-    'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it', 'giveaway': 'run a giveaway',
+    'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it',
     'assign': 'give a game to a dev, even if someone holds it', 'exclude': 'take a post off the bounty board', 'include': 'put an excluded post back',
     'bounty-board': 'set up the bounty board in a channel', 'games': 'post or refresh the games board',
     'tester add': 'add a tester to the roster', 'tester remove': 'take a tester off the roster', 'tester status': 'active, waiting, private or on a break',
@@ -53,8 +52,6 @@ SHORT = {
     'release quiet': 'add it without announcing it', 'release edit': 'fix a released game', 'release undo': 'move it back to unreleased',
     'progress': 'how far a game is, or put it in testing',
     'pings': 'choose when the bot pings you', 'tester profile': 'fill in or change your tester profile',
-    'giveaway new': 'start a giveaway (opens a preview first)', 'giveaway end': 'end one now and draw', 'giveaway reroll': 'draw a new winner',
-    'giveaway cancel': 'cancel a running giveaway', 'giveaway stats': 'how many new members it brought', 'giveaway list': 'the latest giveaways',
     'invites stats': 'your invites and how many count', 'invites link': 'your own invite link, tracked for you', 'invites check': "a member's invite links, who they invited, who is verified", 'invites top': 'the invite leaderboard',
     'bug': 'report a bug with a short form (files and links optional)', 'suggest': 'suggest an improvement with a short form', 'help': 'this list',
 }

@@ -30,9 +30,7 @@ class Cfg:
     test_id = _e.get('TEST_CHANNEL_ID') or None
     updates_id = _e.get('UPDATES_CHANNEL_ID') or None
     testing_id = _e.get('TESTING_CHANNEL_ID') or None
-    verified_role = _e.get('VERIFIED_ROLE_ID') or '1562762634565124186'  # the role people get when they verify: needed to enter a giveaway and for an invite to count
-    giveaway_role = _e.get('GIVEAWAY_MANAGER_ROLE_ID') or None            # optional: besides admins, who may run /giveaway
-    giveaways_role = _e.get('GIVEAWAYS_PING_ROLE_ID') or '1564115633036337273'  # the Giveaways role a giveaway can ping
+    verified_role = _e.get('VERIFIED_ROLE_ID') or '1562762634565124186'  # the role people get when they verify: an invite only counts for the inviter once the invited person has it
     owner_id = _e.get('OWNER_ID') or None  # pinged when bug hunting is switched off for someone
     helpers_role = _e.get('HELPERS_ROLE_ID') or '1565120384519381052'  # helpers can volunteer as testers too
     tester_ping_role = _e.get('TESTER_PING_ROLE_ID') or '1562726451797565521'  # the Tester role: pinged when a game goes into testing
@@ -46,7 +44,6 @@ class Cfg:
     dev_suggestions_id = _e.get('DEV_SUGGESTIONS_FORUM_ID') or None    # optional: dev-only forum, a board post per dev
     dev_chat_id = _e.get('DEV_CHAT_CHANNEL_ID') or '1565918318664093766'          # #developer-chat: game-down alerts, testing notes
     games_channel_id = _e.get('GAMES_CHANNEL_ID') or '1562940878685872149'         # #games: the game library
-    boosters_id = _e.get('BOOSTERS_CHANNEL_ID') or '1565135279025557604'           # where Discord posts each server boost (giveaway boost entries)
     commands_channel_id = _e.get('COMMANDS_CHANNEL_ID') or '1563090099774816286'   # where players can use commands
     game_ideas_id = _e.get('GAME_IDEAS_CHANNEL_ID') or '1562961976387174452'       # whole new game ideas
     mog_ping = [u for u in (_e.get('MOG_PING_USER_IDS') or '941724517481463888,1565900080894967809').split(',') if u]  # /mog pings these (Robin, Redwing Helper)

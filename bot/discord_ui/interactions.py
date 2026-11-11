@@ -74,11 +74,6 @@ async def autocomplete(i):
     fname, fvalue = focused or ('', '')
     if not access.allowed(i.user, name):  # the pick list would show every game to someone who may not run the command
         return await i.response.autocomplete([app_commands.Choice(name='You cannot use this command', value='none')])
-    if name == 'giveaway' and fname == 'giveaway':
-        from bot.features.giveaways.giveaway import autocomplete as giveaway_autocomplete, can_run
-        if not can_run(i.user):
-            return await i.response.autocomplete([])
-        return await i.response.autocomplete([app_commands.Choice(name=c['name'], value=c['value']) for c in await giveaway_autocomplete(i, fvalue)])
     if name == 'tester' and fname == 'only_for':  # "dev" = any developer, or pick one
         q = str(fvalue).strip().lower().lstrip('@')
         picks = [app_commands.Choice(name='Any dev (private to the developers)', value=testers.ANY_DEV)] if (not q or q in 'developers' or q in 'any dev') else []
@@ -398,9 +393,6 @@ async def handle_command(i):
     if name == 'Mog':  # the right-click app on a message
         from bot.features.fun.mog import app_mog
         return await app_mog(i)
-    if name == 'giveaway':  # admins and the Giveaway Manager role: it checks itself
-        from bot.features.giveaways.giveaway import command_giveaway
-        return await command_giveaway(i, sub, opts)
     if name == 'invites':
         if sub == 'check':  # a sub command cannot be hidden in the picker, so it refuses anyone who is not an admin
             if level(i.user) != 'admin':
@@ -491,7 +483,7 @@ def _arg(parts, n):
     return parts[n] if len(parts) > n else None
 
 
-MODULES = {'giveaway': 'bot.features.giveaways.giveaway', 'reldraft': 'bot.features.games.reldraft', 'testerboard': 'bot.features.testers.testerboard',
+MODULES = {'reldraft': 'bot.features.games.reldraft', 'testerboard': 'bot.features.testers.testerboard',
            'help': 'bot.discord_ui.help', 'forms': 'bot.features.bugs.forms', 'editcmd': 'bot.features.updates.editcmd', 'mcpcmd': 'bot.mcp.command'}
 
 
@@ -512,7 +504,6 @@ async def _trpick(i, p):
 
 # custom_id prefix -> handler(interaction, parts). One table per component type; anything else gets a clear answer instead of "interaction failed".
 BUTTONS = {
-    'gw': lambda i, p: _lazy('giveaway', 'on_component', i, p),              # giveaways: enter, leave, claim, the preview
     'rel': lambda i, p: _lazy('reldraft', 'on_button', i, p[1], int(p[2])),  # the /release preview
     'tbd': lambda i, p: _lazy('testerboard', 'on_button', i, p[1], _arg(p, 2)),
     'help': lambda i, p: _lazy('help', 'button_help', i, p[1]),
@@ -527,7 +518,6 @@ BUTTONS = {
     'trall': lambda i, p: button_transcript_all(i, p[1]),
 }
 SELECTS = {
-    'gw': lambda i, p: _lazy('giveaway', 'on_component', i, p),
     'rel': lambda i, p: _lazy('reldraft', 'on_select', i, int(p[2]), (i.data.get('values') or [None])[0]),
     'tbd': lambda i, p: _lazy('testerboard', 'on_select', i, p[1], i.data.get('values') or []),
     'ann': lambda i, p: select_ann(i, int(p[2])),
@@ -544,9 +534,6 @@ MODALS = {
     'note': lambda i, p, f: modal_note(i, p[1], f),
     'annedit': lambda i, p, f: modal_ann_edit(i, int(p[1]), f),
     'updedit': lambda i, p, f: _lazy('editcmd', 'modal_edit', i, int(p[1]), f),
-    'gwp': lambda i, p, f: _lazy('giveaway', 'on_modal', i, p[0], int(p[1]), f),
-    'gwr': lambda i, p, f: _lazy('giveaway', 'on_modal', i, p[0], int(p[1]), f),
-    'gwb': lambda i, p, f: _lazy('giveaway', 'on_modal', i, p[0], int(p[1]), f),
     'reled': lambda i, p, f: _lazy('reldraft', 'on_modal', i, int(p[1]), f),
 }
 GONE = 'This button no longer works. Use the newest message, or run the command again.'

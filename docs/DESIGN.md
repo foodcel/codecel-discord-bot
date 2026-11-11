@@ -6,14 +6,14 @@ The bot has **two looks**. Pick by who reads the post, then follow that look exa
 
 | | **Developer look** | **Community look** |
 |---|---|---|
-| For | devs, testers, staff: boards, dev boards, roster, bug pages, help, dev announcements, update / new-game cards | everyone, on phones first: giveaways, `/invites`, and any new feature for the whole server |
+| For | devs, testers, staff: boards, dev boards, roster, bug pages, help, dev announcements, update / new-game cards | everyone, on phones first: `/invites`, and any new feature for the whole server |
 | Top | `### Title` with the date as a grey button on the right | a **banner** drawn for the post (`bot/discord_ui/banner.py`), the prize or the subject in big letters |
 | Body | trees (`├─` / `└─`), counts in the title, columns where an embed allows | short flat lines, one fact per line, an emoji in front; headings (`##`/`###`) for what must catch the eye |
 | People and roles | names, or mentions sent silently | **real mentions**: `@Verified`, `@Booster`, `Hosted by: @host` (roles never ping; edits carry user mentions so names show) |
 | Never | relative times (except the update card) | trees, code blocks, grey code chips for anything that is not a command |
 
 **Private by default.** A command's reply (answers, previews, drafts, errors, `/invites`, `/help`) is private: only the person who ran it sees it. Only the thing the command exists to post is public
-(a giveaway, an update, a new-game card, the board, a mog GIF, a claim announcement).
+(an update, a new-game card, the board, a mog GIF, a claim announcement).
 
 Shared by both: a line under the header and a line above the footer only (never in the middle), commands as code chips in the small footer, the button under the card,
 real dates, no dead space, the ping right above the card, preview in the test channel first, then edit in place.
@@ -71,7 +71,7 @@ Lists are trees: `├─ **Name** · text`, last row `└─`. Built with `botne
 
 # Community look
 
-Code: `bot/discord_ui/banner.py` (the banner), `bot/features/giveaways/giveaway.py` (`card_items`), `bot/features/invites/invites.py` (`_card`).
+Code: `bot/features/invites/invites.py` (`_card`). (Giveaways, with their banner and prize looks, moved to Redwing Helper; the look is in the handoff zip posted in #test on 2026-11-11.)
 
 ## Philosophy
 - **Phone first.** Every line must read well on a narrow screen: one fact per line, no tree glyphs, nothing that wraps into a mess.
@@ -81,17 +81,9 @@ Code: `bot/discord_ui/banner.py` (the banner), `bot/features/giveaways/giveaway.
 - **Plain words.** "Required", "Bonus entries", "Minimum 2 invites", "3+ days in the server". No code blocks, no chips except commands in the footer.
 
 ## The card, top to bottom
-1. **Banner** (1200x400): navy with stripes, the Redwing wing, `REDWING EXPERIENCES`, the big headline, a red bar, a small line, an outlined pill, the red bottom bar.
-   It is made for each post, and the words can be changed and drawn again (giveaway preview: **Banner** button).
-2. **Facts line** under the banner: `5 winners · 187 entered · ends <date>`. The ping (`@everyone` or `@Giveaways`) is outside the card, in its own line right above it.
-3. Line.
-4. **Blocks** with a bold heading each: the prizes (podium, prize pool or tiles), **Required**, **Bonus entries**. A role is a real mention, a number is bold.
-5. Line, then the small footer (`Hosted by: @host @host`, claim time, the command chip), then the buttons (Enter giveaway, My entries).
-
-## Giveaway prize looks (chosen in the preview)
-- **Podium:** `### 🥇 2K Robux + Nitro` with `-# 1st and 2nd place` under it; the other places in bold.
-- **Prize pool:** `## 💰 10K Robux + 2× Nitro`, `-# the prize pool · 5 winners`, then every place on one line.
-- **Tiles:** every place in its own quoted block with the prize as a heading.
+1. A heading with the subject, then one fact per line.
+2. Line, then blocks with a bold heading each. A role is a real mention, a number is bold.
+3. Line, then the small footer (the command chip), then the buttons.
 
 # Player replies (community look, in report threads)
 `bot/features/bugs/replies.py`: one small card per event: a bold title that says what happened, one or two short lines, and a small hint saying what to do next.
