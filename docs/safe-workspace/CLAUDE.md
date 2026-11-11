@@ -9,5 +9,5 @@
 ## Away run
 When the prompt is "away run", I am gone and nobody can approve anything:
 - For each game here, list its open bug reports and fix the ones you can. Skip reports already in AWAY-LOG.md. Nothing new: stop at once.
-- Never call a codecel tool that changes or posts. If something is refused, do not retry or work around it.
-- Add to AWAY-LOG.md for each report: its id, what you changed, which files, how sure you are. Commit if git lets you, never push.
+- Use only what runs without asking me: reading reports, reading and editing files here. Never call a codecel tool that changes or posts, never push. If something is refused or would ask me, skip it.
+- Add to AWAY-LOG.md for each report: its id, what you changed, which files, how sure you are.

@@ -56,8 +56,7 @@ WAYS = (('claude', 'Claude Code'), ('cli', 'Command line'), ('other', 'Other age
 SAFE_WAYS = (('safe', '🔒 Safe folder'), ('box', '📦 Full box'), ('away', '🌙 Away mode'))  # pages with no token in them: they keep working after the card expired
 KIT = Path(__file__).resolve().parents[2] / 'docs' / 'safe-workspace'
 BACKTICKS = chr(96) * 3
-AWAY_PS = 'while ($true) { claude -p "away run" --permission-mode acceptEdits; Start-Sleep 3600 }'
-AWAY_SH = 'while true; do claude -p "away run" --permission-mode acceptEdits; sleep 3600; done'
+AWAY_PROMPT = '/loop 1h away run'  # Claude Code's own loop; the rules of an "away run" are in the CLAUDE.md the lock wrote
 
 
 def _code(text):
@@ -84,7 +83,7 @@ def _rows(sid, way):
 
 def safe_card(sid, way):
     """The three safety pages of the setup card. Nothing secret is on them."""
-    nl, rows = chr(10), _rows(sid, way)
+    rows = _rows(sid, way)
     if way == 'box':
         return card('📦 Full box (optional, Windows only)', [
             'Only if you picked **B**. Paste this in Claude Code, in the same folder, after the Safe folder prompt. Claude installs a small Linux (WSL2) named `codecel`. '
@@ -94,13 +93,12 @@ def safe_card(sid, way):
     if way == 'away':
         return card('🌙 Away mode (optional)', [
             'Claude looks for new bug reports every hour and fixes what it can while you are gone. Lock the folder first (Safe folder), '
-            'then start this in a terminal inside the games folder. Stop it with Ctrl+C.',
-            f'**Plain Windows** (PowerShell){nl}' + _code(AWAY_PS), f'**Full box, macOS, Linux**{nl}' + _code(AWAY_SH),
+            'then paste this in Claude Code, in the games folder, and leave it open. To stop, tell Claude to stop.', _code(AWAY_PROMPT),
             '**While you are away it can**: read your reports and change files inside the games folder. In the full box it can also run commands, walled in.',
             '**It cannot**: change statuses, post or ask anything on codecel, push code, reach the web, or leave the folder. '
-            'Nobody is there to say yes, so everything that needs a yes is refused.',
+            'Anything that needs your yes waits for you.',
             '**When you are back**: read `AWAY-LOG.md` and the changes before you publish, then tell Claude which reports to mark fixed.'],
-            ['Every check uses a bit of your Claude usage'], right=None, inside=rows)
+            ['Every check uses a bit of your Claude usage · change 1h to check more or less often'], right=None, inside=rows)
     return card('🔒 Lock your workspace', [
         'Put your games in one folder, open Claude Code in it with codecel connected, and paste this. Accept the trust question, approve the two files, '
         'then restart Claude Code in the folder. On Windows, Claude asks you to pick: simple lock or full box.', _code(_kit('PROMPT.txt'))],
