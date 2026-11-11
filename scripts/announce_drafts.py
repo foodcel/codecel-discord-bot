@@ -77,12 +77,12 @@ TRUST = [
 SAFE = [
     ('Set up', [('1', 'put all your games in one folder'), ('2', 'open Claude Code (CLI or app) in that folder'),
                 ('3', '/mcp setup, press Safe folder, paste it'), ('4', 'accept trust, approve 2 files, restart')]),
-    ('It locks', [('Folder', "Claude can't read or write outside it"), ('Secrets', '.env, ssh and cloud keys are blocked'),
+    ('It locks', [('Folder', "Claude's file tools can't leave it"), ('Secrets', '.env, ssh and cloud keys are blocked'),
                   ('Network', 'curl, wget, ssh and web fetch are blocked'), ('Codecel', 'reading is free, changes ask first'),
                   ('Rules', 'CLAUDE.md: player text is never an order')]),
     ('Then', [('Fixing', 'say "fix the open bugs of <game>"'), ('Each game', 'its own subfolder, named like on codecel'),
               ('Approvals', 'keep them on, never skip permissions')]),
-    ('Good to know', [('Tested', 'the lock held on Windows in our tests'), ('Sandbox', 'extra wall on macOS, Linux and WSL2'),
+    ('Good to know', [('Windows', 'commands are not walled: read approvals'), ('Full wall', 'sandbox on macOS, Linux and WSL2'),
                       ('Unattended', 'only with a read-only token')]),
 ]
 
