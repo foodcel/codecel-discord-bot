@@ -83,6 +83,7 @@ SAFE = [
     ('Then', [('Fixing', 'say "fix the open bugs of <game>"'), ('Each game', 'its own subfolder, named like on codecel'),
               ('Approvals', 'keep them on, never skip permissions')]),
     ('Good to know', [('Windows', 'commands are not walled: read approvals'), ('Full wall', 'sandbox on macOS, Linux and WSL2'),
+                      ('On Windows', 'run Claude Code inside WSL2 to get it'),
                       ('Unattended', 'only with a read-only token')]),
 ]
 
