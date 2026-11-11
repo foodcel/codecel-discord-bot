@@ -126,7 +126,7 @@ async def main():
         print('Not posting. Pass --yes.')
         return await finish(client)
     ch = await fetch_channel(cfg.test_id)
-    if '--only' not in sys.argv:
+    if '--only' not in sys.argv or '--clear' in sys.argv:  # --only keeps what is there unless --clear is passed too
         await clear_channel(ch)
     only = sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else ''
     for label, (view, files), _ in cards():
