@@ -26,8 +26,8 @@ NL = chr(10)
 
 def _get(url, timeout=15):
     """Plain urllib in a thread: aiohttp hangs on Roblox from the VM while this answers in a fraction of a second."""
-    with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'codecel-bot'}), timeout=timeout) as r:
-        return r.read()
+    from bot.core.links import fetch
+    return fetch(url, timeout)[1]
 
 
 async def _json(url):
@@ -84,9 +84,8 @@ async def steam_studio(link):
 
 def _exists(url):
     try:
-        req = urllib.request.Request(url, method='HEAD', headers={'User-Agent': 'codecel-bot'})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return r.status == 200
+        from bot.core.links import fetch
+        return fetch(url, 10, 'HEAD')[0] == 200
     except Exception:
         return False
 

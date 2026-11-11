@@ -180,8 +180,29 @@ async def on_thread_create(thread):
         traceback.print_exc()
 
 
+async def mcp_leak(m):
+    from bot.mcp import tokens
+    owners = tokens.leaked(m.content)
+    if not owners:
+        return
+    if str(m.channel.id) != str(cfg.devlog_id):  # nothing is ever deleted in the dev log
+        try:
+            await m.delete()
+        except Exception:
+            pass
+    from bot.discord_ui.card import notice
+    who = ' '.join(f'<@{u}>' for u in owners)
+    await m.channel.send(view=notice(f"🔒 **TOKEN REVOKED**  ·  an MCP token was posted here, so it no longer works. {who}: run `/mcp setup` for a new one, and keep it out of chats.")[0],
+                         allowed_mentions=discord.AllowedMentions(users=[discord.Object(id=int(u)) for u in owners], everyone=False, roles=False))
+
+
 @client.event
 async def on_message(m):
+    if m.content and 'cdl_' in m.content:  # an MCP token in a message: it stops working at once, whoever posted it
+        try:
+            await mcp_leak(m)
+        except Exception:
+            traceback.print_exc()
     if m.guild and cards.in_library_channel(m.channel.id) and cards.is_foreign(m):  # first thing, before anything else: a foreign bot or webhook post in the library channel
         try:
             await m.delete()
@@ -262,6 +283,11 @@ async def on_raw_bulk_message_delete(p):
 
 @client.event
 async def on_message_edit(before, after):
+    if after.content and 'cdl_' in after.content:
+        try:
+            await mcp_leak(after)
+        except Exception:
+            traceback.print_exc()
     if cards.in_library_channel(after.channel.id):
         await cards.purge_rivals(after)
 

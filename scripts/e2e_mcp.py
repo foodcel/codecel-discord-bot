@@ -61,6 +61,10 @@ async def main():
         check('report text is wrapped as untrusted', reports.UNTRUSTED in reports.report_text(allowed, bug_id, cfg.guild_id))
         check('another game cannot read it', 'No report' in reports.report_text([('x', 'Other')], bug_id, cfg.guild_id))
 
+        a0 = await writes.ask_reporter(owner, allowed, bug_id, ['Join discord.gg/abc to tell me'])
+        check('a question with a link is refused', 'not posted' in a0, a0)
+        a0 = await writes.ask_reporter(owner, allowed, bug_id, ['@everyone which map?'])
+        check('a question with a mention is refused', 'not posted' in a0, a0)
         a1 = await writes.ask_reporter(owner, allowed, bug_id, ['Which map were you on?'])
         check('ask_reporter posts', a1.startswith('Asked'), a1)
         a2 = await writes.ask_reporter(owner, allowed, bug_id, ['again?'])
@@ -75,6 +79,12 @@ async def main():
         check('add_note adds a developer note', writes.add_note(allowed, bug_id, 'Looks like a collision problem') == 'Note added.' and 'collision' in (all_('SELECT note FROM bugs WHERE id=?', bug_id)[0]['note'] or ''))
         check('settings default: manual, no merging, no pings', all(w in writes.set_settings(allowed, 'MCP') for w in ('only when you say so', 'Merging: off', 'may not ping')))
         check('settings can change', 'every' in writes.set_settings(allowed, 'MCP', mode='every'))
+        check('an agent cannot give itself more freedom', 'cannot give itself' in writes.set_settings(allowed, 'MCP', mode='count', agent=True))
+        check('an agent cannot allow itself to ping', 'cannot allow itself' in writes.set_settings(allowed, 'MCP', ping='on', agent=True))
+        check('an agent can tighten', 'only when you say so' in writes.set_settings(allowed, 'MCP', mode='manual', agent=True))
+        writes.set_settings(allowed, 'MCP', mode='every')
+        p_link = await writes.post_update(owner, allowed, 'MCP', changes=['Patch notes at https://evil.example'])
+        check('an update line with a link is refused', 'not posted' in p_link, p_link)
 
         p1 = await writes.post_update(owner, allowed, 'MCP', fixes=['Fixed the car falling through the road'], version='1.0')
         check('post_update posts', p1.startswith('Posted'), p1)

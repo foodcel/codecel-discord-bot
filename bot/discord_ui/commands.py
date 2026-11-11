@@ -103,7 +103,8 @@ COMMANDS = [
     _improvement_command(),
     command('help', 'Show the commands you can use'),
     command('mcp', 'Connect your AI agent to the reports of your games', [
-        sub('setup', 'Get the address and your personal token (shown only to you)'),
+        sub('setup', 'Get the address and your personal token (shown only to you)', [
+            option(STRING, 'access', 'What your agent may do (Full when left out)', choices=[('Full: read, change statuses, post updates', 'full'), ('Read-only: look, never change or post', 'read')])]),
         sub('revoke', 'Stop your token from working'),
         sub('status', 'Admin: who has a token, who is connected, when it last called'),
         sub('kick', 'Admin: stop a developer from using the MCP until you allow them again', [option(USER, 'user', 'The dev', required=True)]),

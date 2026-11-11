@@ -9,7 +9,7 @@ from bot.core.db import db, now, one, run
 db.execute("""CREATE TABLE IF NOT EXISTS mcp_tokens(
   token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at INTEGER NOT NULL, last_used INTEGER, revoked INTEGER NOT NULL DEFAULT 0)""")
 
-for _ddl in ('ALTER TABLE mcp_tokens ADD COLUMN expires_at INTEGER',):
+for _ddl in ('ALTER TABLE mcp_tokens ADD COLUMN expires_at INTEGER', "ALTER TABLE mcp_tokens ADD COLUMN scope TEXT NOT NULL DEFAULT 'full'"):
     try:
         db.execute(_ddl)
     except Exception:
@@ -26,12 +26,28 @@ def _hash(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def issue(user_id):
+SCOPES = ('full', 'read')  # read: the token can look but never change or post anything
+
+
+def issue(user_id, scope='full'):
     """A new token for this dev; the old one stops working. Returns the token (the only time it is readable)."""
     run('UPDATE mcp_tokens SET revoked=1 WHERE user_id=?', str(user_id))
     token = 'cdl_' + secrets.token_urlsafe(32)
-    run('INSERT INTO mcp_tokens(token_hash,user_id,created_at,expires_at) VALUES(?,?,?,?)', _hash(token), str(user_id), now(), now() + LIFETIME_DAYS * 86400000)
+    run('INSERT INTO mcp_tokens(token_hash,user_id,created_at,expires_at,scope) VALUES(?,?,?,?,?)', _hash(token), str(user_id), now(), now() + LIFETIME_DAYS * 86400000,
+        scope if scope in SCOPES else 'full')
     return token
+
+
+def leaked(text):
+    """Revokes every live token that appears in some text (a message someone posted). Returns the user ids whose token was revoked."""
+    import re
+    out = []
+    for tok in set(re.findall(r'cdl_[A-Za-z0-9_-]{30,}', str(text or ''))):
+        row = one('SELECT user_id FROM mcp_tokens WHERE token_hash=? AND revoked=0', _hash(tok))
+        if row:
+            run('UPDATE mcp_tokens SET revoked=1 WHERE token_hash=?', _hash(tok))
+            out.append(row['user_id'])
+    return out
 
 
 def revoke(user_id):
@@ -39,16 +55,21 @@ def revoke(user_id):
     return run('UPDATE mcp_tokens SET revoked=1 WHERE user_id=? AND revoked=0', str(user_id)).rowcount > 0
 
 
-def verify(token):
-    """The dev's user id for a valid token, else None."""
-    if not token or not token.startswith('cdl_'):
-        return None
-    row = one('SELECT user_id, expires_at FROM mcp_tokens WHERE token_hash=? AND revoked=0', _hash(token))
+def check(token):
+    """(the dev's user id, the token's scope) for a valid token, else (None, None)."""
+    if not token or not token.startswith('cdl_') or len(token) > 200:
+        return None, None
+    row = one('SELECT user_id, expires_at, scope FROM mcp_tokens WHERE token_hash=? AND revoked=0', _hash(token))
     if not row or (row['expires_at'] and row['expires_at'] < now()) or blocked(row['user_id']):
-        return None
+        return None, None
     run('UPDATE mcp_tokens SET last_used=? WHERE token_hash=?', now(), _hash(token))
     run('INSERT INTO mcp_usage(user_id,day,calls) VALUES(?,?,1) ON CONFLICT(user_id,day) DO UPDATE SET calls=calls+1', row['user_id'], time.strftime('%Y-%m-%d', time.gmtime()))
-    return row['user_id']
+    return row['user_id'], (row['scope'] if row['scope'] in SCOPES else 'full')
+
+
+def verify(token):
+    """The dev's user id for a valid token, else None."""
+    return check(token)[0]
 
 
 def limited(user_id):
@@ -94,7 +115,7 @@ def overview():
     """One row per dev with an active token, for the admin: who, when it was made, when it last called, and how many calls today (a count, never what was asked)."""
     day = time.strftime('%Y-%m-%d', time.gmtime())
     from bot.core.db import all_
-    rows = all_('SELECT user_id, created_at, last_used, expires_at FROM mcp_tokens WHERE revoked=0 ORDER BY last_used DESC')
+    rows = all_('SELECT user_id, created_at, last_used, expires_at, scope FROM mcp_tokens WHERE revoked=0 ORDER BY last_used DESC')
     out = []
     for r in rows:
         u = one('SELECT calls FROM mcp_usage WHERE user_id=? AND day=?', r['user_id'], day)

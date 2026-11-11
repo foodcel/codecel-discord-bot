@@ -32,10 +32,15 @@ WorkingDirectory=$DIR
 ExecStart=$DIR/.venv/bin/python -u -m bot
 Restart=always
 RestartSec=10
+# the bot never needs more rights than it starts with, and what it writes (the database, logs) is readable by its own user only
+NoNewPrivileges=yes
+UMask=0077
 
 [Install]
 WantedBy=default.target
 UNIT
+chmod 600 .env 2>/dev/null || true
+chmod 700 data && chmod 600 data/*.db* 2>/dev/null || true
 systemctl --user daemon-reload
 # keeps the service running after you log out and starts it at boot
 loginctl enable-linger "$(whoami)" || echo "warning: could not enable linger, ask an admin to run: sudo loginctl enable-linger $(whoami)"

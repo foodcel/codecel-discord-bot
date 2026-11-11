@@ -2,6 +2,7 @@
 (Discord's links expire and need a login). The address of the MCP comes from MCP_URL (the Tailscale address)."""
 import io
 import os
+import re
 import secrets
 import time
 
@@ -43,6 +44,7 @@ def serve(data, name, mime='video/mp4'):
     """A link that downloads this file for the next 30 minutes (anyone with the link can, so it is long and random)."""
     _sweep()
     token = secrets.token_urlsafe(24)
+    name = re.sub(r'[^A-Za-z0-9._-]+', '_', str(name or 'video.mp4'))[-60:] or 'video.mp4'  # the file name came from a player: only plain characters reach the link and the header
     _files[token] = {'data': data, 'mime': mime, 'name': name, 'until': time.time() + TTL}
     base = public_url() or 'http://127.0.0.1:8765'
     return f'{base}/media/{token}/{name}'

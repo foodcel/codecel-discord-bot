@@ -5,6 +5,7 @@ import time
 from collections import defaultdict, deque
 
 from bot.core.db import create_pending, get_game, one, upsert_game
+from bot.core.safetext import public, refuse, tidy
 from bot.features.bugs import statuses as st
 from bot.features.updates import announce, edit
 from bot.mcp import reports
@@ -27,8 +28,21 @@ def _too_many(uid):
     return False
 
 
-def _fix_list(x):
-    return [str(line).strip()[:200] for line in (x or []) if str(line).strip()][:40]
+class Refused(Exception):
+    """Text an agent wanted to post that the bot does not let through."""
+
+
+def _agent_line(text, cap=200, what='That text'):
+    """One line an agent wrote for a post players see: cleaned, and refused when it carries a link or a mention (a tricked agent must not hand players a link)."""
+    t = tidy(text, cap)
+    why = refuse(t)
+    if why:
+        raise Refused(f'{what} was not posted: {why}.')
+    return t
+
+
+def _fix_list(x, what='An update line'):
+    return [t for t in (_agent_line(line, 200, what) for line in (x or [])) if t][:40]
 
 
 async def set_status(member, allowed, ids, status, confirm=''):
@@ -50,7 +64,7 @@ async def set_status(member, allowed, ids, status, confirm=''):
     if not confirm:
         code = secrets.token_hex(3)
         _confirms[uid] = {'code': code, 'ids': ids, 'status': status, 'until': time.time() + 600}
-        lines = [f"- id {b['id']} ({b['game_name']}) {b['status']} -> {status}: {b['title'] or '(no title)'}" for b in rows]
+        lines = [f"- id {b['id']} ({reports.shown(b['game_name'], 40, 'game')}) {b['status']} -> {status}: {reports.shown(b['title'])}" for b in rows]
         return 'Nothing changed yet. This would change:\n' + '\n'.join(lines) + f'\nTo do it, call set_status again with the same ids and status and confirm="{code}" (valid 10 minutes).'
     if not pend or pend['code'] != confirm or pend['ids'] != ids or pend['status'] != status or pend['until'] < time.time():
         return 'That confirm code does not match. Call set_status without confirm first.'
@@ -76,7 +90,10 @@ async def ask_reporter(member, allowed, bug_id, questions):
     b, why = reports.owned(allowed, bug_id)
     if not b:
         return why
-    qs = [str(q).strip() for q in (questions or []) if str(q).strip()][:3]
+    try:
+        qs = [q for q in (_agent_line(q, 200, 'A question') for q in (questions or [])) if q][:3]
+    except Refused as e:
+        return str(e)
     if not qs:
         return 'Give one to three short questions.'
     if b['status'] in st.DONE:
@@ -117,6 +134,10 @@ async def set_testing(member, allowed, game, on=True, play_link='', note=''):
     hit = reports.find_game(allowed, game)
     if not hit:
         return f'No game of yours matches "{game}".'
+    try:
+        note = _agent_line(note, 300, 'The note') if (note or '').strip() not in ('', '-') else (note or '').strip()
+    except Refused as e:
+        return str(e)
     ok, text = await apply_progress(member, hit[1], None, None, 'on' if on else 'off', play_link or '', ping=False, note=(note or None))
     return ('Saved: ' if ok else '') + text
 
@@ -135,6 +156,11 @@ async def edit_game(member, allowed, game, title='', online='', description=''):
     if not owns(member, owner_ids(rel)):
         return 'Only the dev who owns this game can change it.'
     changes = {}
+    try:
+        title = _agent_line(title, 100, 'The title')
+        description = '-' if (description or '').strip() == '-' else _agent_line(description, 140, 'The description')
+    except Refused as e:
+        return str(e)
     if (title or '').strip():
         changes['title'] = title.strip()[:100]
     if (online or '').strip().lower() in ('online', 'offline'):
@@ -181,7 +207,8 @@ def add_note(allowed, bug_id, text):
     b, why = reports.owned(allowed, bug_id)
     if not b:
         return why
-    text = ' '.join(str(text or '').split())[:300]
+    from bot.core.safetext import no_mentions
+    text = no_mentions(tidy(text, 300))
     if not text:
         return 'Give a note.'
     update_bug(b['id'], {'note': ((b.get('note') + chr(10)) if b.get('note') else '') + text})
@@ -209,14 +236,21 @@ def settings_text(tag_id, name):
             f"Pings: {'the agent may ping' if agent_may_ping(tag_id) else 'the agent may not ping'}.")
 
 
-def set_settings(allowed, game, mode=None, count=None, merge=None, ping=None):
-    """The update settings of a game. Anything left out stays as it is; with nothing given it only shows the current settings."""
+def set_settings(allowed, game, mode=None, count=None, merge=None, ping=None, agent=False):
+    """The update settings of a game. Anything left out stays as it is; with nothing given it only shows the current settings.
+    agent: the call comes from a dev's AI agent, which may only make the settings stricter (manual mode, pings off), never give itself more freedom."""
     hit = reports.find_game(allowed, game)
     if not hit:
         return f'No game of yours matches "{game}".'
     if reports.untagged(hit[0]):
         return f'{hit[1]} is in development or testing: update settings start once the game is released.'
     patch = {}
+    now_mode, _ = policy(hit[0])
+    if agent and mode and mode.lower() in MODES and mode.lower() != 'manual' and mode.lower() != now_mode:
+        return (f'An agent cannot give itself more freedom: switching to "{mode.lower()}" is done by your dev in Discord with /update settings. '
+                'From here you can only switch to manual. ' + settings_text(hit[0], hit[1]))
+    if agent and ping and ping.lower() == 'on' and not agent_may_ping(hit[0]):
+        return 'An agent cannot allow itself to ping: your dev turns pings on in Discord with /update settings. ' + settings_text(hit[0], hit[1])
     if mode:
         mode = mode.lower()
         if mode not in MODES:
@@ -252,7 +286,7 @@ def due_text(allowed, game):
     if mode == 'manual':
         out.append('Policy is manual: do not post unless your dev told you to.')
     for b in w:
-        out.append(f"- id {b['id']} [{b['kind']}, severity {b.get('severity') or '?'}] {b['title'] or '(no title)'}")
+        out.append(f"- id {b['id']} [{b['kind']}, severity {b.get('severity') if b.get('severity') in reports.SEVERITIES else '?'}] {reports.shown(b['title'])}")
     if last:
         out.append(f"Last update: id {last['id']}, {announce._ago(last['posted_at'])}." + (' It can still be merged into.' if announce.recent_announcement(str(tag_id)) else ''))
     return '\n'.join(out)
@@ -266,7 +300,11 @@ async def post_update(member, allowed, game, fixes=None, changes=None, whats_new
     tag_id, name = hit
     if reports.untagged(tag_id):
         return f'{name} is in development or testing: updates are for released games.'
-    fixes, changes, new = _fix_list(fixes), _fix_list(changes), _fix_list(whats_new)
+    try:
+        fixes, changes, new = _fix_list(fixes), _fix_list(changes), _fix_list(whats_new)
+        version = _agent_line(version, 20, 'The version')
+    except Refused as e:
+        return str(e)
     bugs, sugs = [], []
     for i in bug_ids or []:
         b, why = reports.owned(allowed, i)
@@ -276,9 +314,9 @@ async def post_update(member, allowed, game, fixes=None, changes=None, whats_new
             return f"id {i} is not a fixed report that is still waiting for an update (status {b['status']}, announced {bool(b['announced'])})."
         (bugs if b['kind'] == 'bug' else sugs).append(b)
     if bugs and not fixes:
-        fixes = [b['title'] or 'A bug fix' for b in bugs]
+        fixes = [public(b['title'], 200) or 'A bug fix' for b in bugs]  # titles come from player reports: never a link or a mention in a public card
     if sugs and not new:
-        new = [b['title'] or 'A new feature' for b in sugs]
+        new = [public(b['title'], 200) or 'A new feature' for b in sugs]
     if not (fixes or changes or new):
         return 'Nothing to post: give fixes, changes or whats_new.'
     ping = (ping or 'none').lower()
@@ -323,8 +361,12 @@ async def edit_update(member, allowed, update_id, fixes=None, changes=None, what
     row = edit.by_id(update_id)
     if not row or str(row['tag_id']) not in {str(t) for t, _ in allowed}:
         return 'No update with that id among your games.'
-    ok, msg = await edit.edit_posted(row, None if fixes is None else _fix_list(fixes), None if changes is None else _fix_list(changes),
-                                     None if whats_new is None else _fix_list(whats_new), None if version is None else str(version).strip())
+    try:
+        fixes, changes, whats_new = (None if x is None else _fix_list(x) for x in (fixes, changes, whats_new))
+        version = None if version is None else _agent_line(version, 20, 'The version')
+    except Refused as e:
+        return str(e)
+    ok, msg = await edit.edit_posted(row, fixes, changes, whats_new, version)
     if ok:
         from bot.discord_ui import devlog
         await devlog.update_step(int(row['id']) + 1000000, member, row['game_name'], 'Edited a posted update from the MCP.', final='Posted (edited via MCP)')

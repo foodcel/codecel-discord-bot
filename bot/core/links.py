@@ -1,7 +1,11 @@
 """Checking and cleaning the links people type. Every link check in the bot goes through here.
 A link must be a real http(s) address with a host: no spaces, backslashes, user:password@ or other tricks. A Roblox game link is only accepted on
 roblox.com itself and is stored in one clean form, https://www.roblox.com/games/<place id>."""
+import ipaddress
 import re
+import socket
+import urllib.error
+import urllib.request
 from urllib.parse import urlsplit
 
 _GAME_PATH = re.compile(r'^/(?:[a-z]{2}(?:-[a-z]{2})?/)?games/(\d+)(?:/|$)', re.I)
@@ -52,3 +56,37 @@ def roblox_any(text):
         return game
     u = _split(text)
     return u._replace(scheme='https').geturl() if u and u.hostname.lower() == 'ro.blox.com' else None
+
+
+def public_host(url):
+    """True when the link is http(s) and its host is on the public internet: never this machine, the local network or the cloud's own metadata address."""
+    u = _split(url)
+    if not u:
+        return False
+    try:
+        return all(ipaddress.ip_address(i[4][0]).is_global for i in socket.getaddrinfo(u.hostname, None))
+    except (OSError, ValueError):
+        return False
+
+
+class _PublicOnly(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not public_host(newurl):
+            raise urllib.error.URLError('redirect to a place the bot does not fetch')
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_opener = urllib.request.build_opener(_PublicOnly)
+
+
+def fetch(url, timeout=15, method='GET', limit=20 * 1024 * 1024):
+    """(status, bytes) of a public http(s) address. Every download the bot makes for a game (Roblox, Steam, pictures) goes through here, so a link
+    can never make it read from the machine it runs on. Raises on a private address, a redirect to one, or more than `limit` bytes."""
+    if not public_host(url):
+        raise ValueError('not a public web address')
+    req = urllib.request.Request(url, method=method, headers={'User-Agent': 'codecel-bot'})
+    with _opener.open(req, timeout=timeout) as r:
+        data = b'' if method == 'HEAD' else r.read(limit + 1)
+        if len(data) > limit:
+            raise ValueError('too big')
+        return r.status, data

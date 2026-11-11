@@ -5,7 +5,6 @@ import hashlib
 import io
 import json
 import time
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -66,9 +65,8 @@ def _cropped(source):
             path = CROP_DIR / f'{name}.jpg'
             if path.exists():
                 return path
-            req = urllib.request.Request(source, headers={'User-Agent': 'codecel-bot'})
-            with urllib.request.urlopen(req, timeout=15) as r:
-                return _cut(r.read(), name)
+            from bot.core.links import fetch
+            return _cut(fetch(source, 15)[1], name)
         p = Path(source)
         name = hashlib.sha1(f'{p}{p.stat().st_mtime}'.encode()).hexdigest()[:16]
         if (CROP_DIR / f'{name}.jpg').exists():
