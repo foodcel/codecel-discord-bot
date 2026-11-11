@@ -17,7 +17,7 @@ def prompt():
         '1. If Claude Code is older than 2.1.322, stop and tell me to update.',
         '2. Only on plain Windows (the sandbox already works on WSL, macOS and Linux): ask me to pick, and wait.',
         '   A) Simple lock (recommended): one minute, nothing to install.',
-        '   B) Full box: you also set up WSL2, a small Linux inside Windows, so commands are walled in too. About 15 minutes, maybe an admin approval and a PC restart, one more Claude login.',
+        '   B) Full box: you also set up WSL2, a small Linux inside Windows, so commands are walled in too. About 15 minutes, maybe an admin approval and a PC restart, one more Claude login. It is a guided setup, not a one-click install: it can hit snags.',
         '3. Write CLAUDE.md here with exactly this text:',
         rules,
         '4. Write .claude/settings.json here with exactly this JSON:',

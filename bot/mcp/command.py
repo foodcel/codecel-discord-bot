@@ -88,7 +88,8 @@ def safe_card(sid, way):
         return card('📦 Full box (optional, Windows only)', [
             'Only if you picked **B**. Paste this in Claude Code, in the same folder, after the Safe folder prompt. Claude installs a small Linux (WSL2) named `codecel`. '
             'Commands Claude runs in it are walled in: they cannot read your Windows files, write outside the games folder, or reach the web (GitHub only). '
-            'Your games folder stays where it is.', _code(_kit('BOX.txt'))],
+            'Your games folder stays where it is.',
+            '**Read this first**: these are guidelines for Claude, not a one-click installer. Every PC is set up differently, so it can hit a snag (an old WSL, a restart, a company PC that blocks it). If it does, tell Claude what you see, or stay on the simple lock: it protects you too.', _code(_kit('BOX.txt'))],
             ['You need a fresh /mcp setup at the end: it replaces your old token'], right=None, inside=rows)
     if way == 'away':
         return card('🌙 Away mode (optional)', [
