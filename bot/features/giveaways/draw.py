@@ -274,12 +274,19 @@ async def claim_expired(gid):
     await _announce(g, [w for w in res['winners'] if w['place'] not in before], '🎉 A place was drawn again:')
 
 
-async def reroll(gid, place=None):
+async def reroll(gid, place=None, user=None):
     g = _g(gid)
     if not g or g['status'] != 'ended' or not g['result']:
         return 'That giveaway has not ended yet.'
     res = g['result']
-    drop = [w for w in res['winners'] if w['state'] != 'claimed' and (place is None or w['place'] == place)]
+    if user:  # a host picked this person: they are replaced even if they already claimed
+        if place:
+            return 'Pick a place or a winner, not both.'
+        drop = [w for w in res['winners'] if str(w['user']) == str(user)]
+        if not drop:
+            return f'<@{user}> is not a winner of this giveaway.'
+    else:
+        drop = [w for w in res['winners'] if w['state'] != 'claimed' and (place is None or w['place'] == place)]
     if place and not drop:
         return f'{ordinal(place)} place is already claimed or has no winner. Nothing to draw again.'
     if not drop:

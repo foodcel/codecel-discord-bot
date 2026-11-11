@@ -49,5 +49,5 @@ async def command_giveaway(i, sub, opts):
     elif sub == 'cancel':
         text = await cancel(gid)
     else:
-        text = await reroll(gid, opts.get('place'))
+        text = await reroll(gid, opts.get('place'), opts.get('user'))
     await i.edit_original_response(content=text or 'That giveaway is not running.')

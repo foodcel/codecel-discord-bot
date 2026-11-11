@@ -168,9 +168,10 @@ COMMANDS = [
             option(INTEGER, 'winners', 'How many winners (default 1)', min_value=1, max_value=50),
         ]),
         sub('end', 'End a giveaway now and draw the winners', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
-        sub('reroll', 'Draw a new winner for one place, or for every place not claimed yet', [
+        sub('reroll', 'Draw a new winner for a place, for a winner you pick, or for every unclaimed place', [
             option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True),
-            option(INTEGER, 'place', 'Which place (1 = first). Empty = every unclaimed place', min_value=1, max_value=50)]),
+            option(INTEGER, 'place', 'Which place (1 = first). Empty = every unclaimed place', min_value=1, max_value=50),
+            option(USER, 'user', 'Replace this winner (works even if they claimed). Skip the place then')]),
         sub('cancel', 'Cancel a running giveaway', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
         sub('stats', 'How many new members the giveaway brought (joins, links, who is verified)', [option(STRING, 'giveaway', 'Which giveaway', required=True, autocomplete=True)]),
         sub('list', 'The latest giveaways'),
