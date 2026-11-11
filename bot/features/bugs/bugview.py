@@ -35,6 +35,18 @@ def list_for(key, game):
     return [b for b in open_bugs_for(key) if game == 'all' or (b['game_tag_id'] or 'none') == game]
 
 
+def fixable(member, key, game):
+    """The open bugs of this list that the member may mark fixed (suggestions are never included)."""
+    return [b for b in list_for(key, game) if b['kind'] == 'bug' and can_manage(member, owners_for(b['game_tag_id'], b['game_name']))]
+
+
+def _confirm_page(text, yes, no):
+    view = ui.LayoutView()
+    view.add_item(ui.TextDisplay(text))
+    view.add_item(ui.ActionRow(button(yes, '✅ Yes, fix them all', discord.ButtonStyle.success), button(no, 'Cancel', discord.ButtonStyle.secondary)))
+    return {'content': None, 'embeds': [], 'view': view, 'attachments': []}
+
+
 async def bug_embeds(bug, rows=(), counter=''):
     """The page of one report as a card: (view, files). rows: the button rows shown inside it. counter: 'Bug 2 of 5'."""
     thread = await fetch_channel(bug['thread_id'])
@@ -104,6 +116,9 @@ async def render_view(member, key, game, bug_id):
     tools = [button(f"tr:{bug['id']}", '📋 Transcript', discord.ButtonStyle.primary)]
     if manage:
         tools.append(button(cid('note'), '🎮 Set game / add note'))
+        n_fix = len(fixable(member, key, game)) if bug['kind'] != 'suggestion' else 0
+        if n_fix > 1:
+            tools.append(button(cid('fixall'), f'✅ Fix all ({n_fix})', discord.ButtonStyle.success))
     tools.append(link_button('Open post', thread_link(bug['thread_id'])))
     rows.append(tools)
     view, files = await bug_embeds(bug, [ui.ActionRow(*r) for r in rows if r], f"{'Suggestion' if bug['kind'] == 'suggestion' else 'Bug'} {idx + 1} of {len(lst)}")
@@ -144,6 +159,22 @@ async def handle_view(i):
         idx = max(0, next((k for k, b in enumerate(lst) if b['id'] == bug_id), -1))
         target = lst[min(len(lst) - 1, max(0, idx + (1 if act == 'n' else -1)))] if lst else None
         return await i.edit_original_response(**await render_view(i.user, key, game, target['id'] if target else bug_id))
+    if act == 'fixall':  # asks first: it tells every reporter their bug is fixed
+        mine = fixable(i.user, key, game)
+        where = f"**{mine[0]['game_name'] or 'this game'}**" if game != 'all' and mine else 'all your games'
+        if not mine:
+            return await i.followup.send('There are no open bugs here that you can mark fixed.', ephemeral=True)
+        return await i.edit_original_response(**_confirm_page(
+            f"✅ **FIX ALL**{NL}Mark **{len(mine)}** open bugs in {where} as fixed? Each reporter is told when the fix is announced.",
+            f'v:fixyes:{key}:{game}:{bug_id}', f'v:fixno:{key}:{game}:{bug_id}'))
+    if act == 'fixno':
+        return await i.edit_original_response(**await render_view(i.user, key, game, bug_id))
+    if act == 'fixyes':
+        ids = [b['id'] for b in fixable(i.user, key, game)]
+        done, skipped = await apply_status(ids, 'fixed', i.user, via='bug page: fix all')
+        text = f"✅ Marked **{len(done)}** bug{'s' if len(done) != 1 else ''} fixed." + (f" Skipped {len(skipped)}: {'; '.join(skipped[:3])}" if skipped else '')
+        await i.followup.send(text, ephemeral=True)
+        return await i.edit_original_response(**await render_view(i.user, key, game, bug_id))
     if act == 'st':
         done, skipped = await apply_status([bug_id], status, i.user, via='bug page')
         if not done:
