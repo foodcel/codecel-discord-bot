@@ -38,8 +38,13 @@ def my_games():
     from bot.features.games.games import clean_name, game_lists, owner_ids
     have = {n.lower() for _, n in mine}
     lists = game_lists()
-    for g in [*lists['unreleased'], *lists['released']]:  # games with no bugs-forum tag yet: in development or in testing
+    from bot.features.bugs.tags import find_game_tag
+    ids = {str(t) for t, _ in mine}
+    for g in [*lists['unreleased'], *lists['released']]:  # games that are not in the report list yet: in development or in testing
         name = clean_name(g.get('title') or g['name'])
+        known = find_game_tag(g['name']) or find_game_tag(name)  # a released game shown under another title is still the same game
+        if known and str(known['id']) in ids:
+            continue
         if name.lower() not in have and str(m.id) in [str(o) for o in owner_ids(g)]:
             mine.append((f'name:{name.lower()}', name))
             have.add(name.lower())
