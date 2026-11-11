@@ -15,6 +15,7 @@ from bot.discord_ui.card import card
 from bot.discord_ui.components import NO_MENTIONS
 from bot.features.updates.botnews import tree
 from bot.features.updates.previews import clear_channel
+from bot.mcp.command import AWAY_PS, AWAY_SH
 
 NL = chr(10)
 MAX = 56
@@ -92,6 +93,24 @@ SAFE = [
               ('Approvals', 'keep them on, never skip permissions')]),
 ]
 
+AWAY = [
+    ('What it is', [('Loop', 'Claude checks for new bugs every hour'), ('Fixes', 'what it can, inside your games folder'),
+                    ('Prompt', '"away run", its rules sit in CLAUDE.md'), ('You', 'review when you are back')]),
+    ('Set up', [('1', 'lock the folder first (Safe folder)'), ('2', 'open a terminal in the games folder'),
+                ('Full box', 'first: wsl -d codecel --cd "<folder>"'), ('3', 'paste the loop below, leave it open'),
+                ('4', 'stop it with Ctrl+C')]),
+    ('While away it can', [('Read', 'your reports and transcripts'), ('Edit', 'files inside the games folder'),
+                           ('Full box', 'also run commands, walled in')]),
+    ('It cannot', [('Codecel', 'no status, post, question or note'), ('Code', 'never pushed, stays on your PC'),
+                   ('Web', 'none (full box: GitHub only)'), ('PC', "can't leave the games folder"),
+                   ('Why', 'nobody is there to approve, so: refused')]),
+    ('When you are back', [('AWAY-LOG.md', 'what it changed and how sure it is'), ('Review', 'read the changes before you publish'),
+                           ('Then', 'tell Claude which reports to mark fixed')]),
+    ('Good to know', [('Cost', 'each check uses some Claude usage'), ('Nothing new', 'the check stops at once'),
+                      ('Slower', 'raise 3600 (seconds) in the loop'), ('Token', 'a read-only one works too'),
+                      ('Old lock', 'delete both files, paste Safe folder again')]),
+]
+
 SAFE_PROMPT = (Path(__file__).resolve().parent.parent / 'docs' / 'safe-workspace' / 'PROMPT.txt').read_text(encoding='utf8').strip()
 
 
@@ -112,9 +131,13 @@ def cards():
     return (('tester announcement', build('🧪 Tester update', TESTER, ['/bug · report a bug', '/tester profile · your details']), TESTER),
             ('developer announcement 1 of 2', build('🛠️ Dev update', DEV, ['/help · every command', '/update edit · change a posted update']), DEV),
             ('developer announcement 2 of 2', build('🔌 MCP for developers', MCP, ['/mcp setup · connect your agent', '/update settings · when your agent posts']), MCP),
-            ('safe mcp 1 of 3: what it can reach', build('🛡️ The MCP is built to be safe', TRUST, ['/mcp setup · connect or renew', '/mcp revoke · stop your token']), TRUST),
-            ('safe mcp 2 of 3: lock your workspace', build('🔒 Lock your workspace', SAFE, ['/mcp setup · a Discord command, not a Claude Code one']), SAFE),
-            ('safe mcp 3 of 3: the prompt', card('📋 Prompt for your Claude', [chr(96) * 3 + chr(10) + SAFE_PROMPT + chr(10) + chr(96) * 3], ['Paste it in Claude Code, inside your games folder']), []),
+            ('safe mcp 1 of 4: what it can reach', build('🛡️ The MCP is built to be safe', TRUST, ['/mcp setup · connect or renew', '/mcp revoke · stop your token']), TRUST),
+            ('safe mcp 2 of 4: lock your workspace', build('🔒 Lock your workspace', SAFE, ['/mcp setup · a Discord command, not a Claude Code one']), SAFE),
+            ('safe mcp 3 of 4: the prompt', card('📋 Prompt for your Claude', [chr(96) * 3 + chr(10) + SAFE_PROMPT + chr(10) + chr(96) * 3], ['Paste it in Claude Code, inside your games folder']), []),
+            ('safe mcp 4 of 4: away mode', card('🌙 Away mode: fixes while you are gone', [f'**{head}**{NL}{tree(*rows)}' for head, rows in AWAY]
+                                                + [f'**Loop for plain Windows** (PowerShell){NL}{chr(96) * 3}{NL}{AWAY_PS}{NL}{chr(96) * 3}',
+                                                   f'**Loop for the full box, macOS, Linux**{NL}{chr(96) * 3}{NL}{AWAY_SH}{NL}{chr(96) * 3}'],
+                                                ['/mcp setup · then press Away mode']), AWAY),
             ('notes announcement', build('📝 Notes on tester cards', NOTE, ['/progress · set a note', '/help · every command']), NOTE))
 
 
