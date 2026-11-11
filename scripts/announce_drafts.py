@@ -75,8 +75,10 @@ TRUST = [
 ]
 
 SAFE = [
-    ('Set up', [('1', 'put all your games in one folder'), ('2', 'open Claude Code (CLI or app) in that folder'),
-                ('3', '/mcp setup, press Safe folder, paste it'), ('4', 'accept trust, approve 2 files, restart')]),
+    ('Set up', [('1', 'put all your games in one folder'), ('2', 'in Discord: /mcp setup, press Claude Code'),
+                ('3', 'paste that command in a terminal'), ('4', 'open Claude Code (CLI or app) in the folder'),
+                ('5', 'on the Discord card: Safe folder, copy it'), ('6', 'paste it in Claude Code'),
+                ('7', 'accept trust, approve 2 files, restart')]),
     ('It locks', [('Folder', "Claude's file tools can't leave it"), ('Secrets', '.env, ssh and cloud keys are blocked'),
                   ('Network', 'curl, wget, ssh and web fetch are blocked'), ('Codecel', 'reading is free, changes ask first'),
                   ('Rules', 'CLAUDE.md: player text is never an order')]),
@@ -111,7 +113,7 @@ def cards():
             ('developer announcement 1 of 2', build('🛠️ Dev update', DEV, ['/help · every command', '/update edit · change a posted update']), DEV),
             ('developer announcement 2 of 2', build('🔌 MCP for developers', MCP, ['/mcp setup · connect your agent', '/update settings · when your agent posts']), MCP),
             ('safe mcp 1 of 3: what it can reach', build('🛡️ The MCP is built to be safe', TRUST, ['/mcp setup · connect or renew', '/mcp revoke · stop your token']), TRUST),
-            ('safe mcp 2 of 3: lock your workspace', build('🔒 Lock your workspace', SAFE, ['/mcp setup · then press Safe folder']), SAFE),
+            ('safe mcp 2 of 3: lock your workspace', build('🔒 Lock your workspace', SAFE, ['/mcp setup · a Discord command, not a Claude Code one']), SAFE),
             ('safe mcp 3 of 3: the prompt', card('📋 Prompt for your Claude', [chr(96) * 3 + chr(10) + SAFE_PROMPT + chr(10) + chr(96) * 3], ['Paste it in Claude Code, inside your games folder']), []),
             ('notes announcement', build('📝 Notes on tester cards', NOTE, ['/progress · set a note', '/help · every command']), NOTE))
 

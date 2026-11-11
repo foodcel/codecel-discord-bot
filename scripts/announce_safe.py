@@ -1,5 +1,6 @@
 """Posts the three safe-MCP cards for real in the dev announcements channel, with no ping. Run only after the owner said so.
-    python scripts/announce_safe.py --yes        run on the VM"""
+    python scripts/announce_safe.py --yes        run on the VM
+    python scripts/announce_safe.py --yes --edit <message id> 'safe mcp 2'     replaces one posted card in place"""
 import asyncio
 import sys
 
@@ -18,6 +19,13 @@ async def main():
         print('Not posting. Pass --yes.')
         return await finish(client)
     ch = await fetch_channel(DEV_CHANNEL)
+    if '--edit' in sys.argv:  # --edit <message id> <label part>: one posted card is replaced in place, silently
+        mid, part = sys.argv[sys.argv.index('--edit') + 1], sys.argv[sys.argv.index('--edit') + 2]
+        for label, (view, files), _ in cards():
+            if part in label:
+                await ch.get_partial_message(int(mid)).edit(view=view, attachments=files, allowed_mentions=NO_MENTIONS)
+                print('edited', label)
+        return await finish(client)
     for label, (view, files), _ in cards():
         if 'safe mcp' in label:
             m = await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
