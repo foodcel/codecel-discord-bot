@@ -82,9 +82,12 @@ SAFE = [
                   ('Rules', 'CLAUDE.md: player text is never an order')]),
     ('Then', [('Fixing', 'say "fix the open bugs of <game>"'), ('Each game', 'its own subfolder, named like on codecel'),
               ('Approvals', 'keep them on, never skip permissions')]),
-    ('Good to know', [('Windows', 'commands are not walled: read approvals'), ('Full wall', 'sandbox on macOS, Linux and WSL2'),
-                      ('On Windows', 'run Claude Code inside WSL2 to get it'),
-                      ('Unattended', 'only with a read-only token')]),
+    ('Plain Windows', [('File tools', 'locked to the folder'), ('Commands', 'not walled: read before approving'),
+                       ('Unattended', 'only with a read-only token')]),
+    ('Windows with WSL2 (optional)', [('File tools', 'locked to the folder, the same'), ('Commands', "can't write outside or reach the web"),
+                                      ('Trade-off', 'files on the Linux side, Studio on Windows'),
+                                      ('Needed?', 'no, plain Windows is fine with approvals')]),
+    ('macOS and Linux', [('Sandbox', 'works as is, same wall as WSL2')]),
 ]
 
 SAFE_PROMPT = (Path(__file__).resolve().parent.parent / 'docs' / 'safe-workspace' / 'PROMPT.txt').read_text(encoding='utf8').strip()
