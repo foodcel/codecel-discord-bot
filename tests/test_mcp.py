@@ -143,6 +143,22 @@ class Hardening(unittest.TestCase):
         media._files.clear()
 
 
+class Commands(unittest.TestCase):
+    def test_discord_accepts_every_command(self):
+        """Discord refuses the whole command list when one description or choice is not 1 to 100 characters long."""
+        from bot.discord_ui.commands import BOARD_COMMANDS, COMMANDS
+
+        def walk(o, path):
+            self.assertTrue(1 <= len(o.get('description', 'x')) <= 100, path)
+            for ch in o.get('choices') or []:
+                self.assertTrue(1 <= len(ch['name']) <= 100, path)
+            self.assertLessEqual(len(o.get('options') or []), 25, path)
+            for x in o.get('options') or []:
+                walk(x, path + '.' + x['name'])
+        for cmd in COMMANDS + BOARD_COMMANDS:
+            walk(cmd, cmd['name'])
+
+
 class Access(unittest.TestCase):
     def test_no_token_is_401_and_the_app_is_never_reached(self):
         sent, reached = [], []

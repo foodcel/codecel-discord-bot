@@ -159,7 +159,7 @@ COMMANDS = [
         option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
         option(STRING, 'testing', 'Testing phase on or off. Testers can report a game in testing (released games too)', choices=[('On', 'on'), ('Off', 'off')]),
         option(STRING, 'link', 'The Roblox link testers play the test build with (shown as a Play button). A single - removes it'),
-        option(STRING, 'note', 'A note for the testers, shown on the testing card (what to test, what you need). A single - removes it', max_length=300),
+        option(STRING, 'note', 'A note for testers on the testing card (what to test, what you need). A single - removes it', max_length=300),
     ]),
     command('giveaway', 'Run a giveaway: prizes per place, role and invite rules, bonus entries (admins and managers)', [
         sub('new', 'Make a giveaway: the prize, how long, how many winners. Everything else is in the preview', [
