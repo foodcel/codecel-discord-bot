@@ -52,27 +52,66 @@ async def command_mcp(i, sub, opts=None):
 
 
 _cards = {}
-WAYS = (('claude', 'Claude Code'), ('cli', 'Command line'), ('other', 'Other agent'), ('safe', '🔒 Safe folder'))
-SAFE_PROMPT = (Path(__file__).resolve().parents[2] / 'docs' / 'safe-workspace' / 'PROMPT.txt')
+WAYS = (('claude', 'Claude Code'), ('cli', 'Command line'), ('other', 'Other agent'))
+SAFE_WAYS = (('safe', '🔒 Safe folder'), ('box', '📦 Full box'), ('away', '🌙 Away mode'))  # pages with no token in them: they keep working after the card expired
+KIT = Path(__file__).resolve().parents[2] / 'docs' / 'safe-workspace'
 BACKTICKS = chr(96) * 3
+AWAY_PS = 'while ($true) { claude -p "away run" --permission-mode acceptEdits; Start-Sleep 3600 }'
+AWAY_SH = 'while true; do claude -p "away run" --permission-mode acceptEdits; sleep 3600; done'
 
 
 def _code(text):
     return f'{BACKTICKS}{chr(10)}{text}{chr(10)}{BACKTICKS}'
 
 
+def _kit(name):
+    try:
+        return (KIT / name).read_text(encoding='utf8').strip()
+    except OSError:
+        return 'The prompt is missing on the server. Ask foodcel.'
+
+
+def _live(sid):
+    c = _cards.get(sid)
+    return c if c and c['until'] >= time.time() else None
+
+
+def _rows(sid, way):
+    def row(ways):
+        return ui.ActionRow(*[button(f'mcps:{k}:{sid}', label, discord.ButtonStyle.primary if k == way else discord.ButtonStyle.secondary) for k, label in ways])
+    return ([row(WAYS)] if _live(sid) else []) + [row(SAFE_WAYS)]
+
+
+def safe_card(sid, way):
+    """The three safety pages of the setup card. Nothing secret is on them."""
+    nl, rows = chr(10), _rows(sid, way)
+    if way == 'box':
+        return card('📦 Full box (optional, Windows only)', [
+            'Only if you picked **B**. Paste this in Claude Code, in the same folder, after the Safe folder prompt. Claude installs a small Linux (WSL2) named `codecel`. '
+            'Commands Claude runs in it are walled in: they cannot read your Windows files, write outside the games folder, or reach the web (GitHub only). '
+            'Your games folder stays where it is.', _code(_kit('BOX.txt'))],
+            ['You need a fresh /mcp setup at the end: it replaces your old token'], right=None, inside=rows)
+    if way == 'away':
+        return card('🌙 Away mode (optional)', [
+            'Claude looks for new bug reports every hour and fixes what it can while you are gone. Lock the folder first (Safe folder), '
+            'then start this in a terminal inside the games folder. Stop it with Ctrl+C.',
+            f'**Plain Windows** (PowerShell){nl}' + _code(AWAY_PS), f'**Full box, macOS, Linux**{nl}' + _code(AWAY_SH),
+            '**While you are away it can**: read your reports and change files inside the games folder. In the full box it can also run commands, walled in.',
+            '**It cannot**: change statuses, post or ask anything on codecel, push code, reach the web, or leave the folder. '
+            'Nobody is there to say yes, so everything that needs a yes is refused.',
+            '**When you are back**: read `AWAY-LOG.md` and the changes before you publish, then tell Claude which reports to mark fixed.'],
+            ['Every check uses a bit of your Claude usage'], right=None, inside=rows)
+    return card('🔒 Lock your workspace', [
+        'Put your games in one folder, open Claude Code in it with codecel connected, and paste this. Accept the trust question, approve the two files, '
+        'then restart Claude Code in the folder. On Windows, Claude asks you to pick: simple lock or full box.', _code(_kit('PROMPT.txt'))],
+        ['The simple lock is enough for most devs'], right=None, inside=rows)
+
+
 def setup_card(sid, way):
+    if way in dict(SAFE_WAYS):
+        return safe_card(sid, way)
     c = _cards[sid]
     url, token, nl = c['url'], c['token'], chr(10)
-    row = ui.ActionRow(*[button(f'mcps:{k}:{sid}', label, discord.ButtonStyle.primary if k == way else discord.ButtonStyle.secondary) for k, label in WAYS])
-    if way == 'safe':  # the prompt that locks a folder: no token in it, so this page shows nothing secret
-        try:
-            prompt = SAFE_PROMPT.read_text(encoding='utf8').strip()
-        except OSError:
-            prompt = 'The prompt is missing on the server. Ask foodcel.'
-        return card('🔒 Lock your workspace', ['Put your games in one folder, open Claude Code in it, connect codecel (the Claude Code button), then paste this. '
-                                              'Accept the trust question, approve the two files, restart Claude Code in the folder.', _code(prompt)],
-                    ['Works best on macOS, Linux or WSL2 (the sandbox does not exist on plain Windows)'], right=None, inside=[row])
     if way == 'cli':
         how = f'**Command line** (cmd, PowerShell or bash, for agents that start a local command){nl}' + _code(f'npx -y mcp-remote {url} --header "Authorization: Bearer {token}"')
     elif way == 'other':
@@ -86,14 +125,17 @@ def setup_card(sid, way):
               + ('. This token is **read-only**: it cannot change or post anything.' if c.get('access') == 'read' else
                  ', change statuses (preview first, then confirm), ask a reporter a question, post and edit updates, and follow your update settings (`/update settings`).'),
               "**It cannot**: touch your computer or your files, see other devs' games or exploit reports, post links or mentions, or give itself more rights.",
-              "**Stay safe**: everything an agent reads here was written by players. Keep your agent's approval prompts on, and do not run it fully unattended with shell access. "
+              "**Stay safe**: everything an agent reads here was written by players. Keep your agent's approval prompts on. To lock your games folder, or to let Claude fix bugs while you are away, use the buttons below. "
               'If your token ever shows up in a Discord message, the bot revokes it at once.']
-    return card('🔌 Connect your AI agent', blocks, ['/mcp revoke · stop the token'], right=None, inside=[row])
+    return card('🔌 Connect your AI agent', blocks, ['/mcp revoke · stop the token'], right=None, inside=_rows(sid, way))
 
 
 async def on_button(i, way, sid):
-    c = _cards.get(sid)
-    if not c or c['until'] < time.time() or c['user'] != str(i.user.id) or way not in dict(WAYS):
+    c = _live(sid)
+    if way in dict(SAFE_WAYS):  # no token on these pages: they answer whoever holds the card, even after it expired
+        if c and c['user'] != str(i.user.id):
+            return await i.response.send_message(view=notice('This is not your card. Run `/mcp setup`.')[0], ephemeral=True)
+    elif not c or c['user'] != str(i.user.id) or way not in dict(WAYS):
         return await i.response.send_message(view=notice('This card expired. Run `/mcp setup` again.')[0], ephemeral=True)
     view, files = setup_card(sid, way)
     await i.response.edit_message(view=view, attachments=files)

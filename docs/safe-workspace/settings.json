@@ -4,25 +4,62 @@
     "blockReadsOutsideWorkingDirectories": true,
     "blockWritesOutsideWorkingDirectories": true,
     "deny": [
-      "Read(./**/.env)", "Read(./**/.env.*)", "Read(./**/*.pem)", "Read(./**/*.key)",
-      "Read(~/.ssh/**)", "Read(~/.aws/**)", "Read(~/.claude.json)",
-      "Edit(./.claude/**)", "Edit(./CLAUDE.md)",
-      "Bash(curl *)", "Bash(wget *)", "Bash(ssh *)", "Bash(scp *)", "Bash(nc *)",
-      "WebFetch", "WebSearch"
+      "Read(./**/.env)",
+      "Read(./**/.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.claude.json)",
+      "Edit(./.claude/**)",
+      "Edit(./CLAUDE.md)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(nc *)",
+      "PowerShell(curl *)",
+      "PowerShell(iwr *)",
+      "PowerShell(Invoke-WebRequest *)",
+      "WebFetch",
+      "WebSearch"
     ],
     "ask": [
       "Bash(git push *)",
-      "mcp__codecel__set_*", "mcp__codecel__edit_*", "mcp__codecel__post_update",
-      "mcp__codecel__ask_reporter", "mcp__codecel__add_note", "mcp__codecel__update_settings"
+      "mcp__codecel__set_*",
+      "mcp__codecel__edit_*",
+      "mcp__codecel__post_update",
+      "mcp__codecel__ask_reporter",
+      "mcp__codecel__add_note",
+      "mcp__codecel__update_settings"
     ],
     "allow": [
-      "mcp__codecel__list_*", "mcp__codecel__get_*", "mcp__codecel__search_reports", "mcp__codecel__updates_due"
+      "mcp__codecel__list_*",
+      "mcp__codecel__get_*",
+      "mcp__codecel__search_reports",
+      "mcp__codecel__updates_due"
     ]
   },
   "sandbox": {
     "enabled": true,
     "allowUnsandboxedCommands": false,
-    "filesystem": { "denyRead": ["~/.ssh", "~/.aws"], "allowWrite": ["."] },
-    "network": { "allowedDomains": ["github.com"] }
+    "filesystem": {
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "//mnt"
+      ],
+      "allowRead": [
+        "."
+      ],
+      "allowWrite": [
+        "."
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "github.com"
+      ]
+    }
   }
 }

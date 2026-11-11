@@ -1,0 +1,6 @@
+Set up the full box for this locked codecel workspace: a WSL2 Linux named codecel where Claude Code runs sandboxed. Do exactly this, in order, from Windows. Never write, ask for or type my token or a password.
+1. If .claude/settings.json is missing here, stop: I must paste the Safe folder prompt first.
+2. If `wsl -l -v` lists no codecel: run `wsl --install -d Ubuntu --name codecel --no-launch` (on a --name error: `wsl --update`, then retry). If Windows needs a restart: tell me to restart and paste this prompt here again, then stop.
+3. As root, with `wsl -d codecel -u root -- bash -c "..."`: apt-get update; apt-get install -y bubblewrap socat curl ca-certificates git; if there is no user dev: useradd -m -s /bin/bash dev, and write /etc/wsl.conf with the line [user] then the line default=dev. Then run `wsl --terminate codecel`.
+4. Run `wsl -d codecel -- bash -lc "curl -fsSL https://claude.ai/install.sh | bash"`.
+5. Tell me the last steps, which only I can do: in a terminal run `wsl -d codecel --cd "<full path of this folder>"`, then `claude` (or ~/.local/bin/claude), log in, accept the trust question, and paste the "claude mcp add" command from the Discord card. From then on I start Claude Code for my games that way.

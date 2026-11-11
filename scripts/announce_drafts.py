@@ -82,14 +82,14 @@ SAFE = [
     ('It locks', [('Folder', "Claude's file tools can't leave it"), ('Secrets', '.env, ssh and cloud keys are blocked'),
                   ('Network', 'curl, wget, ssh and web fetch are blocked'), ('Codecel', 'reading is free, changes ask first'),
                   ('Rules', 'CLAUDE.md: player text is never an order')]),
+    ('On Windows, Claude asks you to pick', [('A · Simple lock', 'one minute, enough for most devs'), ('B · Full box', 'Claude installs a small Linux, WSL2'),
+                                             ('Difference', 'in B, commands are walled in too'), ('In A', 'a script you approve can read your PC'),
+                                             ('Your folder', 'stays where it is, in both'), ('macOS, Linux', 'full box as is, no question')]),
+    ('Away mode (optional)', [('What', 'Claude fixes new bugs while you are gone'), ('Start', '/mcp setup, press Away mode'),
+                              ('It can', 'read reports, edit inside the folder'), ('It cannot', 'post, change statuses, push, leave'),
+                              ('After', 'read AWAY-LOG.md before you publish')]),
     ('Then', [('Fixing', 'say "fix the open bugs of <game>"'), ('Each game', 'its own subfolder, named like on codecel'),
               ('Approvals', 'keep them on, never skip permissions')]),
-    ('Plain Windows', [('File tools', 'locked to the folder'), ('Commands', 'not walled: read before approving'),
-                       ('Unattended', 'only with a read-only token')]),
-    ('Windows with WSL2 (optional)', [('File tools', 'locked to the folder, the same'), ('Commands', "can't write outside or reach the web"),
-                                      ('Trade-off', 'files in Linux, Studio stays on Windows'),
-                                      ('Needed?', 'no, plain Windows is fine with approvals')]),
-    ('macOS and Linux', [('Sandbox', 'works as is, same wall as WSL2')]),
 ]
 
 SAFE_PROMPT = (Path(__file__).resolve().parent.parent / 'docs' / 'safe-workspace' / 'PROMPT.txt').read_text(encoding='utf8').strip()

@@ -159,6 +159,41 @@ class Commands(unittest.TestCase):
             walk(cmd, cmd['name'])
 
 
+class Kit(unittest.TestCase):
+    """The safe-workspace kit behind the buttons of /mcp setup."""
+    def test_the_prompts_match_their_sources(self):
+        import importlib.util
+        import json
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        spec = importlib.util.spec_from_file_location('safe_prompt', root / 'scripts' / 'safe_prompt.py')
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        kit = root / 'docs' / 'safe-workspace'
+        self.assertEqual((kit / 'PROMPT.txt').read_text(encoding='utf8').strip(), mod.prompt())  # run scripts/safe_prompt.py after a change
+        self.assertEqual((kit / 'BOX.txt').read_text(encoding='utf8').strip(), mod.box())
+        s = json.loads((kit / 'settings.json').read_text(encoding='utf8'))
+        self.assertFalse(s['sandbox']['allowUnsandboxedCommands'])
+        self.assertTrue(s['permissions']['blockReadsOutsideWorkingDirectories'])
+        self.assertFalse([r for r in s['permissions']['allow'] if not r.startswith(('mcp__codecel__list_', 'mcp__codecel__get_', 'mcp__codecel__search', 'mcp__codecel__updates_due'))])
+
+    def test_every_page_fits_in_a_discord_message(self):
+        from bot.mcp import command
+
+        def chars(c):
+            return len(getattr(c, 'content', '') or '') + sum(chars(x) for x in getattr(c, 'children', []) or [])
+        command._cards['kit'] = {'token': 'cdl_' + 'x' * 43, 'url': 'https://codecel-bot.tail2de29f.ts.net/mcp', 'user': '1', 'until': 9e12, 'access': 'full'}
+        try:
+            for way in ('claude', 'cli', 'other', 'safe', 'box', 'away'):
+                view, _ = command.setup_card('kit', way)
+                self.assertLessEqual(sum(chars(c) for c in view.children), 3900, way)
+                self.assertEqual('cdl_' in ''.join(getattr(c, 'content', '') or '' for c in view.walk_children()), way in ('claude', 'cli', 'other'), way)  # no token on the safety pages
+            view, _ = command.setup_card('expired-or-unknown', 'safe')  # the safety pages outlive the card
+            self.assertTrue(view.children)
+        finally:
+            command._cards.pop('kit', None)
+
+
 class Access(unittest.TestCase):
     def test_no_token_is_401_and_the_app_is_never_reached(self):
         sent, reached = [], []
