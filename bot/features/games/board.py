@@ -11,7 +11,7 @@ from discord import app_commands
 from bot.discord_ui.card import card
 from bot.discord_ui.components import NO_MENTIONS
 from bot.core.ctx import ctx, fetch_channel
-from bot.core.db import all_, kv_get, kv_set, one, run
+from bot.core.db import all_, hide_reports, kv_get, kv_set, one, run
 from bot.core.perms import level
 from bot.discord_ui.ui import E, EN, SEP, cut
 
@@ -538,6 +538,9 @@ async def held_claim(i, post, completed):
 async def release(i, p, c, verb):
     """Drop a claim, putting the game back on Top suggestions and taking In Development off its post."""
     run('DELETE FROM board_claims WHERE id=?', c['id'])
+    if hide_reports(claim_title(c), 'bug'):  # an unclaimed game keeps no bugs
+        from bot.features.bugs.devboard import schedule_boards
+        schedule_boards()
     await _say(i, f'{verb} {game_name(p, c)}.', allowed_mentions=NO_MENTIONS)
     if p and not await set_post_tag(p['post_id'], IN_DEVELOPMENT_TAG, False):
         await i.followup.send(f'⚠️ Couldn\'t remove the **{IN_DEVELOPMENT_TAG}** tag from the post.', ephemeral=True)

@@ -1,4 +1,5 @@
 """SQLite storage. The tables are identical to the JavaScript version, so an existing data/bot.db works unchanged."""
+import re
 import json
 import sqlite3
 import time
@@ -187,6 +188,17 @@ def update_bug(id_, patch: dict):
     if 'game_name' in patch or 'kind' in patch:
         from bot.features.bugs.nums import forget
         forget()  # its number moves with it (the others keep theirs)
+
+
+def hide_reports(game, kind):
+    """A game went back to unreleased (its suggestions go) or lost its dev (its bugs go): hide that game's reports from the boards and the MCP.
+    deleted=2 means "removed with the game"; the players' posts are left alone. Returns how many were hidden."""
+    want = re.sub(r'[^a-z0-9]', '', str(game or '').lower())
+    ids = [b['id'] for b in all_('SELECT id, game_name FROM bugs WHERE kind=? AND deleted=0', kind)
+           if want and re.sub(r'[^a-z0-9]', '', (b['game_name'] or '').lower()) == want]
+    for n in ids:
+        run('UPDATE bugs SET deleted=2 WHERE id=?', n)
+    return len(ids)
 
 
 # ---- timers ----

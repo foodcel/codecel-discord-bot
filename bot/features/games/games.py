@@ -12,7 +12,7 @@ from bot.core.links import roblox_any, web_url
 from bot.core.ai import clean_game_names
 from bot.features.games.bounty import get_claims
 from bot.core.ctx import ctx, fetch_channel
-from bot.core.db import all_, kv_del, kv_get, kv_set, now, one, run
+from bot.core.db import all_, hide_reports, kv_del, kv_get, kv_set, now, one, run
 from bot.features.bugs.devboard import on_boards_refreshed
 from bot.core.perms import level, owns
 from bot.discord_ui.ui import E, EM, ZW, cut, lkey
@@ -320,6 +320,9 @@ async def command_release(i, opts, undo=False):
         return await reply('Only the dev who owns this game, or an admin, can change it.', ephemeral=True)
     if undo:
         run("UPDATE game_status SET status='unreleased', released_at=NULL WHERE key=?", k)
+        if hide_reports(g['name'], 'suggestion'):  # a game in development has no suggestions
+            from bot.features.bugs.devboard import schedule_boards
+            schedule_boards()
     else:
         link = opts.get('link')
         if link and not http(link):

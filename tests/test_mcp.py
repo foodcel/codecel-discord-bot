@@ -143,6 +143,22 @@ class Hardening(unittest.TestCase):
         media._files.clear()
 
 
+class GameReports(unittest.TestCase):
+    def test_unreleasing_hides_suggestions_and_unclaiming_hides_bugs(self):
+        from bot.core.db import hide_reports, one, run
+        rows = [('t-sug', 'suggestion'), ('t-bug', 'bug')]
+        try:
+            for tid, kind in rows:
+                run("INSERT INTO bugs(thread_id,reporter_id,game_name,kind,status,routed) VALUES(?,?,?,?,'new',1)", tid, '1', 'Test Game!', kind)
+            self.assertEqual(hide_reports('test game', 'suggestion'), 1)
+            self.assertEqual(one("SELECT deleted d FROM bugs WHERE thread_id='t-sug'")['d'], 2)
+            self.assertEqual(one("SELECT deleted d FROM bugs WHERE thread_id='t-bug'")['d'], 0)  # the bug stays
+            self.assertEqual(hide_reports('Test Game', 'bug'), 1)
+            self.assertEqual(hide_reports('', 'bug'), 0)
+        finally:
+            run("DELETE FROM bugs WHERE thread_id IN ('t-sug','t-bug')")
+
+
 class Commands(unittest.TestCase):
     def test_discord_accepts_every_command(self):
         """Discord refuses the whole command list when one description or choice is not 1 to 100 characters long."""
