@@ -42,7 +42,7 @@ def _agent_line(text, cap=200, what='That text'):
 
 
 def _fix_list(x, what='An update line'):
-    return [t for t in (_agent_line(line, 200, what) for line in (x or [])) if t][:40]
+    return [t for t in (_agent_line(line, 200, what) for line in (x or [])) if t][:150]  # long updates go on in more cards; this only stops a runaway list
 
 
 async def set_status(member, allowed, ids, status, confirm=''):
