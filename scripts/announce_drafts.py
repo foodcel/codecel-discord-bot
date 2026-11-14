@@ -66,6 +66,15 @@ TESTING = [
     ('Changed', [('/progress', 'only percent and working now'), ('testing:on', 'gone, use /testing on')]),
 ]
 
+HEADINGS = [
+    ('Headings', [('In Edit', 'a line that starts with # is a heading'), ('Example', '# 🎃 Mash-up packs'),
+                  ('Under it', 'the next lines are its points'), ('Works in', '/update, /update edit, /testing update')]),
+    ('Long updates', [('Never cut', 'no more "…and 28 more"'), ('Too long?', 'it goes on in a second card, no ping'),
+                      ('Edits', 'the extra cards change with it')]),
+    ('MCP', [('Headings', 'agents can use # too'), ('Tester updates', 'post_tester_update, the same card'),
+             ('Pings', 'none, unless you tell your agent')]),
+]
+
 NOTE = [
     ('Devs', [('/progress', 'game, testing:on, note:what to test'), ('Change it', 'run it again with a new note'),
               ('Remove it', 'note: - , or testing:off'), ('Length', 'up to 300 characters'),
@@ -148,7 +157,8 @@ def cards():
                                                 + [f'**Paste this in Claude Code**{NL}{chr(96) * 3}{NL}{AWAY_PROMPT}{NL}{chr(96) * 3}'],
                                                 ['/mcp setup · then press Away mode']), AWAY),
             ('notes announcement', build('📝 Notes on tester cards', NOTE, ['/progress · set a note', '/help · every command']), NOTE),
-            ('testing announcement', build('🧪 Testing has its own command', TESTING, ['/testing update · post an update for testers', '/help · every command']), TESTING))
+            ('testing announcement', build('🧪 Testing has its own command', TESTING, ['/testing update · post an update for testers', '/help · every command']), TESTING),
+            ('headings announcement', build('📰 Updates: headings, never cut off', HEADINGS, ['/update · post an update', '/help · every command']), HEADINGS))
 
 
 async def main():
