@@ -3,7 +3,8 @@
 2. every game tag is removed from both forums; the six status tags (tags.STATUS_TAG) are made, with their emoji
 3. every post gets the status tag of its report
     python scripts/forum_tags.py           dry run: prints every change, changes nothing
-    python scripts/forum_tags.py --yes     does it, silently"""
+    python scripts/forum_tags.py --yes     does it, silently
+    --suggestions                          the same for the suggestions forum: its status tags are Added and Declined"""
 import asyncio
 import re
 import sys
@@ -16,6 +17,16 @@ from bot.features.bugs import tags as T
 from bot.features.games.games import clean_name
 
 YES = '--yes' in sys.argv
+SUG = '--suggestions' in sys.argv
+STATUS = T.SUGGEST_STATUS_TAG if SUG else T.STATUS_TAG
+
+
+def tag_list(forum):
+    """Status tags only. The suggestions forum keeps Added and Declined, with their emoji."""
+    if not SUG:
+        return T.status_tag_list(forum, keep_games=False)
+    keep = [t for t in forum.available_tags if t.name in STATUS.values()]
+    return [t if T._has_emoji(t, T.STATUS_EMOJI[t.name]) and t.moderated else T._status_tag(t.name, T.STATUS_EMOJI[t.name], t.id) for t in keep]
 
 
 def full(name):
@@ -33,8 +44,11 @@ def _game_of(thread, bug):
         return full(T.tag_name(bug['game_tag_id']))
     if bug and bug.get('game_name'):
         return full(clean_name(bug['game_name']))
-    status = {n.lower() for n in T.STATUS_TAG.values()}
+    status = {n.lower() for n in STATUS.values()}
     tag = next((t for t in thread.applied_tags if t.name.lower() not in status), None)
+    if tag and SUG:  # suggestion tags were typed by hand ("SUEPRHOT", "FNAF 1"): the game they stand for
+        g = T.canonical_game(tag.name)
+        return full(g['name']) if g else clean_name(tag.name)
     return full(clean_name(tag.name)) if tag else None
 
 
@@ -71,7 +85,7 @@ async def edit(thread, **kw):
 
 async def main():
     client = await boot(claims=False)
-    forums = [await client.fetch_channel(int(f)) for f in (cfg.bugs_id, cfg.tester_forum_id) if f]
+    forums = [await client.fetch_channel(int(f)) for f in ((cfg.suggestions_id,) if SUG else (cfg.bugs_id, cfg.tester_forum_id)) if f]
     renamed = tagged = 0
     for forum in forums:  # 1. titles, while the game tags are still there to read
         for t in await posts(forum):
@@ -82,7 +96,7 @@ async def main():
                 if YES:
                     await edit(t, name=title)
     for forum in forums:  # 2. the tag list: status tags only
-        tags = T.status_tag_list(forum, keep_games=False)
+        tags = tag_list(forum)
         gone = [t.name for t in forum.available_tags if t.name not in {x.name for x in tags}]
         print(f'[{forum.name}] tags removed: {gone}')
         print(f'[{forum.name}] tags now: {[t.name for t in tags]}')
@@ -95,7 +109,7 @@ async def main():
         by_name = {t.name: t for t in forum.available_tags}
         for t in await posts(forum):
             bug = bug_by_thread(t.id)
-            name = T.STATUS_TAG.get((bug or {}).get('status'))
+            name = STATUS.get((bug or {}).get('status'))
             if not name:
                 continue
             print(f'[{forum.name}] status: {t.name[:50]!r} -> {name}')
