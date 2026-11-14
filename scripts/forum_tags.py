@@ -11,7 +11,7 @@ import sys
 
 from _boot import boot, finish
 
-from bot.core.db import all_, bug_by_thread, update_bug
+from bot.core.db import all_, bug_by_thread
 from bot.core.env import cfg
 from bot.features.bugs import tags as T
 from bot.features.games.games import clean_name
@@ -40,16 +40,13 @@ def full(name):
 
 
 def _game_of(thread, bug):
-    if SUG:  # the game tag the player picked wins: a few suggestions were filed under another game by the bot
+    if SUG and bug:  # the tag and the report disagree (the forum was full, tags were picked wrong): the title is left alone, listed for a person
         status = {n.lower() for n in STATUS.values()}
         tag = next((t for t in thread.applied_tags if t.name.lower() not in status), None)
         g = T.canonical_game(tag.name) if tag else None
-        if g:
-            if bug and T._norm(bug.get('game_name') or '') != T._norm(g['name']):
-                print(f"[fix] {thread.name!r}: game {bug.get('game_name')!r} -> {g['name']!r} (the player's tag)")
-                if YES:
-                    update_bug(bug['id'], {'game_name': g['name'], 'game_tag_id': g['id']})
-            return full(g['name'])
+        if g and T._norm(bug.get('game_name') or '') != T._norm(g['name']):
+            print(f"[check] {thread.name!r}: report says {bug.get('game_name')!r}, tag says {g['name']!r}: title left alone")
+            return None
     if bug and bug.get('game_tag_id') and T.tag_name(bug['game_tag_id']):
         return full(T.tag_name(bug['game_tag_id']))
     if bug and bug.get('game_name'):
