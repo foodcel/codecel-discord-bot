@@ -22,7 +22,7 @@ PAGES = {
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
         ('🔌', 'MCP', ['mcp+status,kick,allow,pause,resume'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
-        ('🎮', 'Your games', ['claim+', 'release+', 'testing+', 'update+', 'progress']),
+        ('🎮', 'Your games', ['claim+', 'release+', 'progress*', 'testing+', 'update+']),
         ('⚙️', 'Settings', ['pings', 'mcp+setup,revoke'])]),
     'tester': ('🧪', 'Tester', 'For testers.', [
         ('🧪', 'Testing', ['tester+profile',
@@ -51,6 +51,7 @@ SHORT = {
     'claim new': 'take a game (add its Steam page with link:)', 'claim edit': 'change the link to the original game', 'claim drop': 'drop a game you claimed', 'release new': 'paste its Roblox link',
     'release quiet': 'add it without announcing it', 'release edit': 'fix a released game', 'release undo': 'move it back to unreleased',
     'progress': 'how far a game is, and if you are working on it',
+    'progress percent': 'how much of the game is done (0 to 100)', 'progress working': 'are you working on it right now (yes / no)',
     'testing': 'put a game in testing and keep testers posted', 'testing on': 'put a game in testing (link:, note:)',
     'testing edit': 'change the test link or the note', 'testing update': 'post the fixes and what to test for testers',
     'testing off': 'take a game out of testing', 'games post': 'post the games board here', 'games rename': 'fix the name shown for a game',
@@ -85,11 +86,14 @@ def roles_of(member):
     return [r for r in ORDER if have[r]]
 
 
-def _subs(name, only=''):
-    """The sub-commands of a command, from its definition (only the listed ones when `only` is a comma list)."""
+def _subs(name, only='', options=False):
+    """The sub-commands of a command, from its definition (only the listed ones when `only` is a comma list).
+    options: a command without sub-commands ('progress*'): its options instead, without the game picker."""
     want = [x for x in only.split(',') if x]
     for c in COMMANDS + BOARD_COMMANDS:
         if c['name'] == name:
+            if options:
+                return [o['name'] for o in c.get('options') or [] if o['name'] != 'game']
             return [o['name'] for o in c.get('options') or [] if o.get('type') == 1 and (not want or o['name'] in want)]
     return []
 
@@ -99,9 +103,12 @@ def _tree(entries, desc):
     Commands without sub-commands come last, together. A blank line sits between every block."""
     blocks, plain = [], []
     for item in entries:
+        opts = isinstance(item, str) and item.endswith('*')  # 'progress*': its options shown like sub-commands
+        if opts:
+            item = item[:-1] + '+'
         many = isinstance(item, str) and '+' in item
         name, _, only = item.partition('+') if many else (item, '', '')
-        subs = _subs(name, only) if many else []
+        subs = _subs(name, only, opts) if many else []
         if many and len(subs) == 1:  # one sub-command is not a group: it reads as the plain command
             name, many, subs = f'{name} {subs[0]}', False, []
         text, what = item if isinstance(item, tuple) else (f'/{name}', SHORT.get(name) or _clean(desc.get(name, '')))

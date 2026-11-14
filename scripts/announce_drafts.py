@@ -56,6 +56,16 @@ MCP = [
                 ('Pings', 'off unless you turn them on'), ('Admins', '/mcp status, kick, pause')]),
 ]
 
+TESTING = [
+    ('New: /testing', [('/testing on', 'put a game in testing (link:, note:)'), ('/testing edit', 'change the Play link or the note'),
+                       ('/testing update', 'post the fixes and what to test'), ('/testing off', 'take a game out of testing')]),
+    ('Tester updates', [('Draft', 'your fixed tester bugs fill it in'), ('Edit', 'fixes, what to test, a version'),
+                        ('Post', 'goes to the testing channel'), ('Pings', 'only the testers who joined that game'),
+                        ('Play test', 'a button for your test build')]),
+    ('After release', [('Tester fixes', 'go into your public /update too'), ('From testing', 'stay out, players never had them')]),
+    ('Changed', [('/progress', 'only percent and working now'), ('testing:on', 'gone, use /testing on')]),
+]
+
 NOTE = [
     ('Devs', [('/progress', 'game, testing:on, note:what to test'), ('Change it', 'run it again with a new note'),
               ('Remove it', 'note: - , or testing:off'), ('Length', 'up to 300 characters'),
@@ -137,7 +147,8 @@ def cards():
             ('safe mcp 4 of 4: away mode', card('🌙 Away mode: fixes while you are gone', [f'**{head}**{NL}{tree(*rows)}' for head, rows in AWAY]
                                                 + [f'**Paste this in Claude Code**{NL}{chr(96) * 3}{NL}{AWAY_PROMPT}{NL}{chr(96) * 3}'],
                                                 ['/mcp setup · then press Away mode']), AWAY),
-            ('notes announcement', build('📝 Notes on tester cards', NOTE, ['/progress · set a note', '/help · every command']), NOTE))
+            ('notes announcement', build('📝 Notes on tester cards', NOTE, ['/progress · set a note', '/help · every command']), NOTE),
+            ('testing announcement', build('🧪 Testing has its own command', TESTING, ['/testing update · post an update for testers', '/help · every command']), TESTING))
 
 
 async def main():
