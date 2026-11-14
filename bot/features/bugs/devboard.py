@@ -324,24 +324,3 @@ async def post_exploit(bug, text, silent, dm_ok=True):
             print('exploit post', e)
 
 
-async def notify_info(bug, msg):
-    """Someone added to a logged report: ghost-ping the owners (the message is deleted right after, the notification stays)."""
-    owners = owners_for(bug['game_tag_id'], bug['game_name'])
-    suggestion = bug.get('kind') == 'suggestion'
-    prefix = 'S' if suggestion else ''
-    for o in owners:
-        key = prefix + o
-        if not get_prefs(o)['bugs']:
-            continue  # devs can turn their pings off with /pings
-        t = await dev_thread(key, False)
-        if not t:
-            continue
-        try:
-            m = await t.send(content=f"<@{o}> 📎 **NEW INFO**{EM}·{EM}{label(bug)}{EM}·{EM}{bug['game_name'] or 'Unknown game'}{EM}·{EM}{msg.jump_url}",
-                             allowed_mentions=allowed(users=[o]))
-        except Exception as e:
-            print('info ping', e)
-            m = None
-        if m:
-            asyncio.ensure_future(_delete_later(m, 2.5))
-

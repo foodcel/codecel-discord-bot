@@ -11,7 +11,7 @@ from bot.features.bugs.nums import label
 from bot.core.ai import analyze_report, still_broken
 from bot.discord_ui.components import allowed
 from bot.core.ctx import fetch_channel, dm, get_member, sleep
-from bot.core.db import (add_timer, all_, bug_by_id, bug_by_thread, cancel_timers, kv_get, kv_set, now, run, update_bug)
+from bot.core.db import (add_timer, all_, bug_by_id, bug_by_thread, cancel_timers, now, run, update_bug)
 from bot.features.bugs.devboard import post_exploit, route_bug
 from bot.features.bugs.fixes import reopen
 from bot.core.perms import is_staff, level
@@ -192,11 +192,10 @@ async def analyze_and_act(bug, thread, silent=False, followup=False):
 _timers = {}
 
 
-INFO_PING_GAP = 10 * 60 * 1000  # a bug pings its dev about new info at most this often
 
 
 async def add_info(bug, msg, by=None):
-    """Words or files that came after "LOGGED": they are added to the report, the message gets a 📎, and the owner is pinged (at most every 10 minutes)."""
+    """Words or files that came after "LOGGED": they are added to the report, and the message gets a 📎. The owner is not pinged again: a report pings once, when it is logged."""
     text = (msg.content or '').strip()
     line = f"[{by or msg.author.display_name}] {text}" + (f" (+{len(msg.attachments)} file(s))" if msg.attachments else '')
     update_bug(bug['id'], {'body': ((bug.get('body') or '') + chr(10) + line)[-3000:]})
@@ -204,13 +203,6 @@ async def add_info(bug, msg, by=None):
         await msg.add_reaction('📎')
     except Exception:
         pass
-    key = f"info:{bug['id']}"
-    last = kv_get(key)
-    if last and now() - int(last) < INFO_PING_GAP:
-        return
-    kv_set(key, now())
-    from bot.features.bugs.devboard import notify_info
-    await notify_info(bug_by_id(bug['id']), msg)
 
 
 async def attach_clips(msg):
