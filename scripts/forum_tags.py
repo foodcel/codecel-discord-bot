@@ -10,7 +10,7 @@ import sys
 
 from _boot import boot, finish
 
-from bot.core.db import bug_by_thread
+from bot.core.db import all_, bug_by_thread
 from bot.core.env import cfg
 from bot.features.bugs import tags as T
 from bot.features.games.games import clean_name
@@ -18,14 +18,30 @@ from bot.features.games.games import clean_name
 YES = '--yes' in sys.argv
 
 
+def full(name):
+    """A forum tag name is cut at 20 characters ("Stick Fight: The Gam"): the game's whole name when one game starts with it."""
+    k = re.sub(r'[^a-z0-9]', '', (name or '').lower())
+    if len(name or '') >= 20:
+        hits = [r['name'] for r in all_('SELECT name FROM game_status') if re.sub(r'[^a-z0-9]', '', r['name'].lower()).startswith(k)]
+        if len(hits) == 1:
+            return clean_name(hits[0])
+    return name
+
+
 def _game_of(thread, bug):
     if bug and bug.get('game_tag_id') and T.tag_name(bug['game_tag_id']):
-        return T.tag_name(bug['game_tag_id'])
+        return full(T.tag_name(bug['game_tag_id']))
     if bug and bug.get('game_name'):
-        return clean_name(bug['game_name'])
+        return full(clean_name(bug['game_name']))
     status = {n.lower() for n in T.STATUS_TAG.values()}
     tag = next((t for t in thread.applied_tags if t.name.lower() not in status), None)
-    return clean_name(tag.name) if tag else None
+    return full(clean_name(tag.name)) if tag else None
+
+
+def _names_another_game(rest, game):
+    """The title already names a game (another one than the report's): adding a second game would confuse, so it is left alone."""
+    words = re.sub(r'[^a-z0-9]', '', rest.lower())
+    return any(len(k) >= 5 and k in words for k in (re.sub(r'[^a-z0-9]', '', t['name'].lower()) for t in T.game_tags()))
 
 
 def new_title(thread, game):
@@ -34,6 +50,8 @@ def new_title(thread, game):
     k = re.sub(r'[^a-z0-9]', '', game.lower()) if game else ''
     if not k or re.sub(r'[^a-z0-9]', '', rest.lower()).startswith(k[:max(4, len(k) - 2)]):
         return None  # no game known, or the title already starts with it
+    if _names_another_game(rest, game):
+        return None
     return (num + T.titled(game, rest))[:100]
 
 
