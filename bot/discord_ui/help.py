@@ -16,13 +16,13 @@ from bot.discord_ui.ui import EM
 # role -> (emoji, label, intro, [(group emoji, group title, [command names or (text, description)])])
 PAGES = {
     'admin': ('🔑', 'Admin', 'Only admins can use these. You can use every other page too.', [
-        ('🎮', 'Games board', ['assign', 'exclude', 'include', 'bounty-board', 'games']),
+        ('🎮', 'Games board', ['assign', 'exclude', 'include', 'bounty-board', 'games+']),
         ('🧪', 'Testers', ['tester+add,remove,status,edit,post']),
         ('🔎', 'Invites', ['invites+check']),
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
         ('🔌', 'MCP', ['mcp+status,kick,allow,pause,resume'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
-        ('🎮', 'Your games', ['claim+', 'release+', 'progress', 'update+']),
+        ('🎮', 'Your games', ['claim+', 'release+', 'testing+', 'update+', 'progress']),
         ('⚙️', 'Settings', ['pings', 'mcp+setup,revoke'])]),
     'tester': ('🧪', 'Tester', 'For testers.', [
         ('🧪', 'Testing', ['tester+profile',
@@ -43,14 +43,17 @@ SHORT = {
     'update new': 'draft and post an update', 'update edit': 'change an update you posted', 'update settings': 'when your agent posts, merging, pings',
     'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it',
     'assign': 'give a game to a dev, even if someone holds it', 'exclude': 'take a post off the bounty board', 'include': 'put an excluded post back',
-    'bounty-board': 'set up the bounty board in a channel', 'games': 'post or refresh the games board',
+    'bounty-board': 'set up the bounty board in a channel', 'games': 'the released / unreleased games board',
     'tester add': 'add a tester to the roster', 'tester remove': 'take a tester off the roster', 'tester status': 'active, waiting, private or on a break',
     'tester edit': "change a tester's details", 'tester post': 'post the tester guide and roster', 'strikes': "show a user's troll strikes",
     'mog': 'Codecel posts a mog GIF and pings Robin and Redwing Helper',
     'pardon': 'remove a strike (and give back bug hunting)', 'botrules': 'post the bug report rules here', 'preview': 'post the finished embeds in the test channel',
     'claim new': 'take a game (add its Steam page with link:)', 'claim edit': 'change the link to the original game', 'claim drop': 'drop a game you claimed', 'release new': 'paste its Roblox link',
     'release quiet': 'add it without announcing it', 'release edit': 'fix a released game', 'release undo': 'move it back to unreleased',
-    'progress': 'how far a game is, or put it in testing',
+    'progress': 'how far a game is, and if you are working on it',
+    'testing': 'put a game in testing and keep testers posted', 'testing on': 'put a game in testing (link:, note:)',
+    'testing edit': 'change the test link or the note', 'testing update': 'post the fixes and what to test for testers',
+    'testing off': 'take a game out of testing', 'games post': 'post the games board here', 'games rename': 'fix the name shown for a game',
     'pings': 'choose when the bot pings you', 'tester profile': 'fill in or change your tester profile',
     'invites stats': 'your invites and how many count', 'invites link': 'your own invite link, tracked for you', 'invites check': "a member's invite links, who they invited, who is verified", 'invites top': 'the invite leaderboard',
     'bug': 'report a bug with a short form (files and links optional)', 'suggest': 'suggest an improvement with a short form', 'help': 'this list',

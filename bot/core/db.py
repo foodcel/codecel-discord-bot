@@ -94,6 +94,12 @@ for _col in ('num INTEGER', 'num_scope TEXT'):  # the number people see (#3) and
     except sqlite3.OperationalError:
         pass
 
+try:  # tested = the fix went out in a tester update (/testing update). Fixed tester reports from before this are done on both sides.
+    db.execute('ALTER TABLE bugs ADD COLUMN tested INTEGER NOT NULL DEFAULT 0')
+    db.execute("UPDATE bugs SET tested=1, announced=1 WHERE COALESCE(source,'')='tester' AND status='fixed'")
+except sqlite3.OperationalError:
+    pass
+
 try:  # timers that failed are tried again
     db.execute('ALTER TABLE timers ADD COLUMN tries INTEGER NOT NULL DEFAULT 0')
 except sqlite3.OperationalError:

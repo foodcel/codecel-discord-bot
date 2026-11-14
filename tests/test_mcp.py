@@ -159,6 +159,32 @@ class GameReports(unittest.TestCase):
             run("DELETE FROM bugs WHERE thread_id IN ('t-sug','t-bug')")
 
 
+class TesterUpdate(unittest.TestCase):
+    def test_fixed_tester_reports_go_to_the_tester_update_then_public_after_release(self):
+        from bot.core.db import create_pending, del_pending, one, run
+        from bot.features.testers import testupdate
+        from bot.features.updates.announce import unannounced
+        try:
+            for tid, status in (('tu-1', 'fixed'), ('tu-2', 'fixed'), ('tu-3', 'new')):
+                run("INSERT INTO bugs(thread_id,reporter_id,game_name,kind,status,routed,source,title) VALUES(?,?,?,?,?,1,'tester','Crash')", tid, '1', 'Zz Test Game', 'bug', status)
+            got = testupdate.waiting('zztestgame')
+            self.assertEqual(sorted(b['thread_id'] for b in got), ['tu-1', 'tu-2'])  # only fixed ones
+            pid = create_pending({'kind': 'testupdate', 'key': 'zztestgame', 'name': 'Zz Test Game', 'owners': ['1'], 'ids': [b['id'] for b in got],
+                                  'fixes': ['Fixed a crash'], 'test': ['Try level 2'], 'version': 'b3'})
+            view, files = testupdate.draft(pid)
+            text = ''.join(getattr(c, 'content', '') or '' for c in view.walk_children())
+            self.assertIn('Test update b3', text)
+            self.assertIn('What to test', text)
+            self.assertLessEqual(len(list(view.walk_children())), 40)
+            del_pending(pid)
+            testupdate.close_for_release('zztestgame')  # released: fixes from testing never reach the public update
+            self.assertEqual(one("SELECT announced a FROM bugs WHERE thread_id='tu-1'")['a'], 1)
+            run("UPDATE bugs SET game_tag_id='zz-tag', announced=0 WHERE thread_id='tu-2'")  # a tester fix after the release
+            self.assertIn('tu-2', [b['thread_id'] for b in unannounced('zz-tag')])
+        finally:
+            run("DELETE FROM bugs WHERE thread_id IN ('tu-1','tu-2','tu-3')")
+
+
 class Commands(unittest.TestCase):
     def test_discord_accepts_every_command(self):
         """Discord refuses the whole command list when one description or choice is not 1 to 100 characters long."""

@@ -153,13 +153,23 @@ COMMANDS = [
         ]),
         sub('undo', 'Move a released game back to unreleased', [option(STRING, 'game', 'Released game', required=True, autocomplete=True)]),
     ]),
-    command('progress', 'Say how far an unreleased game is, whether you are working on it, or that it is in testing', [
+    command('progress', 'Say how far an unreleased game is and whether you are working on it', [
         option(STRING, 'game', 'Game', required=True, autocomplete=True),
         option(INTEGER, 'percent', 'How much of the game is done', min_value=0, max_value=100),
         option(BOOLEAN, 'working', 'Are you working on it right now? (yes / no)'),
-        option(STRING, 'testing', 'Testing phase on or off. Testers can report a game in testing (released games too)', choices=[('On', 'on'), ('Off', 'off')]),
-        option(STRING, 'link', 'The Roblox link testers play the test build with (shown as a Play button). A single - removes it'),
-        option(STRING, 'note', 'A note for testers on the testing card (what to test, what you need). A single - removes it', max_length=300),
+    ]),
+    command('testing', 'Put your game in testing, change its test build, or post an update for testers', [
+        sub('on', 'Put a game in testing: testers get a card and can report it (released games too)', [
+            option(STRING, 'game', 'Game', required=True, autocomplete=True),
+            option(STRING, 'link', 'The Roblox link testers play the test build with (a Play button)'),
+            option(STRING, 'note', 'A note for testers on the testing card (what to test, what you need)', max_length=300)]),
+        sub('edit', 'Change the test link or the note testers see', [
+            option(STRING, 'game', 'Game in testing', required=True, autocomplete=True),
+            option(STRING, 'link', 'The Roblox link testers play the test build with. A single - removes it'),
+            option(STRING, 'note', 'A note for testers on the testing card. A single - removes it', max_length=300)]),
+        sub('update', 'Post an update for testers with the tester bugs fixed since the last one', [
+            option(STRING, 'game', 'Game in testing', required=True, autocomplete=True)]),
+        sub('off', 'Take a game out of testing', [option(STRING, 'game', 'Game in testing', required=True, autocomplete=True)]),
     ]),
     command('invites', 'Invites: your numbers and the leaderboard', [
         sub('stats', 'How many people you invited, how many are verified and count', [option(USER, 'user', 'Someone else (default: you)')]),

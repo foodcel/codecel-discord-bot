@@ -231,6 +231,8 @@ async def commit_release(i, d):
     if not dev:
         return True, 'That game is already released.'
     hero_file = finalize_hero(k, d.get('hero_file'))
+    from bot.features.testers.testupdate import close_for_release
+    close_for_release(k, (dev['name'], d.get('title')))  # fixes from the testing phase stay out of the first public update
     info, art = d['info'], d['art']
     run("""INSERT INTO game_status(key,name,owners,since,status,released_at,released_by,link,place_id,roblox_name,creator,hero_url,icon_url,hero_file,studio,original_name,notes)
         VALUES(?,?,?,?,'released',?,?,?,?,?,?,?,?,?,?,?,?)

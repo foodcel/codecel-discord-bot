@@ -86,8 +86,9 @@ async def autocomplete(i):
             return await i.response.autocomplete([app_commands.Choice(name=n[:100], value=n[:100]) for n in known_games() if q in n.lower()][:25])
     if name in bounty_board_commands.BOARD_NAMES:
         return await bounty_board.autocomplete(i, 'unclaim' if (name == 'claim' and sub in ('drop', 'edit')) else name, fvalue)
-    if name in ('release', 'games', 'progress'):
-        return await autocomplete_games(i, {'edit': 'release-edit', 'undo': 'unrelease'}.get(sub, name) if name == 'release' else name, fvalue)
+    if name in ('release', 'games', 'progress', 'testing'):
+        kind = {'edit': 'release-edit', 'undo': 'unrelease'}.get(sub, name) if name == 'release' else ('testing-on' if sub == 'on' else 'testing') if name == 'testing' else name
+        return await autocomplete_games(i, kind, fvalue)
     q = str(fvalue).lower()
     if name == 'update' and fname == 'update':
         from bot.features.updates.editcmd import choices_for
@@ -468,6 +469,8 @@ async def handle_command(i):
         return await command_release_new(i, opts, quiet=(sub == 'quiet'))
     if name == 'progress':
         return await command_progress(i, opts)
+    if name == 'testing':
+        return await _lazy('testupdate', 'command_testing', i, sub, opts)
     if name == 'games':
         return await command_games(i, sub, opts)
     if name == 'botrules':
@@ -484,7 +487,8 @@ def _arg(parts, n):
 
 
 MODULES = {'reldraft': 'bot.features.games.reldraft', 'testerboard': 'bot.features.testers.testerboard',
-           'help': 'bot.discord_ui.help', 'forms': 'bot.features.bugs.forms', 'editcmd': 'bot.features.updates.editcmd', 'mcpcmd': 'bot.mcp.command'}
+           'help': 'bot.discord_ui.help', 'forms': 'bot.features.bugs.forms', 'editcmd': 'bot.features.updates.editcmd', 'mcpcmd': 'bot.mcp.command',
+           'testupdate': 'bot.features.testers.testupdate'}
 
 
 async def _lazy(module, name, *args):
@@ -506,6 +510,7 @@ async def _trpick(i, p):
 BUTTONS = {
     'rel': lambda i, p: _lazy('reldraft', 'on_button', i, p[1], int(p[2])),  # the /release preview
     'tbd': lambda i, p: _lazy('testerboard', 'on_button', i, p[1], _arg(p, 2)),
+    'tup': lambda i, p: _lazy('testupdate', 'on_button', i, p[1], p[2]),  # the /testing update draft
     'help': lambda i, p: _lazy('help', 'button_help', i, p[1]),
     'mcps': lambda i, p: _lazy('mcpcmd', 'on_button', i, p[1], p[2]),
     'ann': lambda i, p: button_ann(i, p[1], int(p[2]), _arg(p, 3)),
@@ -535,6 +540,7 @@ MODALS = {
     'annedit': lambda i, p, f: modal_ann_edit(i, int(p[1]), f),
     'updedit': lambda i, p, f: _lazy('editcmd', 'modal_edit', i, int(p[1]), f),
     'reled': lambda i, p, f: _lazy('reldraft', 'on_modal', i, int(p[1]), f),
+    'tupm': lambda i, p, f: _lazy('testupdate', 'on_modal', i, p[1], f),
 }
 GONE = 'This button no longer works. Use the newest message, or run the command again.'
 

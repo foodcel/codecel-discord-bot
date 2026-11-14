@@ -19,7 +19,8 @@ from bot.discord_ui.ui import E, EM, ZW, cut, lkey
 
 FOOT_UNRELEASED = '\n'.join([
     '/claim new · take a game (add its Steam page with link:)',
-    '/progress · set how far it is, if you are working on it, or testing:on',
+    '/progress · set how far it is and if you are working on it',
+    '/testing on · put it in testing for the testers',
     '/release new · the game is out (paste its Roblox link)',
     '/release quiet · add it without announcing it',
     '/claim edit · change the link to the original game',
@@ -277,8 +278,10 @@ async def autocomplete_games(i, command, focused):
     lists = game_lists()
     if command == 'release':
         pool = lists['unreleased']
-    elif command == 'progress':
+    elif command in ('progress', 'testing-on'):
         pool = [*lists['unreleased'], *lists['released']]  # testing works for released games too
+    elif command == 'testing':
+        pool = [g for g in [*lists['unreleased'], *lists['released']] if g.get('testing_at')]
     elif command in ('unrelease', 'release-edit'):
         pool = lists['released']
     else:
@@ -287,7 +290,7 @@ async def autocomplete_games(i, command, focused):
     out = [c for c in out if q in c['name'].lower() or q in c['value'].lower()]
     # Discord shows "No options match" for an empty list, which looks broken. Say what is going on instead.
     if not out and not q:
-        none = 'No games are released yet' if command == 'unrelease' else 'No games are waiting to be released'
+        none = 'No games are released yet' if command == 'unrelease' else 'No games are in testing' if command == 'testing' else 'No games are waiting to be released'
         return await i.response.autocomplete([app_commands.Choice(name=none, value=NONE)])
     await i.response.autocomplete([app_commands.Choice(name=c['name'], value=c['value']) for c in out[:25]])
 
@@ -365,14 +368,14 @@ async def apply_progress(member, name, percent=None, working=None, testing=None,
         if not link:
             return False, 'That does not look like a Roblox link. Paste the game page, like `https://www.roblox.com/games/123456/Name`.'
         if testing != 'on' and not g.get('testing_at'):
-            return False, 'The link is for the testers: add `testing:on` too, so the game goes into testing.'
+            return False, 'The link is for the testers: put the game in testing first with `/testing on`.'
     if rel and not dev and (percent is not None or working is not None):
-        return False, 'A released game has no progress bar. Use `testing:on` or `testing:off`.'
+        return False, 'A released game has no progress bar. Use `/testing on` or `/testing off`.'
     note = None if note is None else str(note).strip()
     if note and testing != 'on' and not g.get('testing_at'):
-        return False, 'A note for the testers goes on the testing card: put the game in testing too (testing:on).'
+        return False, 'A note for the testers goes on the testing card: put the game in testing first with `/testing on`.'
     if percent is None and working is None and testing is None and not link and not note:
-        return False, "Give a percent, say whether you are working on it, put it in testing, add the testers' link, or write a note for the testers."
+        return False, "Give a percent or say whether you are working on it. For testers: `/testing`."
     if percent is not None and not 0 <= percent <= 100:
         return False, 'The percent must be between 0 and 100.'
     if working is None and percent is not None and g.get('working') is None:

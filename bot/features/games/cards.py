@@ -298,28 +298,29 @@ def _bullets(lines, limit):
     return NL.join(out)
 
 
-def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
+def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None, testers=False):
     """The update post as a message: (view, files). See update_card_items."""
-    items, files = update_card_items(game, row, bugfixes, changes, new, version, ping_text, when, poster)
+    items, files = update_card_items(game, row, bugfixes, changes, new, version, ping_text, when, poster, testers)
     view = ui.LayoutView()
     for it in items:
         view.add_item(it)
     return view, files
 
 
-def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None):
+def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None, testers=False):
     """An update post: a big title, the date, Fixes / Changes / New, a footer (who posted it, where to report a bug) and a Play now button.
-    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown under the title ('<@&role>'), None for no ping."""
+    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown under the title ('<@&role>'), None for no ping.
+    testers: the tester update (/testing update): "Test update" in the title, "What to test" for the changes, a Play test button for game['link']."""
     children = []
     strip = width_strip()
-    title = f"# {game['name']} — Update" + (f' {version}' if version else '')
+    title = f"# {game['name']} — {'Test update' if testers else 'Update'}" + (f' {version}' if version else '')
     stamp = int((when or datetime.now(timezone.utc)).timestamp())
     head = '\n'.join([title] + ([f'-# {ping_text}'] if ping_text else []) + [f'-# <t:{stamp}:R>'])  # the title, the ping under it, a counting time under that
     cover = (row or {}).get('art_url') or (row or {}).get('icon_url') or (row or {}).get('hero_url')  # a link, so nothing has to be uploaded
     children.append(ui.Section(head, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(head))  # the small picture sits top right
     children.append(ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))  # the line between the header and the body
     first = True
-    for heading, lines in (('🐛 Fixes', bugfixes), ('🔧 Changes', changes), ("✨ What's new", new)):
+    for heading, lines in (('🐛 Fixes', bugfixes), ('🧪 What to test' if testers else '🔧 Changes', changes), ("✨ What's new", new)):
         if lines:
             # one blank line (an invisible character) above every section after the first
             children.append(ui.TextDisplay(('' if first else 'ㅤ\n') + f'### {heading}\n' + _bullets(lines, 1200)))
@@ -327,11 +328,12 @@ def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=N
     if not bugfixes and not changes and not new:
         children.append(ui.TextDisplay('Small improvements.'))
     who = f'Posted by <@{poster}> · ' if poster else ''
+    report = f'`/bug` in <#{cfg.testing_id}>' if testers and cfg.testing_id else f'<#{cfg.bugs_id}>'
     children += [ui.Separator(visible=True, spacing=LONG),
-                 ui.TextDisplay(f'-# Thanks to everyone who reported these.\n-# {who}Found a bug? <#{cfg.bugs_id}>')]
-    link = (row or {}).get('link') or game.get('link')
+                 ui.TextDisplay(f"-# Thanks to {'the testers' if testers else 'everyone'} who reported these.\n-# {who}Found a bug? {report}")]
+    link = game.get('link') if testers else (row or {}).get('link') or game.get('link')  # testers play the test build, never the public game
     if link and str(link).startswith('http'):
-        children.append(ui.ActionRow(_play(link, 'Play now')))
+        children.append(ui.ActionRow(_play(link, 'Play test' if testers else 'Play now')))
     children, strip = with_strip(children)  # the strip: the same width for every update card, no dead space of its own
     return [ui.Container(*children)], [strip]
 
