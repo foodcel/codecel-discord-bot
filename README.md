@@ -123,7 +123,6 @@ bot/features/bugs/         reports: intake (Claude), forms, tester reports, numb
 bot/features/updates/      update drafts and announcements, guides, announcement texts
 bot/features/games/        game lists, /release and its preview, the library, the Roblox watcher, the bounty board
 bot/features/testers/      the tester roster and the tester board
-bot/features/invites/      the invite tracker and /invites
 bot/features/fun/          /mog
 scripts/                   admin and diagnostic tools run by hand (lock_commands.py sets the per-role command rules)
 tests/                     tests for the logic that needs no Discord (deploy.sh runs them with a lint check)

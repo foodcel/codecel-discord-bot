@@ -171,12 +171,6 @@ COMMANDS = [
             option(STRING, 'game', 'Game in testing', required=True, autocomplete=True)]),
         sub('off', 'Take a game out of testing', [option(STRING, 'game', 'Game in testing', required=True, autocomplete=True)]),
     ]),
-    command('invites', 'Invites: your numbers and the leaderboard', [
-        sub('stats', 'How many people you invited, how many are verified and count', [option(USER, 'user', 'Someone else (default: you)')]),
-        sub('top', 'The invite leaderboard'),
-        sub('link', 'Your personal invite link: everyone who joins with it and verifies counts for you'),
-        sub('check', 'Admin: everything about one member: links, who they invited, who is verified', [option(USER, 'user', 'The member', required=True)]),
-    ]),
     command('tester', 'The tester roster', [
         sub('add', 'Add a tester to the roster (admins)', [
             option(USER, 'user', 'The tester', required=True),

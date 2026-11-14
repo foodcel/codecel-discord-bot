@@ -1,17 +1,13 @@
 """Tests for the parts that need no Discord: links, invite attribution, and the access table vs /help.
 Run: python -m unittest discover -s tests   (deploy.sh runs them before every push)."""
-import asyncio
 import sys
-import types
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from bot.core import access  # noqa: E402
-from bot.features.invites import invites
 from bot.core import links
-from bot.core.ctx import ctx  # noqa: E402
 
 
 class Links(unittest.TestCase):
@@ -30,26 +26,6 @@ class Links(unittest.TestCase):
         self.assertEqual(links.roblox_any('ro.blox.com/Ebh5'), 'https://ro.blox.com/Ebh5')
         self.assertEqual(links.web_url('store.steampowered.com/app/1'), 'https://store.steampowered.com/app/1')
         self.assertIsNone(links.web_url('https://localhost/x'))
-
-
-class InviteBurst(unittest.TestCase):
-    def test_each_join_of_a_burst_is_attributed(self):
-        invites._cache.clear()
-        invites._cache.update({'abc': {'uses': 5, 'max': 0, 'inviter': '7'}})
-        snap = {'abc': {'uses': 8, 'max': 0, 'inviter': '7'}, 'new': {'uses': 4, 'max': 0, 'inviter': '9'}}
-
-        async def fake():
-            return {k: dict(v) for k, v in snap.items()}
-        rows, old_snap, old_run, old_guild = [], invites._snapshot, invites.run, ctx.guild
-        invites._snapshot, invites.run, ctx.guild = fake, (lambda sql, *a: rows.append(a)), types.SimpleNamespace(id=1)
-        try:
-            async def go():
-                for uid in (101, 102, 103, 104):
-                    await invites.on_member_join(types.SimpleNamespace(bot=False, id=uid, guild=types.SimpleNamespace(id=1)))
-            asyncio.run(go())
-        finally:
-            invites._snapshot, invites.run, ctx.guild = old_snap, old_run, old_guild
-        self.assertEqual([r[1] for r in rows], ['7', '7', '7', None])  # three uses of abc, the fourth join is not from a known new use
 
 
 class CardLimits(unittest.TestCase):

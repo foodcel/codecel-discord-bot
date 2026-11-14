@@ -6,13 +6,13 @@ The bot has **two looks**. Pick by who reads the post, then follow that look exa
 
 | | **Developer look** | **Community look** |
 |---|---|---|
-| For | devs, testers, staff: boards, dev boards, roster, bug pages, help, dev announcements, update / new-game cards | everyone, on phones first: `/invites`, and any new feature for the whole server |
+| For | devs, testers, staff: boards, dev boards, roster, bug pages, help, dev announcements, update / new-game cards | everyone, on phones first: any new feature for the whole server |
 | Top | `### Title` with the date as a grey button on the right | a **banner** drawn for the post (`bot/discord_ui/banner.py`), the prize or the subject in big letters |
 | Body | trees (`├─` / `└─`), counts in the title, columns where an embed allows | short flat lines, one fact per line, an emoji in front; headings (`##`/`###`) for what must catch the eye |
 | People and roles | names, or mentions sent silently | **real mentions**: `@Verified`, `@Booster`, `Hosted by: @host` (roles never ping; edits carry user mentions so names show) |
 | Never | relative times (except the update card) | trees, code blocks, grey code chips for anything that is not a command |
 
-**Private by default.** A command's reply (answers, previews, drafts, errors, `/invites`, `/help`) is private: only the person who ran it sees it. Only the thing the command exists to post is public
+**Private by default.** A command's reply (answers, previews, drafts, errors, `/help`) is private: only the person who ran it sees it. Only the thing the command exists to post is public
 (an update, a new-game card, the board, a mog GIF, a claim announcement).
 
 Shared by both: a line under the header and a line above the footer only (never in the middle), commands as code chips in the small footer, the button under the card,
@@ -71,7 +71,7 @@ Lists are trees: `├─ **Name** · text`, last row `└─`. Built with `botne
 
 # Community look
 
-Code: `bot/features/invites/invites.py` (`_card`). (Giveaways, with their banner and prize looks, moved to Redwing Helper; the look is in the handoff zip posted in #test on 2026-11-11.)
+Code: none left (invites moved out of Codecel on 2026-11-14). (Giveaways, with their banner and prize looks, moved to Redwing Helper; the look is in the handoff zip posted in #test on 2026-11-11.)
 
 ## Philosophy
 - **Phone first.** Every line must read well on a narrow screen: one fact per line, no tree glyphs, nothing that wraps into a mess.

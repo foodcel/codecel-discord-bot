@@ -18,7 +18,6 @@ PAGES = {
     'admin': ('🔑', 'Admin', 'Only admins can use these. You can use every other page too.', [
         ('🎮', 'Games board', ['assign', 'exclude', 'include', 'bounty-board', 'games+']),
         ('🧪', 'Testers', ['tester+add,remove,status,edit,post']),
-        ('🔎', 'Invites', ['invites+check']),
         ('🛡️', 'Moderation', ['strikes', 'pardon', 'botrules', 'preview']),
         ('🔌', 'MCP', ['mcp+status,kick,allow,pause,resume'])]),
     'dev': ('🛠️', 'Dev', 'For devs, on the games they own.', [
@@ -29,16 +28,16 @@ PAGES = {
                           ('/bug', 'in the testing channel: report a bug as a thread')])]),
     'everyone': ('🌍', 'Everyone', 'For everyone, in the bug and improvement forums.', [
         ('🐛', 'Reporting', ['bug', 'suggest']),
-        ('📨', 'Invites', ['invites+link,stats,top']),
         ('❓', 'Help', ['help'])]),
 }
 ORDER = ['admin', 'dev', 'tester', 'everyone']
+PAIRS = {'testing': [('on', 'off')]}  # shown together on one line in /help
 # every page that may report a message (testers and devs): bug hunting
 HUNTING = ('🔍', 'Bug hunting', [('!bug', 'reply to a message to post it in the bugs forum'),
                                   ('!suggest', 'the same for an idea in the improvements forum')])
 
 SHORT = {
-    'tester': 'the tester roster', 'invites': 'invite stats and the leaderboard',
+    'tester': 'the tester roster',
     'mcp': 'connect your AI agent to your reports', 'mcp setup': 'get the address and your token', 'mcp revoke': 'stop your token', 'mcp status': 'who uses it and who is connected', 'mcp kick': 'stop a developer until you allow them again', 'mcp allow': 'let a stopped developer back in', 'mcp pause': 'switch the MCP off for everyone', 'mcp resume': 'switch it back on', 'update': 'post, edit or change how updates work',
     'update new': 'draft and post an update', 'update edit': 'change an update you posted', 'update settings': 'when your agent posts, merging, pings',
     'claim': 'take a game, change its link, or drop it', 'release': 'your game is out, or fix it',
@@ -52,11 +51,10 @@ SHORT = {
     'release quiet': 'add it without announcing it', 'release edit': 'fix a released game', 'release undo': 'move it back to unreleased',
     'progress': 'how far a game is, and if you are working on it',
     'progress percent': 'how much of the game is done (0 to 100)', 'progress working': 'are you working on it right now (yes / no)',
-    'testing': 'put a game in testing and keep testers posted', 'testing on': 'put a game in testing (link:, note:)',
+    'testing': 'put a game in testing and keep testers posted', 'testing on/off': 'put a game in testing (link:, note:) or take it out',
     'testing edit': 'change the test link or the note', 'testing update': 'post the fixes and what to test for testers',
-    'testing off': 'take a game out of testing', 'games post': 'post the games board here', 'games rename': 'fix the name shown for a game',
+    'games post': 'post the games board here', 'games rename': 'fix the name shown for a game',
     'pings': 'choose when the bot pings you', 'tester profile': 'fill in or change your tester profile',
-    'invites stats': 'your invites and how many count', 'invites link': 'your own invite link, tracked for you', 'invites check': "a member's invite links, who they invited, who is verified", 'invites top': 'the invite leaderboard',
     'bug': 'report a bug with a short form (files and links optional)', 'suggest': 'suggest an improvement with a short form', 'help': 'this list',
 }
 
@@ -109,6 +107,10 @@ def _tree(entries, desc):
         many = isinstance(item, str) and '+' in item
         name, _, only = item.partition('+') if many else (item, '', '')
         subs = _subs(name, only, opts) if many else []
+        for a, b in PAIRS.get(name, ()):  # two sub-commands that read as one line: `on/off`
+            if a in subs and b in subs:
+                subs[subs.index(a)] = f'{a}/{b}'
+                subs.remove(b)
         if many and len(subs) == 1:  # one sub-command is not a group: it reads as the plain command
             name, many, subs = f'{name} {subs[0]}', False, []
         text, what = item if isinstance(item, tuple) else (f'/{name}', SHORT.get(name) or _clean(desc.get(name, '')))

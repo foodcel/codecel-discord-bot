@@ -6,7 +6,6 @@ import discord
 
 from bot.features.games import board
 from bot.features.games import cards
-from bot.features.invites import invites
 from bot.features.fun import mog
 from bot.features.games import watch
 from bot.features.games.bounty import refresh_claims
@@ -32,7 +31,6 @@ intents.guilds = True
 intents.guild_messages = True
 intents.message_content = True
 intents.members = True
-intents.invites = True  # the invite tracker
 intents.guild_reactions = True
 intents.webhooks = True  # a webhook made in the library channel is deleted at once
 # nothing pings @everyone or a role unless that one message allows it by name (a game named @everyone, a line in an update...)
@@ -146,7 +144,6 @@ async def on_ready():
     await step('suggestion tags', ensure_suggest_tags)
     await step('fixed tag', ensure_fixed_tag)
     await step('commands', register_commands)
-    await step('invites', invites.load)
     if board.is_live():  # this bot runs the bounty board: read the forum again before anything uses the claims
         await step('bounty board sync', board.sync_forum)
     await step('claims', refresh_claims)
@@ -304,27 +301,6 @@ async def on_webhooks_update(channel):
 @client.event
 async def on_raw_thread_delete(p):
     board.on_thread_delete(p.thread_id)
-
-
-@client.event
-async def on_member_join(member):
-    try:
-        await invites.on_member_join(member)
-    except Exception:
-        traceback.print_exc()
-
-
-@client.event
-async def on_member_remove(member):
-    try:
-        await invites.on_member_remove(member)
-    except Exception:
-        traceback.print_exc()
-
-
-@client.event
-async def on_invite_create(invite):
-    await invites.on_invite_create(invite)
 
 
 @client.event

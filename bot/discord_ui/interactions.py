@@ -394,14 +394,6 @@ async def handle_command(i):
     if name == 'Mog':  # the right-click app on a message
         from bot.features.fun.mog import app_mog
         return await app_mog(i)
-    if name == 'invites':
-        if sub == 'check':  # a sub command cannot be hidden in the picker, so it refuses anyone who is not an admin
-            if level(i.user) != 'admin':
-                return await deny(i, 'Only admins can check other people\'s invites. Use `/invites stats` for your own.')
-            from bot.features.invites.invites import command_invite_check
-            return await command_invite_check(i, opts)
-        from bot.features.invites.invites import command_invites
-        return await command_invites(i, sub, opts)
     if name == 'mog':
         if level(i.user) != 'admin':
             return await deny(i)
