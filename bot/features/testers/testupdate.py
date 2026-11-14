@@ -1,6 +1,6 @@
 """/testing: put a game in testing, change its test link or note, take it out, and post a tester update.
 A tester update works like /update for players: a private draft with the tester reports fixed since the last one, Edit and Post,
-then the update card in the testing channel, pinging the testers who signed up for the game (the tester board). The fixes it posts are
+then the update card on the tester board (gone after 3 days), pinging the testers who signed up for the game (the tester board). The fixes it posts are
 marked tested; once the game is released, tester fixes also go into the public /update like any other fix."""
 import re
 
@@ -14,6 +14,7 @@ from bot.discord_ui.components import NO_MENTIONS, FormModal, allowed, button
 from bot.discord_ui.ui import E, EM
 
 NL = chr(10)
+DAYS = 3  # a tester update stays on the tester board this long
 
 
 def _game(name):
@@ -129,9 +130,9 @@ async def on_button(i, action, pid):
         return await i.response.send_message('Nothing to post yet. Press Edit and write a fix or what to test.', ephemeral=True)
     from bot.core.ctx import fetch_channel
     from bot.features.testers.testerboard import testers_of
-    ch = await fetch_channel(cfg.testing_id) if cfg.testing_id else None
+    ch = await fetch_channel(cfg.future_games_id) if cfg.future_games_id else None
     if not ch:
-        return await i.response.send_message('The testing channel is not set up (TESTING_CHANNEL_ID).', ephemeral=True)
+        return await i.response.send_message('The tester board channel is not set up.', ephemeral=True)
     await i.response.defer()
     del_pending(pid)  # first, so a double press cannot post twice
     testers = testers_of(p['key'])
@@ -141,6 +142,8 @@ async def on_button(i, action, pid):
     except Exception:
         set_pending(pid, p)  # not posted: the draft stays
         raise
+    from bot.core.db import add_timer, now
+    add_timer('delete_card', f'{ch.id}:{sent.id}', now() + DAYS * 86400000)  # the tester board stays short: the update goes after 3 days
     for b in p['ids']:
         run('UPDATE bugs SET tested=1 WHERE id=?', b)
     who = f'{len(testers)} tester(s) pinged' if testers else 'nobody signed up, no ping'

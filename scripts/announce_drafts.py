@@ -60,7 +60,7 @@ TESTING = [
     ('New: /testing', [('/testing on', 'put a game in testing (link:, note:)'), ('/testing edit', 'change the Play link or the note'),
                        ('/testing update', 'post the fixes and what to test'), ('/testing off', 'take a game out of testing')]),
     ('Tester updates', [('Draft', 'your fixed tester bugs fill it in'), ('Edit', 'fixes, what to test, a version'),
-                        ('Post', 'goes to the testing channel'), ('Pings', 'only the testers who joined that game'),
+                        ('Post', 'on the tester board, gone after 3 days'), ('Pings', 'only the testers who joined that game'),
                         ('Play test', 'a button for your test build')]),
     ('After release', [('Tester fixes', 'go into your public /update too'), ('From testing', 'stay out, players never had them')]),
     ('Changed', [('/progress', 'only percent and working now'), ('testing:on', 'gone, use /testing on')]),

@@ -28,7 +28,7 @@ async def main():
         return await finish(client)
     only = sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else ''  # --only 'safe mcp 4': just that card
     for label, (view, files), _ in cards():
-        if 'safe mcp' in label and only in label:
+        if (only in label) if only else 'safe mcp' in label:
             m = await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
             print('posted', label, m.jump_url)
     await finish(client)
