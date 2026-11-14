@@ -6,8 +6,8 @@ from bot.core.db import all_, get_game, one, run
 import discord
 
 from bot.discord_ui.components import NO_MENTIONS
-from bot.features.games.cards import released_row_for, update_card
-from bot.features.updates.announce import mark
+from bot.features.games.cards import released_row_for, update_cards
+from bot.features.updates.announce import mark, sync_more
 
 
 def recent(tag_ids, limit=25):
@@ -42,9 +42,11 @@ async def edit_posted(row, fixes=None, changes=None, new=None, version=None):
         return False, 'The posted message is gone, so it cannot be edited.'
     game = get_game(row['tag_id']) or {'name': row['game_name'], 'tag_id': row['tag_id']}
     fresh = old.get('fresh') or []
-    view, files = update_card(game, released_row_for(game['name']), mark(f, fresh), mark(c, fresh), mark(n, fresh), v, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
+    cards = update_cards(game, released_row_for(game['name']), mark(f, fresh), mark(c, fresh), mark(n, fresh), v, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
+    view, files = cards[0]
+    more = await sync_more(ch, cards[1:], old.get('more') or [])  # a longer update goes on in more cards (sent after the last message, if new)
     await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(old['ping_role']))], everyone=False, users=False) if old.get('ping_role') else NO_MENTIONS)
-    run('UPDATE announcements SET payload=? WHERE id=?', json.dumps({**old, 'bugfixes': f, 'changes': c, 'new': n, 'updates': c + n, 'version': v}), row['id'])
+    run('UPDATE announcements SET payload=? WHERE id=?', json.dumps({**old, 'bugfixes': f, 'changes': c, 'new': n, 'updates': c + n, 'version': v, 'more': more}), row['id'])
     return True, msg.jump_url
 
 

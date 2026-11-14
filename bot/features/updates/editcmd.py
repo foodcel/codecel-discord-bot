@@ -9,6 +9,8 @@ from bot.features.games.bounty import owners_for
 from bot.features.updates import edit
 from bot.mcp import writes
 
+HEADING_TIP = '# 🎃 Mash-up packs  (a line that starts with # is a heading; the lines under it are its points)'
+
 
 def lines_of(text):
     return [line for line in (re.sub(r'^[\s•*\-–]+', '', x).strip() for x in (text or '').split(chr(10))) if line]
@@ -46,8 +48,8 @@ async def command_edit(i, opts):
     f, c, n, v = edit.lines(row)
     await i.response.send_modal(FormModal(f"updedit:{row['id']}", 'Edit the update', [
         _field('bugfixes', 'Bug fixes (one per line)', 'paragraph', chr(10).join(f)),
-        _field('changes', 'Changes (one per line)', 'paragraph', chr(10).join(c)),
-        _field('new', "What's new (one per line)", 'paragraph', chr(10).join(n)),
+        {**_field('changes', 'Changes (one per line, # line = heading)', 'paragraph', chr(10).join(c)), 'placeholder': HEADING_TIP},
+        {**_field('new', "What's new (one per line, # line = heading)", 'paragraph', chr(10).join(n)), 'placeholder': HEADING_TIP},
         _field('version', 'Version (optional)', 'short', v),
     ]))
 

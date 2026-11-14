@@ -286,56 +286,113 @@ def new_game_container(row, ping_text='@everyone'):
     return ui.Container(*children), [f] if f else []
 
 
-def _bullets(lines, limit):
-    out, used = [], 0
-    for ln in lines:
-        item = f'• {ln}'
-        if used + len(item) > limit:
-            out.append(f'• …and {len(lines) - len(out)} more')
-            break
-        out.append(item)
-        used += len(item) + 1
-    return NL.join(out)
+BUDGET = 3300  # characters of sections per card: Discord allows 4000 per message, the title, footer and links take the rest
+HEADING = '#'   # a dev's line that starts with # is a heading of its own ("# 🎃 Mash-up packs"), the lines under it are its bullets
+
+
+def is_heading(line):
+    return str(line).lstrip().startswith(HEADING)
+
+
+def _sections(bugfixes, changes, new, testers=False):
+    """[(heading, [lines])]: Fixes, Changes (or What to test), What's new. A dev's # line starts a section of its own inside its box;
+    when a box starts with one, the box's own heading is left out (the dev's headings replace it)."""
+    out = []
+    for heading, lines in (('🐛 Fixes', bugfixes), ('🧪 What to test' if testers else '🔧 Changes', changes), ("✨ What's new", new)):
+        lines = [str(x).strip() for x in lines or [] if str(x).strip()]
+        if not lines:
+            continue
+        cur = None if is_heading(lines[0]) else (heading, [])
+        for ln in lines:
+            if is_heading(ln):
+                if cur and cur[1]:
+                    out.append(cur)
+                cur = (ln.lstrip('#').strip() or heading, [])
+            else:
+                cur[1].append(ln)
+        if cur and cur[1]:
+            out.append(cur)
+    return out
+
+
+def _pages(sections):
+    """The sections spread over cards of at most BUDGET characters: [[text block, ...], ...]. Nothing is cut; a long section goes on in the next card."""
+    pages, page, used = [], [], 0
+    for heading, lines in sections:
+        block = [f'### {heading}']
+        size = len(block[0])
+        for ln in lines:
+            item = f'• {ln}'
+            if used + size + len(item) + 1 > BUDGET and (page or len(block) > 1):
+                if len(block) > 1:
+                    page.append(NL.join(block))
+                pages.append(page)
+                page, used, block = [], 0, [f'### {heading} (continued)' if len(block) > 1 else f'### {heading}']
+                size = len(block[0])
+            block.append(item)
+            size += len(item) + 1
+        page.append(NL.join(block))
+        used += size
+    if page:
+        pages.append(page)
+    return pages or [[]]
 
 
 def update_card(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None, testers=False):
-    """The update post as a message: (view, files). See update_card_items."""
-    items, files = update_card_items(game, row, bugfixes, changes, new, version, ping_text, when, poster, testers)
-    view = ui.LayoutView()
-    for it in items:
-        view.add_item(it)
-    return view, files
+    """The update post as a message: (view, files), its first card. update_cards gives every card of a long update."""
+    return update_cards(game, row, bugfixes, changes, new, version, ping_text, when, poster, testers)[0]
+
+
+def update_cards(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None, testers=False):
+    """[(view, files)]: one card, or more when the update is longer than a card holds (the next ones say "continued", never ping)."""
+    out = []
+    for items, files in update_card_pages(game, row, bugfixes, changes, new, version, ping_text, when, poster, testers):
+        view = ui.LayoutView()
+        for it in items:
+            view.add_item(it)
+        out.append((view, files))
+    return out
 
 
 def update_card_items(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None, testers=False):
-    """An update post: a big title, the date, Fixes / Changes / New, a footer (who posted it, where to report a bug) and a Play now button.
-    The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention shown under the title ('<@&role>'), None for no ping.
-    testers: the tester update (/testing update): "Test update" in the title, "What to test" for the changes, a Play test button for game['link']."""
-    children = []
-    strip = width_strip()
-    title = f"# {game['name']} — {'Test update' if testers else 'Update'}" + (f' {version}' if version else '')
+    """The first card's items (the /update draft shows it, with a note when more cards follow)."""
+    return update_card_pages(game, row, bugfixes, changes, new, version, ping_text, when, poster, testers)[0]
+
+
+def update_card_pages(game, row, bugfixes, changes, new, version='', ping_text=None, when=None, poster=None, testers=False):
+    """An update post: a big title, the date, Fixes / Changes / New (or the dev's own # headings), a footer (who posted it, where to report a bug) and a
+    Play now button. The game's cover is the small picture at the top right. `row` is the released-game row (may be None). ping_text is a mention
+    shown under the title ('<@&role>'), None for no ping. testers: the tester update (/testing update): "Test update" in the title, "What to test" for
+    the changes, a Play test button for game['link']. Returns [(items, files)], one per card: the footer and the button sit on the last one."""
+    title = f"{game['name']} — {'Test update' if testers else 'Update'}" + (f' {version}' if version else '')
     stamp = int((when or datetime.now(timezone.utc)).timestamp())
-    head = '\n'.join([title] + ([f'-# {ping_text}'] if ping_text else []) + [f'-# <t:{stamp}:R>'])  # the title, the ping under it, a counting time under that
     cover = (row or {}).get('art_url') or (row or {}).get('icon_url') or (row or {}).get('hero_url')  # a link, so nothing has to be uploaded
-    children.append(ui.Section(head, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(head))  # the small picture sits top right
-    children.append(ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))  # the line between the header and the body
-    first = True
-    for heading, lines in (('🐛 Fixes', bugfixes), ('🧪 What to test' if testers else '🔧 Changes', changes), ("✨ What's new", new)):
-        if lines:
-            # one blank line (an invisible character) above every section after the first
-            children.append(ui.TextDisplay(('' if first else 'ㅤ\n') + f'### {heading}\n' + _bullets(lines, 1200)))
-            first = False
-    if not bugfixes and not changes and not new:
-        children.append(ui.TextDisplay('Small improvements.'))
-    who = f'Posted by <@{poster}> · ' if poster else ''
-    report = f'`/bug` in <#{cfg.testing_id}>' if testers and cfg.testing_id else f'<#{cfg.bugs_id}>'
-    children += [ui.Separator(visible=True, spacing=LONG),
-                 ui.TextDisplay(f"-# Thanks to {'the testers' if testers else 'everyone'} who reported these.\n-# {who}Found a bug? {report}")]
-    link = game.get('link') if testers else (row or {}).get('link') or game.get('link')  # testers play the test build, never the public game
-    if link and str(link).startswith('http'):
-        children.append(ui.ActionRow(_play(link, 'Play test' if testers else 'Play now')))
-    children, strip = with_strip(children)  # the strip: the same width for every update card, no dead space of its own
-    return [ui.Container(*children)], [strip]
+    pages = _pages(_sections(bugfixes, changes, new, testers))
+    out = []
+    for n, blocks in enumerate(pages):
+        last = n == len(pages) - 1
+        children = []
+        if n == 0:
+            head = '\n'.join([f'# {title}'] + ([f'-# {ping_text}'] if ping_text else []) + [f'-# <t:{stamp}:R>'])  # the title, the ping under it, a counting time under that
+            children.append(ui.Section(head, accessory=ui.Thumbnail(cover)) if cover else ui.TextDisplay(head))  # the small picture sits top right
+        else:
+            children.append(ui.TextDisplay(f'## {title} (continued)'))
+        children.append(ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))  # the line between the header and the body
+        for k, text in enumerate(blocks):
+            children.append(ui.TextDisplay(('' if k == 0 else 'ㅤ\n') + text))  # one blank line (an invisible character) above every section after the first
+        if not blocks:
+            children.append(ui.TextDisplay('Small improvements.'))
+        if last:
+            who = f'Posted by <@{poster}> · ' if poster else ''
+            report = f'`/bug` in <#{cfg.testing_id}>' if testers and cfg.testing_id else f'<#{cfg.bugs_id}>'
+            children += [ui.Separator(visible=True, spacing=LONG),
+                         ui.TextDisplay(f"-# Thanks to {'the testers' if testers else 'everyone'} who reported these.\n-# {who}Found a bug? {report}")]
+            link = game.get('link') if testers else (row or {}).get('link') or game.get('link')  # testers play the test build, never the public game
+            if link and str(link).startswith('http'):
+                children.append(ui.ActionRow(_play(link, 'Play test' if testers else 'Play now')))
+        children, strip = with_strip(children)  # the strip: the same width for every update card, no dead space of its own
+        out.append(([ui.Container(*children)], [strip]))
+    return out
 
 
 def released_row_for(name):

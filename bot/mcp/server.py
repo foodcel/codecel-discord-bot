@@ -192,7 +192,7 @@ def build():
     @mcp.tool()
     async def post_update(game: str, bug_ids: list[int] | None = None, fixes: list[str] | None = None, changes: list[str] | None = None,
                           whats_new: list[str] | None = None, version: str = '', ping: str = 'none', merge: bool = True) -> str:
-        """Post an update card. fixes = bug fixes (one short line each), changes = things that changed, whats_new = new features. No links and no mentions in any line: the bot refuses them. bug_ids = the fixed reports it announces (their reporters get told). ping 'none' (default) or 'role' (only when your dev allowed pings in the update settings). merge adds to the last update when the game's merge window is on and still open."""
+        """Post an update card. fixes = bug fixes (one short line each), changes = things that changed, whats_new = new features. No links and no mentions in any line: the bot refuses them. A line that starts with # is a heading of its own (e.g. '# New mobs'), the lines after it are its points; a long update goes on in more cards by itself. bug_ids = the fixed reports it announces (their reporters get told). ping 'none' (default) or 'role' (only when your dev allowed pings in the update settings). merge adds to the last update when the game's merge window is on and still open."""
         if _scope.get() != 'full':
             return READ_ONLY
         return await writes.post_update(member_of(_user.get()), my_games(), game, fixes, changes, whats_new, bug_ids, version, ping, merge)

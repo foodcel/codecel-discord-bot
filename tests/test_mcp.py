@@ -185,6 +185,24 @@ class TesterUpdate(unittest.TestCase):
             run("DELETE FROM bugs WHERE thread_id IN ('tu-1','tu-2','tu-3')")
 
 
+class UpdateCards(unittest.TestCase):
+    def test_headings_and_long_updates_are_never_cut(self):
+        from bot.features.games import cards
+        secs = cards._sections(['Fixed a crash'], ['# 🎃 Mash-up packs', 'Greek Mythology', 'Pattern pack', '# 👕 Skins', '120 new skins'], ['A new mob'])
+        self.assertEqual([h for h, _ in secs], ['🐛 Fixes', '🎃 Mash-up packs', '👕 Skins', "✨ What's new"])
+        long = [f'Line number {n} with a few more words to make it long enough' for n in range(160)]
+        pages = cards.update_card_pages({'name': 'Minecraft'}, None, [], long, [])
+        self.assertGreater(len(pages), 1)
+        shown = []
+        for items, _ in pages:
+            text = chr(10).join(getattr(c, 'content', '') or '' for c in items[0].walk_children())
+            self.assertLess(len(text), 4000)
+            shown += [l[2:] for l in text.split(chr(10)) if l.startswith('• ')]
+        self.assertEqual(shown, long)  # every line, in order, nothing cut
+        from bot.features.updates.announce import mark
+        self.assertEqual(mark(['# Skins', 'x'], ['# Skins', 'x']), ['# Skins', '🆕 x'])
+
+
 class Commands(unittest.TestCase):
     def test_discord_accepts_every_command(self):
         """Discord refuses the whole command list when one description or choice is not 1 to 100 characters long."""

@@ -121,7 +121,8 @@ async def on_button(i, action, pid):
             return {'id': id_, 'label': label, 'style': style, 'required': False, 'max': mx, 'value': value[:mx]}
         return await i.response.send_modal(FormModal(f'tupm:{pid}', 'Tester update', [
             box('fixes', 'Bug fixes (one per line)', 'paragraph', NL.join(p['fixes']), 3000),
-            box('test', 'What to test (one per line)', 'paragraph', NL.join(p['test']), 3000),
+            {**box('test', 'What to test (one per line, # line = heading)', 'paragraph', NL.join(p['test']), 3000),
+             'placeholder': '# 🗺️ Chapter 2  (a line that starts with # is a heading; the lines under it are its points)'},
             box('version', 'Version or build (optional)', 'short', p.get('version') or '', 40)]))
     if action == 'cancel':
         del_pending(pid)

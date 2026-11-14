@@ -123,6 +123,9 @@ async def command_update(i, opts):
                              f'Opened the draft with {len(fixes)} bug fix(es) and {len(sugs)} new feature(s) waiting. Nothing posted.')
 
 
+HEADING_TIP = '# 🎃 Mash-up packs  (a line that starts with # is a heading; the lines under it are its points)'
+
+
 def lines_of(s):
     out = []
     for l in (s or '').split('\n'):
@@ -143,8 +146,8 @@ async def button_ann(i, action, pid, extra=None):
         await devlog.update_step(pid, i.user, get_game(p['tagId'])['name'], 'Opened the editor.')
         return await i.response.send_modal(FormModal(f'annedit:{pid}', 'Edit announcement', [
             form_input('bugfixes', 'Bug fixes (one per line)', 'paragraph', '\n'.join(bug_lines)),
-            form_input('changes', 'Changes (one per line)', 'paragraph', '\n'.join(p['updates'])),
-            form_input('new', "What's new (one per line)", 'paragraph', '\n'.join(new_lines)),
+            {**form_input('changes', 'Changes (one per line, # line = heading)', 'paragraph', '\n'.join(p['updates'])), 'placeholder': HEADING_TIP},
+            {**form_input('new', "What's new (one per line, # line = heading)", 'paragraph', '\n'.join(new_lines)), 'placeholder': HEADING_TIP},
             form_input('version', 'Version (optional)', 'short', p.get('version')),
         ]))
     if action == 'later':

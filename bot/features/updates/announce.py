@@ -30,12 +30,15 @@ HALF_RULE = '─' * 28  # fills one half of the embed
 
 async def polish_dev_updates(game_name, lines):
     """Dev-written update lines, rewritten by Claude into clear patch-note wording (falls back to what the dev typed)."""
-    if not lines:
+    from bot.features.games.cards import is_heading
+    plain = [l for l in lines if not is_heading(l)]  # a dev's # headings are kept word for word
+    if not plain:
         return lines
     try:
-        out = await polish_updates(game_name, lines)
-        if len(out) == len(lines):
-            return out
+        out = await polish_updates(game_name, plain)
+        if len(out) == len(plain):
+            it = iter(out)
+            return [l if is_heading(l) else next(it) for l in lines]
     except Exception as e:
         print('polishUpdates', e)
     return lines
@@ -109,7 +112,31 @@ FRESH = '🆕 '  # in front of the lines the latest addition brought, so a reade
 
 
 def mark(lines, fresh):
-    return [FRESH + line if line in fresh else line for line in lines]
+    from bot.features.games.cards import is_heading
+    return [FRESH + line if line in fresh and not is_heading(line) else line for line in lines]
+
+
+async def sync_more(ch, views, more_ids):
+    """The cards after the first of a long update: the ones already posted are edited, missing ones are sent, extra ones deleted.
+    Returns their ids. They never ping."""
+    out = []
+    for k, (view, files) in enumerate(views):
+        msg = None
+        if k < len(more_ids):
+            try:
+                msg = await ch.fetch_message(int(more_ids[k]))
+                await msg.edit(view=view, attachments=files, allowed_mentions=NO_MENTIONS)
+            except Exception:
+                msg = None
+        if not msg:
+            msg = await ch.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
+        out.append(str(msg.id))
+    for mid in more_ids[len(views):]:
+        try:
+            await (await ch.fetch_message(int(mid))).delete()
+        except Exception:
+            pass
+    return out
 
 
 def merge_hours(tag_id):
@@ -165,11 +192,15 @@ async def draft_payload(pending_id):
     game = get_game(p['tagId'])
     warn = '' if (game.get('announce_channel_id') or cfg.updates_id) else _no_channel_warning()
     bug_lines, new_lines = chosen(p)
-    hint = '' if p.get('offer') else '\n-# Untick what you do not want to post. Edit lets you add extra bug fixes and updates. Post when you are ready.'
-    from bot.features.games.cards import released_row_for, update_card_items
+    hint = '' if p.get('offer') else ('\n-# Untick what you do not want to post. Edit lets you add extra bug fixes and updates. Post when you are ready.'
+                                      '\n-# In Edit, a line that starts with # is a heading of its own, like `# 🎃 Mash-up packs`: the lines under it are its points.')
+    from bot.features.games.cards import released_row_for, update_card_pages
     head = offer_text(game, p) if p.get('offer') else f"{E['update']} **DRAFT**{EM}·{EM}{game['name']}{warn}{hint}"
     poster = (p.get('owners') or [None])[0]  # the card is drawn exactly as it will be posted
-    card, files = update_card_items(game, released_row_for(game['name']), bug_lines, list(p['updates']), new_lines, p.get('version') or '', None, poster=poster)
+    pages = update_card_pages(game, released_row_for(game['name']), bug_lines, list(p['updates']), new_lines, p.get('version') or '', None, poster=poster)
+    card, files = pages[0]
+    if len(pages) > 1:
+        head += f'\n-# This update is long: it posts as {len(pages)} cards, one under the other (only the first is shown here).'
     view = ui.LayoutView()
     view.add_item(ui.TextDisplay(head))
     for it in card + draft_view(pending_id, p):
@@ -334,10 +365,12 @@ async def _post_announcement(pending_id, ping=False):
     if not ch:
         return {'ok': False, 'msg': 'Set an announcement channel first with `/config set`.'}
     role = ping_role(game) if ping else None
-    from bot.features.games.cards import mentions, released_row_for, update_card
+    from bot.features.games.cards import mentions, released_row_for, update_cards
     poster = (p.get('owners') or [None])[0]
-    view, files = update_card(game, released_row_for(game['name']), bug_lines, list(p['updates']), new_lines, p.get('version') or '', f'<@&{role}>' if role else None, poster=poster)
+    cards = update_cards(game, released_row_for(game['name']), bug_lines, list(p['updates']), new_lines, p.get('version') or '', f'<@&{role}>' if role else None, poster=poster)
+    view, files = cards[0]
     sent = await ch.send(view=view, files=files, allowed_mentions=mentions(ch, role))
+    more = await sync_more(ch, cards[1:], [])  # a long update goes on in more cards right under it
     b_ids, n_ids = chosen_ids(p)
     ids = b_ids + n_ids  # what was not ticked stays pending for the next update
     for i in ids:
@@ -347,7 +380,7 @@ async def _post_announcement(pending_id, ping=False):
     run('INSERT INTO announcements(tag_id,game_name,posted_at,url,bug_ids,message_id,channel_id,payload) VALUES(?,?,?,?,?,?,?,?)',
         p['tagId'], game['name'], now(), sent.jump_url, json.dumps(ids), str(sent.id), str(ch.id),
         json.dumps({'bugfixes': bug_lines, 'updates': list(p['updates']) + new_lines, 'changes': list(p['updates']), 'new': new_lines,
-                    'version': p.get('version') or '', 'ping_role': role, 'poster': poster}))
+                    'version': p.get('version') or '', 'ping_role': role, 'poster': poster, 'more': more}))
     schedule_boards()
     del_pending(pending_id)
     other = kv_get(f"offer:{p['tagId']}")
@@ -397,8 +430,10 @@ async def _merge_announcement(pending_id):
     version = p.get('version') or old.get('version') or ''
     fresh = [l for l in bug_lines if l not in old['bugfixes']] + [l for l in p['updates'] if l not in changes_old] + [l for l in new_lines if l not in new_old]
     # an update posted in the old embed look becomes the card in place; the lines this addition brought get a 🆕
-    from bot.features.games.cards import released_row_for, update_card
-    view, files = update_card(game, released_row_for(game['name']), mark(bugfixes, fresh), mark(changes, fresh), mark(new, fresh), version, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
+    from bot.features.games.cards import released_row_for, update_cards
+    cards = update_cards(game, released_row_for(game['name']), mark(bugfixes, fresh), mark(changes, fresh), mark(new, fresh), version, f"<@&{old['ping_role']}>" if old.get('ping_role') else None, poster=old.get('poster'))
+    view, files = cards[0]
+    more = await sync_more(ch, cards[1:], old.get('more') or [])
     await msg.edit(content=None, embeds=[], view=view, attachments=files, allowed_mentions=discord.AllowedMentions(roles=[discord.Object(id=int(old['ping_role']))], everyone=False, users=False) if old.get('ping_role') else NO_MENTIONS)  # keeps the role mention (and its ping) the update was posted with
     b_ids, n_ids = chosen_ids(p)
     for i in b_ids + n_ids:
@@ -407,7 +442,7 @@ async def _merge_announcement(pending_id):
     asyncio.ensure_future(tell_released(b_ids, msg.jump_url))
     run('UPDATE announcements SET merged_at=? WHERE id=?', now(), row['id'])  # the merged card is the latest one again: the window starts over
     run('UPDATE announcements SET bug_ids=?, payload=? WHERE id=?',
-        json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'changes': changes, 'new': new, 'version': version, 'ping_role': old.get('ping_role'), 'poster': old.get('poster'), 'fresh': fresh}), row['id'])
+        json.dumps(json.loads(row['bug_ids'] or '[]') + b_ids + n_ids), json.dumps({'bugfixes': bugfixes, 'updates': updates, 'changes': changes, 'new': new, 'version': version, 'ping_role': old.get('ping_role'), 'poster': old.get('poster'), 'fresh': fresh, 'more': more}), row['id'])
     schedule_boards()
     del_pending(pending_id)
     other = kv_get(f"offer:{p['tagId']}")
