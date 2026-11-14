@@ -89,7 +89,7 @@ async def handle(m):
         await m.channel.send(view=view, files=files, allowed_mentions=NO_MENTIONS)
         await _remove(m)
         return True
-    if in_testing and kind == 'bug':  # the testing channel: the report goes to the testers' forum, tagged with the game (made when it is missing)
+    if in_testing and kind == 'bug':  # the testing channel: the report goes to the testers' forum, the game in its title
         from bot.features.bugs.tester import known_games, report_from_message, resolve_game
         name, tag_id = resolve_game(typed.strip())
         if not name and not typed.strip():

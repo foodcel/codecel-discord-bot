@@ -1,4 +1,4 @@
-"""The forum tags of the bug channel and of the suggestions channel: device and status tags (a fixed few).
+"""The forum tags of the bug channel, the testers' forum and the suggestions channel: status tags only (a fixed few).
 Games are NOT tags any more (a forum holds 20 tags at most): a game is a row of the `games` table, or a released game of the library. Its id is
 what the forum tag id used to be for the games that had a tag, and `g-<key>` for every other game. Posts carry the game in their title."""
 import difflib
@@ -15,13 +15,15 @@ STATUS_TAG = {
     'fixed': 'Fixed', 'duplicate': 'Duplicate', 'not_a_bug': 'Not a Bug',
 }
 SUGGEST_STATUS_TAG = {'fixed': 'Added', 'declined': 'Declined'}  # the suggestions forum keeps just these two
-STATUS_EMOJI = {'Fixed': '✅', 'Added': '✅', 'Declined': '❌'}
+STATUS_EMOJI = {'Needs Info': '❓', 'Investigating': '🔎', 'Fix in Progress': '🛠️', 'Fixed': '✅', 'Duplicate': '🔁', 'Not a Bug': '🚫',
+                'Added': '✅', 'Declined': '❌'}
 OLD_SUGGEST_TAGS = {'needs info', 'duplicate'}  # taken out of the suggestions forum
 DEVICES = ['Mobile', 'Computer', 'Controller']
 KEEP = object()  # status=KEEP means "leave the status tags alone", status=None means "clear them"
 
 _tags = []   # the bug forum: [{'id': str, 'name': str, 'moderated': bool}]
 _stags = []  # the suggestions forum
+_ttags = []  # the testers' forum
 
 
 def _read(forum):
@@ -29,10 +31,12 @@ def _read(forum):
 
 
 async def load_tags():
-    global _tags, _stags
+    global _tags, _stags, _ttags
     _tags = _read(await ctx.client.fetch_channel(int(cfg.bugs_id)))
     if cfg.suggestions_id:
         _stags = _read(await ctx.client.fetch_channel(int(cfg.suggestions_id)))
+    if cfg.tester_forum_id:
+        _ttags = _read(await ctx.client.fetch_channel(int(cfg.tester_forum_id)))
     _remember_game_tags()
 
 
@@ -85,7 +89,7 @@ async def ensure_suggest_tags():
 
 async def ensure_open_posting():
     """Posts carry no game tag, so the forums must not require one (Discord refuses a post without a tag when it does)."""
-    for fid in (cfg.bugs_id, cfg.suggestions_id):
+    for fid in (cfg.bugs_id, cfg.suggestions_id, cfg.tester_forum_id):
         if not fid:
             continue
         try:
@@ -96,25 +100,36 @@ async def ensure_open_posting():
             print('require_tag', repr(e))
 
 
-async def ensure_fixed_tag():
-    """The bugs forum has one status tag: Fixed ✅. It is made when missing and gets its emoji."""
-    forum = await ctx.client.fetch_channel(int(cfg.bugs_id))
-    tags, changed, seen = [], False, False
+def status_tag_list(forum, keep_games=True):
+    """The forum's tag list with the six status tags (STATUS_TAG), each with its emoji and moderated (only the bot and mods set them).
+    keep_games=False drops every other tag (the old game tags). Existing tags keep their id, so posts keep them."""
+    names = {n.lower(): n for n in STATUS_TAG.values()}
+    tags, seen = [], set()
     for t in forum.available_tags:
-        if t.name.lower() == 'fixed':
-            seen = True
-            if not _has_emoji(t, '✅') or not t.moderated:
-                t = _status_tag(t.name, '✅', t.id)
-                changed = True
-        tags.append(t)
-    if not seen and len(tags) < 20:
-        tags.append(_status_tag('Fixed', '✅'))
-        changed = True
-    if changed:
-        try:
-            await forum.edit(available_tags=tags, reason='Fixed tag')
-        except Exception as e:
-            print('fixed tag', repr(e))
+        n = names.get(t.name.lower())
+        if n:
+            seen.add(n)
+            tags.append(t if _has_emoji(t, STATUS_EMOJI[n]) and t.moderated else _status_tag(t.name, STATUS_EMOJI[n], t.id))
+        elif keep_games:
+            tags.append(t)
+    for n in STATUS_TAG.values():
+        if n not in seen and len(tags) < 20:
+            tags.append(_status_tag(n, STATUS_EMOJI[n]))
+    return tags
+
+
+async def ensure_status_tags():
+    """The bugs forum and the testers' forum have the six status tags. Missing ones are made and get their emoji."""
+    for fid in (cfg.bugs_id, cfg.tester_forum_id):
+        if not fid:
+            continue
+        forum = await ctx.client.fetch_channel(int(fid))
+        tags = status_tag_list(forum)
+        if [(t.id, t.name, t.moderated, t.emoji and t.emoji.name) for t in tags] != [(t.id, t.name, t.moderated, t.emoji and t.emoji.name) for t in forum.available_tags]:
+            try:
+                await forum.edit(available_tags=tags, reason='Status tags')
+            except Exception as e:
+                print('status tags', fid, repr(e))
     await load_tags()
 
 
@@ -157,7 +172,7 @@ def tag_name(id_):
     g = game_by_id(id_)
     if g:
         return g['name']
-    t = next((t for t in _tags + _stags if t['id'] == str(id_)), None)  # ids are unique across forums
+    t = next((t for t in _tags + _stags + _ttags if t['id'] == str(id_)), None)  # ids are unique across forums
     return t['name'] if t else None
 
 
@@ -251,7 +266,8 @@ async def set_tags(thread, game=None, device=None, status=KEEP, replace_game=Fal
     if not is_forum_post(thread):
         return  # tester threads live in a text channel and have no tags
     suggest = in_suggestions(thread)
-    if not suggest and str(thread.parent_id) != str(cfg.bugs_id):
+    tester = str(thread.parent_id) == str(cfg.tester_forum_id)
+    if not suggest and not tester and str(thread.parent_id) != str(cfg.bugs_id):
         return
     if suggest:
         device = None
@@ -259,7 +275,9 @@ async def set_tags(thread, game=None, device=None, status=KEEP, replace_game=Fal
         if kind != 'suggestion' or (status is not KEEP and status is not None and status not in SUGGEST_STATUS_TAG):
             status = KEEP  # a bug that was posted here, or a status this forum has no tag for
     else:
-        status_map, pool = STATUS_TAG, _tags
+        status_map, pool = STATUS_TAG, (_ttags if tester else _tags)
+        if tester:
+            device = None  # the testers' forum has status tags only
     current = applied_ids(thread)
     status_ids = {t['id'] for t in (_by_name(n, pool) for n in status_map.values()) if t}
     nxt = list(current) if status is KEEP else [i for i in current if i not in status_ids]
@@ -267,7 +285,7 @@ async def set_tags(thread, game=None, device=None, status=KEEP, replace_game=Fal
         nxt.append(device)
     st = None
     if status and status is not KEEP:
-        t = _by_name(status_map[status], pool)
+        t = _by_name(status_map.get(status, ''), pool)  # a status without a tag (closed, exploit) just clears the status tags
         st = t['id'] if t else None
     nxt = nxt[:4 if st else 5]
     if st:
