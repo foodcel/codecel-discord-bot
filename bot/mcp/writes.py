@@ -276,7 +276,7 @@ def due_text(allowed, game):
         return f'No game of yours matches "{game}".'
     tag_id, name = hit
     if reports.untagged(tag_id):
-        return f'{name} is in development or testing: it has no updates yet. Fix reports and set their status; updates start once the game is released.'
+        return f'{name} is in development or testing: public updates start once the game is released. Fix reports and set their status.'
     mode, n = policy(tag_id)
     w = announce.unannounced(tag_id)
     big = [b for b in w if b['kind'] == 'bug' and b.get('severity') in BIG]
@@ -338,6 +338,73 @@ async def post_update(member, allowed, game, fixes=None, changes=None, whats_new
     if not res.get('ok'):
         return res.get('msg') or 'Could not post.'
     return ('Added to the earlier update: ' if use_merge else 'Posted: ') + res['url']
+
+
+def _testing_game(allowed, game):
+    """(key, game row, shown name) of one of the dev's games that is in testing, or (None, None, error text)."""
+    from bot.features.testers import testupdate
+    hit = reports.find_game(allowed, game)
+    if not hit:
+        return None, None, f'No game of yours matches "{game}".'
+    k, g, shown = testupdate._game(hit[1])
+    if not g:
+        return None, None, f'{hit[1]} is not on the games list.'
+    if not g.get('testing_at'):
+        return None, None, f'{shown} is not in testing: tester updates are for games in testing (set_testing puts it there).'
+    return k, g, shown
+
+
+def tester_due_text(allowed, game):
+    """The fixed tester reports waiting for a tester update, and who would be pinged."""
+    from bot.core.db import kv_get
+    from bot.features.testers import testupdate
+    from bot.features.testers.testerboard import testers_of
+    k, g, shown = _testing_game(allowed, game)
+    if not k:
+        return shown
+    w = testupdate.waiting(k, (g['name'], shown))
+    last = kv_get(f'testupdate:{k}')
+    out = [f"{shown} is in testing: {len(w)} fixed tester report(s) waiting for a tester update, tester update due: {'YES' if w else 'no'}. "
+           f"{len(testers_of(k))} tester(s) joined this game (ping='testers' pings them)."]
+    out += [f"- id {b['id']} {reports.shown(b['title'])}" for b in w]
+    if last:
+        out.append(f'Last tester update: {announce._ago(int(last))}.')
+    return chr(10).join(out)
+
+
+async def post_tester_update(member, allowed, game, fixes=None, what_to_test=None, bug_ids=None, version='', ping='none'):
+    """A tester update on the tester board, the same card as /testing update. bug_ids: the fixed tester reports it lists (left out = all that are waiting)."""
+    from bot.core.db import kv_get
+    from bot.features.games.games import owner_ids
+    from bot.features.testers import testupdate
+    k, g, shown = _testing_game(allowed, game)
+    if not k:
+        return shown
+    try:
+        fixes, test = _fix_list(fixes), _fix_list(what_to_test, 'A what-to-test line')
+        version = _agent_line(version, 20, 'The version')
+    except Refused as e:
+        return str(e)
+    waiting = {b['id']: b for b in testupdate.waiting(k, (g['name'], shown))}
+    ids = [int(i) for i in (bug_ids if bug_ids is not None else waiting)]
+    for i in ids:
+        if i not in waiting:
+            return f'id {i} is not a fixed tester report of {shown} that is waiting for a tester update (see updates_due).'
+    if ids and not fixes:
+        fixes = [public(waiting[i]['title'], 200) or 'A bug fix' for i in ids]  # titles come from tester reports: never a link or a mention
+    if not (fixes or test):
+        return 'Nothing to post: no fixed tester reports are waiting. Give fixes or what_to_test.'
+    ping = (ping or 'none').lower()
+    if ping not in ('none', 'testers'):
+        return "ping must be none or testers."
+    last = kv_get(f'testupdate:{k}')
+    if last and time.time() * 1000 - int(last) < POSTS_GAP_MIN * 60000:
+        return f'The last tester update of {shown} was under {POSTS_GAP_MIN} minutes ago. Wait before posting another.'
+    url, pinged = await testupdate.publish({'key': k, 'name': shown, 'owners': owner_ids(g), 'ids': ids, 'fixes': fixes, 'test': test,
+                                            'version': (version or '').strip()}, ping=(ping == 'testers'))
+    if not url:
+        return 'The tester board channel is not set up. Ask your dev.'
+    return f"Posted on the tester board (it goes after {testupdate.DAYS} days): {url}" + (f' ({pinged} tester(s) pinged)' if pinged else ' (no ping)')
 
 
 def updates_text(allowed, game):

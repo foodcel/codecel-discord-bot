@@ -128,26 +128,36 @@ async def on_button(i, action, pid):
         return await i.response.edit_message(view=notice(f"{E['warn']} **CANCELLED**{EM}·{EM}Nothing was posted.")[0], attachments=[])
     if not p['fixes'] and not p['test']:
         return await i.response.send_message('Nothing to post yet. Press Edit and write a fix or what to test.', ephemeral=True)
-    from bot.core.ctx import fetch_channel
-    from bot.features.testers.testerboard import testers_of
-    ch = await fetch_channel(cfg.future_games_id) if cfg.future_games_id else None
-    if not ch:
-        return await i.response.send_message('The tester board channel is not set up.', ephemeral=True)
     await i.response.defer()
     del_pending(pid)  # first, so a double press cannot post twice
-    testers = testers_of(p['key'])
-    view, files = _card(p, ' '.join(f'<@{u}>' for u in testers) or None)
     try:
-        sent = await ch.send(view=view, files=files, allowed_mentions=allowed(users=testers) if testers else NO_MENTIONS)
+        url, pinged = await publish(p)
     except Exception:
         set_pending(pid, p)  # not posted: the draft stays
         raise
-    from bot.core.db import add_timer, now
+    if not url:
+        return await i.followup.send('The tester board channel is not set up.', ephemeral=True)
+    who = f'{pinged} tester(s) pinged' if pinged else 'no ping'
+    await i.edit_original_response(view=notice(f"{E['fixed']} **POSTED**{EM}·{EM}{url} ({who})")[0], attachments=[])
+
+
+async def publish(p, ping=True):
+    """Posts a tester update on the tester board: p = {'key', 'name', 'owners', 'ids', 'fixes', 'test', 'version'}. The /testing update button and the MCP use it.
+    ping: the testers who joined the game are pinged. The card goes after DAYS days; the fixes it lists are marked tested. Returns (url, how many were pinged)."""
+    from bot.core.ctx import fetch_channel
+    from bot.core.db import add_timer, kv_set, now
+    from bot.features.testers.testerboard import testers_of
+    ch = await fetch_channel(cfg.future_games_id) if cfg.future_games_id else None
+    if not ch:
+        return None, 0
+    testers = testers_of(p['key']) if ping else []
+    view, files = _card(p, ' '.join(f'<@{u}>' for u in testers) or None)
+    sent = await ch.send(view=view, files=files, allowed_mentions=allowed(users=testers) if testers else NO_MENTIONS)
     add_timer('delete_card', f'{ch.id}:{sent.id}', now() + DAYS * 86400000)  # the tester board stays short: the update goes after 3 days
     for b in p['ids']:
         run('UPDATE bugs SET tested=1 WHERE id=?', b)
-    who = f'{len(testers)} tester(s) pinged' if testers else 'nobody signed up, no ping'
-    await i.edit_original_response(view=notice(f"{E['fixed']} **POSTED**{EM}·{EM}{sent.jump_url} ({who})")[0], attachments=[])
+    kv_set(f"testupdate:{p['key']}", now())  # when the last one went out (the MCP waits between posts)
+    return sent.jump_url, len(testers)
 
 
 async def on_modal(i, pid, fields):
